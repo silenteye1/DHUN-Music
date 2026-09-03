@@ -38,7 +38,7 @@ fun BlogPromoDialog(
         confirmButton = {
             TextButton(onClick = {
                 onVisitBlog.invoke()
-                uriHandler.openUri("https://maxrave.dev")
+                uriHandler.openUri("https://github.com/silenteye1")
             }) {
                 Text(
                     stringResource(Res.string.visit_blog),
