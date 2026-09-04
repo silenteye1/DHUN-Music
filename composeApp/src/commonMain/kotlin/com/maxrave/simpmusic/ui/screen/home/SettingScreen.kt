@@ -25,6 +25,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -74,6 +76,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.DiscordLoginDestina
 import com.maxrave.simpmusic.ui.navigation.destination.login.LastfmLoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestination
+import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.md_theme_dark_primary
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
@@ -94,6 +97,11 @@ import com.mohamedrejeb.calf.io.getPath
 import com.mohamedrejeb.calf.picker.FilePickerFileType
 import com.mohamedrejeb.calf.picker.FilePickerSelectionMode
 import com.mohamedrejeb.calf.picker.rememberFilePickerLauncher
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -117,6 +125,7 @@ import java.time.format.DateTimeFormatter
     ExperimentalCoilApi::class,
     FormatStringsInDatetimeFormats::class,
     ExperimentalCalfApi::class,
+    ExperimentalHazeMaterialsApi::class,
 )
 @Composable
 fun SettingScreen(
@@ -130,8 +139,11 @@ fun SettingScreen(
     val localDensity = LocalDensity.current
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
+    val isDark = LocalIsDarkTheme.current
+    val hazeState = rememberHazeState(blurEnabled = true)
 
     var width by rememberSaveable { mutableIntStateOf(0) }
+    var topBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
 
     val formatter = LocalDateTime.Format { byUnicodePattern("yyyyMMddHHmmss") }
     val appName = stringResource(Res.string.app_name)
@@ -255,7 +267,6 @@ fun SettingScreen(
     var showYouTubeAccountDialog by rememberSaveable { mutableStateOf(false) }
     var showThirdPartyLibraries by rememberSaveable { mutableStateOf(false) }
 
-    // Single active card selection (Only one stays open at a time)
     var expandedCardId by rememberSaveable { mutableStateOf<String?>(null) }
     fun toggleCard(id: String) {
         expandedCardId = if (expandedCardId == id) null else id
@@ -280,9 +291,16 @@ fun SettingScreen(
             contentPadding = innerPadding,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .hazeSource(hazeState)
+                .padding(horizontal = 14.dp),
         ) {
-            item { Spacer(Modifier.height(68.dp)) }
+            item {
+                Spacer(
+                    Modifier.height(
+                        with(localDensity) { topBarHeightPx.toDp() } + 18.dp
+                    )
+                )
+            }
 
             // 1. ACCOUNT CARD
             item {
@@ -653,7 +671,6 @@ fun SettingScreen(
                         smallSubtitle = true,
                         switch = (enableTranslucentNavBar to { viewModel.setTranslucentBottomBar(it) }),
                     )
-                    // Liquid glass switch re-added for player / app functionality
                     if (getPlatform() == Platform.Android) {
                         SettingItem(
                             title = stringResource(Res.string.enable_liquid_glass_effect),
@@ -1294,21 +1311,84 @@ fun SettingScreen(
             item { EndOfPage() }
         }
 
-        // Clean Solid TopBar
-        TopAppBar(
-            title = { Text(text = stringResource(Res.string.settings), style = typo().titleMedium, color = Color.White) },
-            navigationIcon = {
-                Box(Modifier.padding(horizontal = 5.dp)) {
-                    RippleIconButton(SimpIcons.ArrowBackIosNew, Modifier.size(32.dp), true, tint = Color.White) {
-                        navController.navigateUp()
+        // Floating Liquid Glass Header Capsule
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .onGloballyPositioned { coordinates ->
+                    topBarHeightPx = coordinates.size.height
+                },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = RoundedCornerShape(26.dp),
+                        spotColor = Color.Black.copy(alpha = 0.55f),
+                        ambientColor = Color.Black.copy(alpha = 0.35f),
+                    )
+                    .clip(RoundedCornerShape(26.dp))
+                    .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
+                        blurEnabled = true
                     }
+                    .background(
+                        if (isDark) Color(14, 14, 18).copy(alpha = 0.45f)
+                        else Color.White.copy(alpha = 0.35f),
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.50f),
+                                Color.White.copy(alpha = 0.12f),
+                                Color.Black.copy(alpha = 0.25f),
+                            ),
+                        ),
+                        shape = RoundedCornerShape(26.dp),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.10f))
+                        .border(
+                            width = 0.8.dp,
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.40f),
+                                    Color.White.copy(alpha = 0.08f),
+                                ),
+                            ),
+                            shape = CircleShape,
+                        )
+                        .clickable { navController.navigateUp() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = SimpIcons.ArrowBackIosNew,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFF0C0C0E),
-                titleContentColor = Color.White
-            ),
-        )
+
+                Spacer(Modifier.width(14.dp))
+
+                Text(
+                    text = stringResource(Res.string.settings),
+                    style = typo().titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
     }
 
     // Color picker
@@ -1535,13 +1615,28 @@ private fun SettingsCardItem(
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 5.dp),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFF141416),
-        tonalElevation = 1.dp
+            .padding(vertical = 5.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(22.dp),
+                spotColor = Color.Black.copy(alpha = 0.40f),
+            )
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color(0xFF16161A).copy(alpha = 0.65f))
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.20f),
+                        Color.White.copy(alpha = 0.05f),
+                        Color.Black.copy(alpha = 0.30f),
+                    )
+                ),
+                shape = RoundedCornerShape(22.dp)
+            )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -1553,16 +1648,26 @@ private fun SettingsCardItem(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF222226)),
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.10f))
+                        .border(
+                            width = 0.8.dp,
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.30f),
+                                    Color.White.copy(alpha = 0.05f),
+                                )
+                            ),
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = SimpIcons.PlaylistAdd,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -1579,7 +1684,7 @@ private fun SettingsCardItem(
                     Text(
                         text = subtitle,
                         fontSize = 12.sp,
-                        color = Color(0xFF8E8E93)
+                        color = Color(0xFF9E9EA4)
                     )
                 }
             }
@@ -1592,7 +1697,7 @@ private fun SettingsCardItem(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF1A1A1E))
+                        .background(Color(0xFF0F0F12).copy(alpha = 0.70f))
                         .padding(bottom = 8.dp)
                 ) {
                     content()

@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -12,6 +14,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.SnapPosition
@@ -48,11 +51,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -70,20 +72,17 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberDominantColorState
 import com.maxrave.common.CHART_SUPPORTED_COUNTRY
@@ -104,9 +103,7 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
-import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
-import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.DropdownButton
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.HomeItem
@@ -118,11 +115,7 @@ import com.maxrave.simpmusic.ui.component.MoodMomentAndGenreHomeItem
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.OfflineErrorState
 import com.maxrave.simpmusic.ui.component.QuickPicksItem
-import com.maxrave.simpmusic.ui.component.ReviewDialog
-import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.ShareSavedLyricsDialog
-import com.maxrave.simpmusic.ui.component.rememberHolderPainter
-import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Notifications
 import com.maxrave.simpmusic.ui.icon.Settings
@@ -138,6 +131,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
+import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.HomeViewModel
@@ -162,7 +156,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.http.Url
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -192,12 +185,8 @@ import simpmusic.composeapp.generated.resources.sad
 import simpmusic.composeapp.generated.resources.sleep
 import simpmusic.composeapp.generated.resources.top_artists
 import simpmusic.composeapp.generated.resources.warning
-import simpmusic.composeapp.generated.resources.welcome_back
 import simpmusic.composeapp.generated.resources.what_is_best_choice_today
 import simpmusic.composeapp.generated.resources.workout
-
-// DataStore key for blog-promo one-shot dialog. Bump the suffix (v2, v3, …) to re-promote.
-private const val BLOG_PROMO_KEY = "blog_promo_v1_seen"
 
 private val listOfHomeChip =
     listOf(
@@ -219,25 +208,19 @@ private val listOfHomeChip =
 @Composable
 fun HomeScreen(
     onScrolling: (onTop: Boolean) -> Unit = {},
-    viewModel: HomeViewModel =
-        koinViewModel(),
-    sharedViewModel: SharedViewModel =
-        koinInject(),
+    viewModel: HomeViewModel = koinViewModel(),
+    sharedViewModel: SharedViewModel = koinInject(),
     navController: NavController,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
     val isScrollingUp by scrollState.isScrollingUp()
-    val accountInfo by viewModel.accountInfo.collectAsStateWithLifecycle()
     val homeData by viewModel.homeItemList.collectAsStateWithLifecycle()
     val newRelease by viewModel.newRelease.collectAsStateWithLifecycle()
     val chart by viewModel.chart.collectAsStateWithLifecycle()
     val moodMomentAndGenre by viewModel.exploreMoodItem.collectAsStateWithLifecycle()
     val chartLoading by viewModel.loadingChart.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
-    var accountShow by rememberSaveable {
-        mutableStateOf(false)
-    }
     val regionChart by viewModel.regionCodeChart.collectAsStateWithLifecycle()
     val reloadDestination by sharedViewModel.reloadDestination.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -252,22 +235,17 @@ fun HomeScreen(
     val openAppTime by sharedViewModel.openAppTime.collectAsStateWithLifecycle()
     val shareLyricsPermissions by sharedViewModel.shareSavedLyrics.collectAsStateWithLifecycle()
 
+    val isDark = LocalIsDarkTheme.current
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLightTheme = backgroundColor.luminance() > 0.5f
-    // What is ACTUALLY painted behind this screen. The desktop shell wraps content in a rounded
-    // panel (App.kt: surfaceContainer on light, desktopPanelDark on dark) — deliberately not
-    // colorScheme.background — so a gradient tail aimed at colorScheme.background ends on the
-    // wrong colour and draws a seam where the first item stops. Same light check as App.kt's
-    // isLightScheme.
+
     val pageBackground =
         if (getPlatform() == Platform.Desktop) {
             if (isLightTheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
         } else {
             backgroundColor
         }
-    var topHeaderColor by remember {
-        mutableStateOf(backgroundColor)
-    }
+    var topHeaderColor by remember { mutableStateOf(backgroundColor) }
     val animatedColor by animateColorAsState(topHeaderColor, tween(500))
     val mainHomeThumbnail by viewModel.mainHomeThumbnail.collectAsStateWithLifecycle()
     val networkLoader = rememberNetworkLoader(HttpClient(CIO))
@@ -286,30 +264,14 @@ fun HomeScreen(
 
     LaunchedEffect(dominantColorState, isLightTheme) {
         snapshotFlow { dominantColorState.color }.collect {
-            // Light theme: pull the artwork color toward white for a soft pastel header;
-            // dark theme keeps the original darkened tone.
             topHeaderColor = if (isLightTheme) lerp(it, Color.White, 0.85f) else it.rgbFactor(0.3f)
         }
     }
 
-    var showReviewDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
-    var showRequestShareLyricsPermissions by rememberSaveable {
-        mutableStateOf(false)
-    }
-    var showBlogPromoDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
+    var showRequestShareLyricsPermissions by rememberSaveable { mutableStateOf(false) }
+    var topAppBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
 
-    var topAppBarHeightPx by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-
-    val hazeState =
-        rememberHazeState(
-            blurEnabled = true,
-        )
+    val hazeState = rememberHazeState(blurEnabled = true)
 
     LaunchedEffect(scrollState) {
         snapshotFlow { scrollState.firstVisibleItemIndex }
@@ -348,22 +310,11 @@ fun HomeScreen(
             }
         }
     }
-    LaunchedEffect(key1 = homeData) {
-        accountShow = homeData.find { it.subtitle == accountInfo?.first } == null
-    }
     LaunchedEffect(openAppTime, shareLyricsPermissions) {
         Logger.w("HomeScreen", "openAppTime: $openAppTime, shareLyricsPermissions: $shareLyricsPermissions")
-        if (openAppTime >= 10 && openAppTime % 10 == 0 && openAppTime <= 50) {
-            showReviewDialog = true
-        } else if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
+        if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
             showRequestShareLyricsPermissions = true
-        } else if (openAppTime == 5) {
-            // Blog promo: one-shot after 5 app opens, bump key suffix to re-promote later
-            if (sharedViewModel.getString(BLOG_PROMO_KEY) != "true") {
-                showBlogPromoDialog = true
-            }
         } else {
-            showReviewDialog = false
             showRequestShareLyricsPermissions = false
         }
     }
@@ -376,7 +327,7 @@ fun HomeScreen(
                         scrollState.layoutInfo.visibleItemsInfo
                             .lastOrNull()
                             ?.index ?: -9
-                    ) >= (scrollState.layoutInfo.totalItemsCount - 1)
+                        ) >= (scrollState.layoutInfo.totalItemsCount - 1)
             }
         }
 
@@ -391,65 +342,20 @@ fun HomeScreen(
         }
     }
 
-//    if (shouldShowGetDataSyncIdBottomSheet) {
-//        GetDataSyncIdBottomSheet(
-//            cookie = youTubeCookie,
-//            onDismissRequest = {
-//                shouldShowGetDataSyncIdBottomSheet = false
-//            },
-//        )
-//    }
-
-    if (showReviewDialog) {
-        ReviewDialog(
-            onDismissRequest = {
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = true,
-                )
-                showReviewDialog = false
-            },
-            onDoneReview = {
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = false,
-                )
-                showReviewDialog = false
-            },
-        )
-    }
-
-    if (showBlogPromoDialog) {
-        BlogPromoDialog(
-            onDismissRequest = {
-                sharedViewModel.putString(BLOG_PROMO_KEY, "true")
-                showBlogPromoDialog = false
-            },
-            onVisitBlog = {
-                sharedViewModel.putString(BLOG_PROMO_KEY, "true")
-                showBlogPromoDialog = false
-            },
-        )
-    }
-
     if (showRequestShareLyricsPermissions) {
         ShareSavedLyricsDialog(
             onDismissRequest = {
                 showRequestShareLyricsPermissions = false
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = true,
-                )
+                sharedViewModel.onDoneReview(isDismissOnly = true)
             },
             onConfirm = { contributor ->
-                sharedViewModel.onDoneRequestingShareLyrics(
-                    contributor,
-                )
+                sharedViewModel.onDoneRequestingShareLyrics(contributor)
             },
         )
     }
 
     if (shouldShowLogInAlert) {
-        var doNotShowAgain by rememberSaveable {
-            mutableStateOf(false)
-        }
+        var doNotShowAgain by rememberSaveable { mutableStateOf(false) }
         AlertDialog(
             title = {
                 Text(stringResource(Res.string.warning))
@@ -463,15 +369,12 @@ fun HomeScreen(
                         modifier =
                             Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    doNotShowAgain = !doNotShowAgain
-                                }.fillMaxWidth(),
+                                .clickable { doNotShowAgain = !doNotShowAgain }
+                                .fillMaxWidth(),
                     ) {
                         Checkbox(
                             checked = doNotShowAgain,
-                            onCheckedChange = {
-                                doNotShowAgain = it
-                            },
+                            onCheckedChange = { doNotShowAgain = it },
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(stringResource(Res.string.do_not_show_again))
@@ -501,9 +404,7 @@ fun HomeScreen(
 
     Box {
         PullToRefreshBox(
-            modifier =
-                Modifier
-                    .hazeSource(hazeState),
+            modifier = Modifier.hazeSource(hazeState),
             state = pullToRefreshState,
             onRefresh = onRefresh,
             isRefreshing = isRefreshing,
@@ -515,10 +416,7 @@ fun HomeScreen(
                         Modifier
                             .align(Alignment.TopCenter)
                             .padding(
-                                top =
-                                    with(LocalDensity.current) {
-                                        topAppBarHeightPx.toDp()
-                                    },
+                                top = with(LocalDensity.current) { topAppBarHeightPx.toDp() },
                             ),
                     containerColor = PullToRefreshDefaults.indicatorContainerColor,
                     color = PullToRefreshDefaults.indicatorColor,
@@ -553,13 +451,6 @@ fun HomeScreen(
                                     Box(
                                         modifier =
                                             Modifier
-                                                // matchParentSize, not height(300.dp): 300 is the
-                                                // height of this shelf ON A PHONE. On a desktop
-                                                // window the first item is taller, the gradient
-                                                // stopped mid-item and everything below it fell
-                                                // back to the flat background — a hard colour seam
-                                                // straight across Home. Sized by the item, the
-                                                // bottom scrim always lands on the item's edge.
                                                 .matchParentSize()
                                                 .angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
                                     ) {
@@ -574,61 +465,46 @@ fun HomeScreen(
                                     }
                                 }
                                 Column(
-                                    modifier =
-                                        Modifier
-                                            .padding(horizontal = 15.dp),
+                                    modifier = Modifier.padding(horizontal = 15.dp),
                                 ) {
                                     if (index == 0) {
                                         Spacer(
                                             Modifier.height(
-                                                with(LocalDensity.current) { topAppBarHeightPx.toDp() },
+                                                with(LocalDensity.current) { topAppBarHeightPx.toDp() } + 48.dp,
                                             ),
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    if (index == 0 && accountInfo != null && accountShow) {
-                                        AccountLayout(
-                                            accountName = accountInfo?.first ?: "",
-                                            url = accountInfo?.second ?: "",
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                    }
                                     if (item.title == stringResource(Res.string.quick_picks)) {
                                         AnimatedVisibility(
                                             visible =
                                                 homeData.find {
-                                                    it.title ==
-                                                        stringResource(
-                                                            Res.string.quick_picks,
-                                                        )
+                                                    it.title == stringResource(Res.string.quick_picks)
                                                 } != null,
                                         ) {
                                             QuickPicks(
                                                 homeItem =
                                                     (
                                                         homeData.find {
-                                                            it.title ==
-                                                                stringResource(
-                                                                    Res.string.quick_picks,
-                                                                )
+                                                            it.title == stringResource(Res.string.quick_picks)
                                                         } ?: return@AnimatedVisibility
-                                                    ).let { content ->
-                                                        content.copy(
-                                                            contents =
-                                                                content.contents.mapNotNull { ct ->
-                                                                    ct?.copy(
-                                                                        artists =
-                                                                            ct.artists?.let { art ->
-                                                                                if (art.size > 1) {
-                                                                                    art.dropLast(1)
-                                                                                } else {
-                                                                                    art
-                                                                                }
-                                                                            },
-                                                                    )
-                                                                },
-                                                        )
-                                                    },
+                                                        ).let { content ->
+                                                            content.copy(
+                                                                contents =
+                                                                    content.contents.mapNotNull { ct ->
+                                                                        ct?.copy(
+                                                                            artists =
+                                                                                ct.artists?.let { art ->
+                                                                                    if (art.size > 1) {
+                                                                                        art.dropLast(1)
+                                                                                    } else {
+                                                                                        art
+                                                                                    }
+                                                                                },
+                                                                        )
+                                                                    },
+                                                            )
+                                                        },
                                                 navController = navController,
                                                 viewModel = viewModel,
                                             )
@@ -662,9 +538,7 @@ fun HomeScreen(
                                     visible = newRelease.isNotEmpty(),
                                 ) {
                                     Box(
-                                        modifier =
-                                            Modifier
-                                                .padding(horizontal = 15.dp),
+                                        modifier = Modifier.padding(horizontal = 15.dp),
                                     ) {
                                         HomeItem(
                                             navController = navController,
@@ -678,9 +552,7 @@ fun HomeScreen(
                                     visible = moodMomentAndGenre != null,
                                 ) {
                                     Box(
-                                        modifier =
-                                            Modifier
-                                                .padding(horizontal = 15.dp),
+                                        modifier = Modifier.padding(horizontal = 15.dp),
                                     ) {
                                         moodMomentAndGenre?.let {
                                             MoodMomentAndGenre(
@@ -753,9 +625,7 @@ fun HomeScreen(
                     Column {
                         Spacer(
                             Modifier.height(
-                                with(LocalDensity.current) {
-                                    topAppBarHeightPx.toDp()
-                                },
+                                with(LocalDensity.current) { topAppBarHeightPx.toDp() },
                             ),
                         )
                         HomeShimmer()
@@ -763,57 +633,68 @@ fun HomeScreen(
                 }
             }
         }
-        AnimatedContent(
-            targetState = scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0,
-            transitionSpec = {
-                fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-            },
-        ) { target ->
+
+        // ================= BALANCED DYNAMIC LIQUID GLASS HEADER CAPSULE =================
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .onGloballyPositioned { coordinates ->
+                    topAppBarHeightPx = coordinates.size.height
+                },
+        ) {
             Column(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .then(
-                            if (target) {
-                                Modifier.background(Color.Transparent)
-                            } else {
-                                Modifier
-                                    .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
-                                        blurEnabled = true
-                                    }
-                            },
-                        ).onGloballyPositioned { coordinates ->
-                            topAppBarHeightPx = coordinates.size.height
-                        },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(dampingRatio = 0.82f, stiffness = 400f))
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = RoundedCornerShape(28.dp),
+                        spotColor = Color.Black.copy(alpha = 0.55f),
+                        ambientColor = Color.Black.copy(alpha = 0.35f),
+                    )
+                    .clip(RoundedCornerShape(28.dp))
+                    .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
+                        blurEnabled = true
+                    }
+                    .background(
+                        if (isDark) Color(14, 14, 18).copy(alpha = 0.42f)
+                        else Color.White.copy(alpha = 0.35f),
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.55f),
+                                Color.White.copy(alpha = 0.12f),
+                                Color.Black.copy(alpha = 0.25f),
+                            ),
+                        ),
+                        shape = RoundedCornerShape(28.dp),
+                    )
+                    .padding(vertical = 8.dp),
             ) {
+                // Top App Bar: Upar scroll karne par smoothly collapse hogi
                 AnimatedVisibility(
                     visible = isScrollingUp,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
+                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(200)),
+                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(150)),
                 ) {
-                    HomeTopAppBar(navController)
+                    Column {
+                        HomeGlassHeaderBar(navController = navController)
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
                 }
-                AnimatedVisibility(
-                    visible = !isScrollingUp,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    Spacer(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .windowInsetsPadding(
-                                    WindowInsets.statusBars,
-                                ),
-                    )
-                }
+
+                // Horizontal Filter Chips Row: Hamesha capsule ke andar visible rahegi
                 Row(
-                    modifier =
-                        Modifier
-                            .horizontalScroll(chipRowState)
-                            .padding(vertical = 8.dp, horizontal = 15.dp)
-                            .background(Color.Transparent),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .horizontalScroll(chipRowState)
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     listOfHomeChip.forEach { id ->
                         val isSelected =
@@ -830,24 +711,51 @@ fun HomeScreen(
                                 HOME_PARAMS_FOCUS -> id == Res.string.focus
                                 else -> id == Res.string.all
                             }
-                        Chip(
-                            isAnimated = loading,
-                            isSelected = isSelected,
-                            text = stringResource(id),
+
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) {
+                                        if (isDark) Color.White.copy(alpha = 0.25f)
+                                        else Color.White.copy(alpha = 0.65f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.08f)
+                                    },
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            if (isSelected) Color.White.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.25f),
+                                            if (isSelected) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.05f),
+                                        ),
+                                    ),
+                                    shape = CircleShape,
+                                )
+                                .clickable {
+                                    when (id) {
+                                        Res.string.all -> viewModel.setParams(null)
+                                        Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
+                                        Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
+                                        Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
+                                        Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
+                                        Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
+                                        Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
+                                        Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
+                                        Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
+                                        Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
+                                        Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            when (id) {
-                                Res.string.all -> viewModel.setParams(null)
-                                Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
-                                Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
-                                Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
-                                Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
-                                Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
-                                Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
-                                Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
-                                Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
-                                Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
-                                Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
-                            }
+                            Text(
+                                text = stringResource(id),
+                                style = typo().bodyMedium,
+                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.75f),
+                            )
                         }
                     }
                 }
@@ -856,115 +764,109 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBar(navController: NavController) {
+fun HomeGlassHeaderBar(
+    navController: NavController,
+) {
     val hour =
         remember {
             val date = now().time
             date.hour
         }
-    TopAppBar(
-        windowInsets =
-            TopAppBarDefaults.windowInsets.exclude(
-                TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Start),
-            ),
-        title = {
-            Column {
-                Text(
-                    text = stringResource(Res.string.app_name),
-                    style = typo().titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(bottom = 4.dp),
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(
+                text = stringResource(Res.string.app_name),
+                style = typo().titleMedium,
+                color = Color.White,
+            )
+            Text(
+                text =
+                    when (hour) {
+                        in 6..12 -> stringResource(Res.string.good_morning)
+                        in 13..17 -> stringResource(Res.string.good_afternoon)
+                        in 18..23 -> stringResource(Res.string.good_evening)
+                        else -> stringResource(Res.string.good_night)
+                    },
+                style = typo().bodySmall,
+                color = Color.White.copy(alpha = 0.75f),
+            )
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlassCircleIconButton(
+                onClick = { navController.navigate(NotificationDestination) },
+            ) {
+                Icon(
+                    imageVector = SimpIcons.Notifications,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(19.dp),
                 )
-                Text(
-                    text =
-                        when (hour) {
-                            in 6..12 -> {
-                                stringResource(Res.string.good_morning)
-                            }
-
-                            in 13..17 -> {
-                                stringResource(Res.string.good_afternoon)
-                            }
-
-                            in 18..23 -> {
-                                stringResource(Res.string.good_evening)
-                            }
-
-                            else -> {
-                                stringResource(Res.string.good_night)
-                            }
-                        },
-                    style = typo().bodySmall,
+            }
+            GlassCircleIconButton(
+                onClick = { navController.navigate(RecentlySongsDestination) },
+            ) {
+                Icon(
+                    imageVector = SimpIcons.History,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(19.dp),
                 )
             }
-        },
-        actions = {
-            RippleIconButton(imageVector = SimpIcons.Notifications, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(NotificationDestination)
+            GlassCircleIconButton(
+                onClick = { navController.navigate(ListenTogetherDestination) },
+            ) {
+                ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
             }
-            RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(RecentlySongsDestination)
+            GlassCircleIconButton(
+                onClick = { navController.navigate(SettingsDestination) },
+            ) {
+                Icon(
+                    imageVector = SimpIcons.Settings,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(19.dp),
+                )
             }
-            // Fourth button, immediately before Settings — the position the design canvas fixes.
-            ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
-            RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(SettingsDestination)
-            }
-        },
-        colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-            ),
-    )
+        }
+    }
 }
 
 @Composable
-fun AccountLayout(
-    accountName: String,
-    url: String,
+fun GlassCircleIconButton(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    Column {
-        Text(
-            text = stringResource(Res.string.welcome_back),
-            style = typo().bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 3.dp),
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 5.dp),
-        ) {
-            AsyncImage(
-                model =
-                    ImageRequest
-                        .Builder(LocalPlatformContext.current)
-                        .data(url)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .diskCacheKey(url)
-                        .crossfade(true)
-                        .build(),
-                placeholder = rememberHolderPainter(),
-                error = rememberHolderPainter(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .size(40.dp)
-                        .clip(
-                            CircleShape,
-                        ),
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.10f))
+            .border(
+                width = 0.8.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.40f),
+                        Color.White.copy(alpha = 0.08f),
+                    ),
+                ),
+                shape = CircleShape,
             )
-            Text(
-                text = accountName,
-                style = typo().headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier =
-                    Modifier
-                        .padding(start = 8.dp),
-            )
-        }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
     }
 }
 
@@ -978,9 +880,7 @@ fun QuickPicks(
     val lazyListState = rememberLazyGridState()
     val snapperFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState, snapPosition = SnapPosition.Start))
     val density = LocalDensity.current
-    var widthDp by remember {
-        mutableStateOf(0.dp)
-    }
+    var widthDp by remember { mutableStateOf(0.dp) }
     var bottomSheetShow by remember { mutableStateOf(false) }
     var track by remember { mutableStateOf<Track?>(null) }
 
@@ -1060,17 +960,12 @@ fun MoodMomentAndGenre(
     navController: NavController,
 ) {
     Column(
-        Modifier
-            .padding(vertical = 8.dp),
+        Modifier.padding(vertical = 8.dp),
     ) {
         Text(
             text = stringResource(Res.string.let_s_pick_a_playlist_for_you),
             style = typo().bodyMedium,
         )
-        // One block per section YouTube returned, headed by ITS OWN title. Hard-coding
-        // "Moods & moment" / "Genre" here (and reading mood.moodsMoments / mood.genres by
-        // index) mislabelled every row as soon as a signed-in account got an extra
-        // "For you" section, and hid the real Genres section altogether.
         mood.sections.forEach { section ->
             val gridState = rememberLazyGridState()
             val flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = gridState))
@@ -1096,9 +991,7 @@ fun MoodMomentAndGenre(
                         stripeColor = item.stripeColor,
                     ) {
                         navController.navigate(
-                            MoodDestination(
-                                item.params,
-                            ),
+                            MoodDestination(item.params),
                         )
                     }
                 }
@@ -1132,9 +1025,7 @@ fun ChartData(
     chart: Chart,
     navController: NavController,
 ) {
-    var gridWidthDp by remember {
-        mutableStateOf(0.dp)
-    }
+    var gridWidthDp by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
 
     val lazyListState2 = rememberLazyGridState()
@@ -1203,9 +1094,7 @@ fun ChartData(
                 ItemArtistChart(
                     onClick = {
                         navController.navigate(
-                            ArtistDestination(
-                                channelId = data.browseId,
-                            ),
+                            ArtistDestination(channelId = data.browseId),
                         )
                     },
                     data = data,
