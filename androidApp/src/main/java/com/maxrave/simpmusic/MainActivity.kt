@@ -14,6 +14,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.net.toUri
@@ -67,7 +72,6 @@ class MainActivity : AppCompatActivity() {
                 name: ComponentName?,
                 service: IBinder?,
             ) {
-//                mediaPlayerHandler.setActivitySession(this@MainActivity, MainActivity::class.java, service)
                 setServiceActivitySession(this@MainActivity, MainActivity::class.java, service)
                 Logger.w("MainActivity", "onServiceConnected: ")
                 mBound = true
@@ -111,11 +115,10 @@ class MainActivity : AppCompatActivity() {
                 single<AppCompatActivity> { this@MainActivity }
             },
         )
-        // Recreate view model to fix the issue of view model not getting data from the service
         unloadKoinModules(viewModelModule)
         loadKoinModules(viewModelModule)
         VersionManager.initialize()
-        checkForUpdate()
+
         if (viewModel.recreateActivity.value || viewModel.isServiceRunning) {
             viewModel.activityRecreateDone()
         } else {
@@ -134,7 +137,6 @@ class MainActivity : AppCompatActivity() {
         }
         Logger.d("Italy", "Key: ${Locale.ITALY.toLanguageTag()}")
 
-        // Check if the migration has already been done or not
         if (getString(FIRST_TIME_MIGRATION) != STATUS_DONE) {
             Logger.d("Locale Key", "onCreate: ${Locale.getDefault().toLanguageTag()}")
             if (SUPPORTED_LANGUAGE.codes.contains(Locale.getDefault().toLanguageTag())) {
@@ -155,13 +157,10 @@ class MainActivity : AppCompatActivity() {
             } else {
                 putString(SELECTED_LANGUAGE, "en-US")
             }
-            // Fetch the selected language from wherever it was stored. In this case its SharedPref
             getString(SELECTED_LANGUAGE)?.let {
                 Logger.d("Locale Key", "getString: $it")
-                // Set this locale using the AndroidX library that will handle the storage itself
                 val localeList = LocaleListCompat.forLanguageTags(it)
                 AppCompatDelegate.setApplicationLocales(localeList)
-                // Set the migration flag to ensure that this is executed only once
                 putString(FIRST_TIME_MIGRATION, STATUS_DONE)
             }
         }
@@ -235,7 +234,6 @@ class MainActivity : AppCompatActivity() {
                 if (doNotAsk != "true") {
                     val wasAsked = getString("notification_permission_asked")
                     if (wasAsked != "true") {
-                        // First time: request system permission
                         EasyPermissions.requestPermissions(
                             this,
                             runBlocking { ComposeResUtils.getResString(ComposeResUtils.StringType.NOTIFICATION_REQUEST) },
@@ -244,7 +242,6 @@ class MainActivity : AppCompatActivity() {
                         )
                         putString("notification_permission_asked", "true")
                     } else {
-                        // Already asked before: show custom dialog with "Don't show again"
                         viewModel.showNotificationPermissionDialog()
                     }
                 }
@@ -253,7 +250,27 @@ class MainActivity : AppCompatActivity() {
         viewModel.getLocation()
 
         setContent {
+            val updateManager = remember { AppUpdateManager(this@MainActivity) }
+            val updateState by updateManager.updateState.collectAsState()
+            val scope = rememberCoroutineScope()
+
+            // App launch hone par background silent check karega (isManual = false)
+            LaunchedEffect(Unit) {
+                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
+                updateManager.checkForUpdates(currentVersion, isManual = false)
+            }
+
             App(viewModel)
+
+            UpdateDialog(
+                state = updateState,
+                onDismiss = { updateManager.resetState() },
+                onUpdateClick = { downloadUrl ->
+                    scope.launch {
+                        updateManager.downloadAndInstallApk(downloadUrl)
+                    }
+                }
+            )
         }
     }
 
@@ -261,7 +278,6 @@ class MainActivity : AppCompatActivity() {
         val shouldStopMusicService = viewModel.shouldStopMusicService()
         Logger.w("MainActivity", "onDestroy: Should stop service $shouldStopMusicService")
 
-        // Always unbind service if it was bound to prevent MusicBinder leak
         if (shouldStopMusicService && shouldUnbind && isFinishing) {
             viewModel.isServiceRunning = false
         }
@@ -276,9 +292,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startMusicService() {
-//        mediaPlayerHandler.startMediaService(this, serviceConnection)
-        com.maxrave.media3.di
-            .startService(this@MainActivity, serviceConnection)
+        com.maxrave.media3.di.startService(this@MainActivity, serviceConnection)
         mediaPlayerHandler.pushPlayerError = { it ->
             pushPlayerError(it)
         }
@@ -298,12 +312,6 @@ class MainActivity : AppCompatActivity() {
         viewModel.isServiceRunning = true
         shouldUnbind = true
         Logger.d("Service", "Service started")
-    }
-
-    private fun checkForUpdate() {
-        if (viewModel.shouldCheckForUpdate()) {
-            viewModel.checkForUpdate()
-        }
     }
 
     private fun putString(

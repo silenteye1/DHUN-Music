@@ -13,23 +13,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -103,21 +103,20 @@ import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
-import com.maxrave.simpmusic.getPlatform
-import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
-import com.maxrave.simpmusic.ui.component.CenterLoadingBox
-import com.maxrave.simpmusic.ui.component.MoodCategoryCard
-import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.extension.getStringBlocking
 import com.maxrave.simpmusic.extension.toAppDeepLinkOrNull
+import com.maxrave.simpmusic.getPlatform
+import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.ArtistFullWidthItems
+import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.EndOfPage
+import com.maxrave.simpmusic.ui.component.MoodCategoryCard
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.PlaylistFullWidthItems
 import com.maxrave.simpmusic.ui.component.ShimmerSearchItem
-import com.maxrave.simpmusic.ui.component.SimpMusicChartButton
 import com.maxrave.simpmusic.ui.component.SongFullWidthItems
+import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
 import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
@@ -144,7 +143,6 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -163,7 +161,6 @@ import simpmusic.composeapp.generated.resources.search_for
 import simpmusic.composeapp.generated.resources.search_for_songs_artists_albums_playlists_and_more
 import simpmusic.composeapp.generated.resources.song
 import simpmusic.composeapp.generated.resources.videos
-import simpmusic.composeapp.generated.resources.what_do_you_want_to_listen_to
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -189,12 +186,6 @@ fun SearchScreen(
 
     var isFocused by rememberSaveable { mutableStateOf(false) }
 
-    // The bar floats OVER the content (a Box, not a Column) so there is something behind it to
-    // blur — same arrangement HomeScreen uses. Each branch owns a scroll state, hoisted here so
-    // the bar can tell whether the branch currently on screen is scrolled away from the top.
-    // Two columns only on a phone held upright. Anywhere wider — tablet, landscape, desktop — two
-    // columns stretch each tile to half the window, and since the tile keeps a 2:1 ratio it grows
-    // absurdly tall with it.
     val screenInfo = getScreenSizeInfo()
     val isMobilePortrait = getPlatform() == Platform.Android && screenInfo.wDP < screenInfo.hDP
     val moodGridColumns = if (isMobilePortrait) 2 else 4
@@ -229,7 +220,6 @@ fun SearchScreen(
     val videoString = stringResource(Res.string.videos).lowercase()
     val podcastString = stringResource(Res.string.podcasts).lowercase()
 
-    // Animated Placeholder
     val placeholderTexts =
         remember {
             listOf(
@@ -244,10 +234,9 @@ fun SearchScreen(
 
     var currentPlaceholderIndex by remember { mutableIntStateOf(0) }
 
-    // Animate placeholder - pause when focused
     LaunchedEffect(isFocused) {
         while (!isFocused) {
-            delay(3000) // Change every 3 seconds
+            delay(3000)
             currentPlaceholderIndex = (currentPlaceholderIndex + 1) % placeholderTexts.size
         }
     }
@@ -359,8 +348,6 @@ fun SearchScreen(
                 .fillMaxSize()
                 .background(Color.Transparent),
     ) {
-        // Content scrolls under the bar (it is the haze source), so it needs top padding
-        // equal to the bar's measured height to keep its first item clear of it.
         Crossfade(
             targetState = searchUIType,
             modifier = Modifier.fillMaxSize().hazeSource(hazeState),
@@ -471,7 +458,6 @@ fun SearchScreen(
                 }
 
                 SearchUIType.SEARCH_HISTORY -> {
-                    // Search history state
                     Column(
                         modifier =
                             Modifier
@@ -565,104 +551,81 @@ fun SearchScreen(
                 SearchUIType.EMPTY -> {
                     val mood = moodAndGenres
                     if (mood == null) {
-                        // First run only: the repository serves its cached copy before hitting the
-                        // network, so this spinner is never seen again after the first fetch.
                         CenterLoadingBox(Modifier.fillMaxSize())
                     } else {
-                        // Capped and centred: on a wide desktop window the grid would otherwise
-                        // span the whole width, stretching four tiles into long bars. 1100.dp
-                        // keeps a tile near 250.dp, which is its natural size.
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.TopCenter,
                         ) {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(moodGridColumns),
-                            modifier =
-                                Modifier
-                                    .fillMaxHeight()
-                                    .widthIn(max = 1100.dp)
-                                    .padding(horizontal = 16.dp),
-                            state = moodGridState,
-                            contentPadding = PaddingValues(top = searchBarHeight),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Column(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            // Breathing room on both sides of this block: above it
-                                            // sits the floating search bar, below it the tile grid.
-                                            .padding(top = 36.dp, bottom = 20.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Text(
-                                        text = stringResource(Res.string.everything_you_need),
-                                        style = typo().titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Text(
-                                        text = stringResource(Res.string.search_for_songs_artists_albums_playlists_and_more),
-                                        style = typo().bodyMedium,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    SimpMusicChartButton(
-                                        modifier = Modifier.padding(top = 10.dp),
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(moodGridColumns),
+                                modifier =
+                                    Modifier
+                                        .fillMaxHeight()
+                                        .widthIn(max = 1100.dp)
+                                        .padding(horizontal = 16.dp),
+                                state = moodGridState,
+                                contentPadding = PaddingValues(top = searchBarHeight),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Column(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 36.dp, bottom = 20.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
-                                        uriHandler.openUri("https://chart.simpmusic.org")
-                                    }
-                                }
-                            }
-                            mood.sections.forEachIndexed { index, section ->
-                                // First section runs straight on from the header block above it,
-                                // so its own heading would just be a second title in a row.
-                                if (index > 0) {
-                                    item(span = { GridItemSpan(maxLineSpan) }) {
                                         Text(
-                                            // Section titles come from YouTube already localised,
-                                            // so there is no string resource to pick here.
-                                            text = section.title,
+                                            text = stringResource(Res.string.everything_you_need),
                                             style = typo().titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onBackground,
-                                            modifier = Modifier.padding(top = 8.dp),
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Text(
+                                            text = stringResource(Res.string.search_for_songs_artists_albums_playlists_and_more),
+                                            style = typo().bodyMedium,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth(),
                                         )
                                     }
                                 }
-                                // Key must include the section: every section lives in this ONE
-                                // grid, and "For you" repeats categories that also appear under
-                                // Moods or Genres, so params alone collides.
-                                items(section.items, key = { "${section.title}/${it.params}" }) { item ->
-                                    // LazyVerticalGrid only composes tiles inside the viewport, so
-                                    // putting the request here IS the laziness — a category the
-                                    // user never scrolls to never costs a browse.
-                                    LaunchedEffect(item.params) {
-                                        searchViewModel.loadMoodArtwork(item.params)
+                                mood.sections.forEachIndexed { index, section ->
+                                    if (index > 0) {
+                                        item(span = { GridItemSpan(maxLineSpan) }) {
+                                            Text(
+                                                text = section.title,
+                                                style = typo().titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onBackground,
+                                                modifier = Modifier.padding(top = 8.dp),
+                                            )
+                                        }
                                     }
-                                    MoodCategoryCard(
-                                        title = item.title,
-                                        artworkUrl = moodArtwork[item.params],
-                                    ) {
-                                        navController.navigate(MoodDestination(item.params))
+                                    items(section.items, key = { "${section.title}/${it.params}" }) { item ->
+                                        LaunchedEffect(item.params) {
+                                            searchViewModel.loadMoodArtwork(item.params)
+                                        }
+                                        MoodCategoryCard(
+                                            title = item.title,
+                                            artworkUrl = moodArtwork[item.params],
+                                        ) {
+                                            navController.navigate(MoodDestination(item.params))
+                                        }
                                     }
                                 }
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    EndOfPage()
+                                }
                             }
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                EndOfPage()
-                            }
-                        }
                         }
                     }
                 }
 
                 SearchUIType.SEARCH_RESULTS -> {
-                    // Content area — chips now live in the blurred bar block above.
                     Column(modifier = Modifier.fillMaxSize()) {
                         PullToRefreshBox(
                             modifier = Modifier.fillMaxSize(),
@@ -689,9 +652,6 @@ fun SearchScreen(
                                 PullToRefreshDefaults.Indicator(
                                     state = pullToRefreshState,
                                     isRefreshing = uiState is SearchScreenUIState.Loading,
-                                    // Anchored to the top of the box, which now starts under the
-                                    // bar — without this offset the spinner sits behind the bar
-                                    // and only its top sliver shows.
                                     modifier =
                                         Modifier
                                             .align(Alignment.TopCenter)
@@ -705,8 +665,6 @@ fun SearchScreen(
                             Crossfade(targetState = uiState) { uiState ->
                                 when (uiState) {
                                     is SearchScreenUIState.Loading -> {
-                                        // Loading state — same top inset as the results list, or
-                                        // the first shimmer row hides behind the bar and chips.
                                         LazyColumn(
                                             contentPadding =
                                                 PaddingValues(
@@ -721,9 +679,7 @@ fun SearchScreen(
                                     }
 
                                     is SearchScreenUIState.Success -> {
-                                        // Success state with results
                                         Column(modifier = Modifier.fillMaxSize()) {
-                                            // Search Results List
                                             val currentResults =
                                                 when (searchScreenState.searchType) {
                                                     SearchType.ALL -> searchScreenState.searchAllResult
@@ -876,7 +832,6 @@ fun SearchScreen(
                                                                 }
                                                             }
                                                         }
-                                                        // Space at bottom to account for bottom navigation and mini player
                                                         item { Spacer(modifier = Modifier.height(150.dp)) }
                                                     }
                                                 } else {
@@ -898,7 +853,6 @@ fun SearchScreen(
 
                                     is SearchScreenUIState.Error -> {
                                         Box {
-                                            // Error state
                                             Column(
                                                 modifier = Modifier.align(Alignment.Center),
                                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -923,7 +877,6 @@ fun SearchScreen(
                                     }
 
                                     SearchScreenUIState.Empty -> {
-                                        // Empty state
                                         Box(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center,
@@ -969,129 +922,115 @@ fun SearchScreen(
                         ).windowInsetsPadding(WindowInsets.statusBars)
                         .padding(vertical = 10.dp),
             ) {
-        AnimatedVisibility(visible = selectionState.isActive) {
-            SongSelectionTopAppBar(
-                state = selectionState,
-                onSelectAll = {
-                    val visible =
-                        when (searchScreenState.searchType) {
-                            SearchType.SONGS -> searchScreenState.searchSongsResult.map { it.videoId }
-                            SearchType.VIDEOS -> searchScreenState.searchVideosResult.map { it.videoId }
-                            SearchType.ALL ->
-                                searchScreenState.searchAllResult.mapNotNull {
-                                    (it as? SongsResult)?.videoId ?: (it as? VideosResult)?.videoId
+                AnimatedVisibility(visible = selectionState.isActive) {
+                    SongSelectionTopAppBar(
+                        state = selectionState,
+                        onSelectAll = {
+                            val visible =
+                                when (searchScreenState.searchType) {
+                                    SearchType.SONGS -> searchScreenState.searchSongsResult.map { it.videoId }
+                                    SearchType.VIDEOS -> searchScreenState.searchVideosResult.map { it.videoId }
+                                    SearchType.ALL ->
+                                        searchScreenState.searchAllResult.mapNotNull {
+                                            (it as? SongsResult)?.videoId ?: (it as? VideosResult)?.videoId
+                                        }
+                                    else -> emptyList()
                                 }
-                            else -> emptyList()
-                        }
-                    selectionState.toggleSelectAll(visible)
-                },
-                onOpenActions = { showSelectionSheet = true },
-                containerColor = Color.Transparent,
-                // Zero here AND on the SearchBar below: the Column that holds them both consumes
-                // the status bar once, for the whole stack. Leaving it on either child reserves it
-                // a second time — which is the slab of padding this screen used to show.
-                windowInsets = WindowInsets(0),
-            )
-        }
-        // Search Bar with Animated Placeholder
-        SearchBar(
-            inputField = {
-                SearchBarDefaults.InputField(
-                    query = searchText,
-                    onQueryChange = { newText ->
-                        searchText = newText
-                    },
-                    onSearch = { query ->
-                        // A pasted YouTube link is a destination, not a query. Translating it into
-                        // the app's own deep link hands it to the same intent flow that handles
-                        // shared links, so it plays or opens straight away instead of being
-                        // searched for as text. Anything else falls through to a normal search.
-                        val deepLink = query.toAppDeepLinkOrNull()
-                        if (deepLink != null) {
-                            focusManager.clearFocus()
-                            sharedViewModel.setIntent(GenericIntent(data = deepLink))
-                        } else if (query.isNotEmpty()) {
-                            isSearchSubmitted = true
-                            focusManager.clearFocus()
-                            searchViewModel.insertSearchHistory(query)
-                            when (searchScreenState.searchType) {
-                                SearchType.ALL -> searchViewModel.searchAll(query)
-                                SearchType.SONGS -> searchViewModel.searchSongs(query)
-                                SearchType.VIDEOS -> searchViewModel.searchVideos(query)
-                                SearchType.ALBUMS -> searchViewModel.searchAlbums(query)
-                                SearchType.ARTISTS -> searchViewModel.searchArtists(query)
-                                SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(query)
-                                SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(query)
-                                SearchType.PODCASTS -> searchViewModel.searchPodcast(query)
-                            }
-                        }
+                            selectionState.toggleSelectAll(visible)
+                        },
+                        onOpenActions = { showSelectionSheet = true },
+                        containerColor = Color.Transparent,
+                        windowInsets = WindowInsets(0),
+                    )
+                }
+                SearchBar(
+                    inputField = {
+                        SearchBarDefaults.InputField(
+                            query = searchText,
+                            onQueryChange = { newText ->
+                                searchText = newText
+                            },
+                            onSearch = { query ->
+                                val deepLink = query.toAppDeepLinkOrNull()
+                                if (deepLink != null) {
+                                    focusManager.clearFocus()
+                                    sharedViewModel.setIntent(GenericIntent(data = deepLink))
+                                } else if (query.isNotEmpty()) {
+                                    isSearchSubmitted = true
+                                    focusManager.clearFocus()
+                                    searchViewModel.insertSearchHistory(query)
+                                    when (searchScreenState.searchType) {
+                                        SearchType.ALL -> searchViewModel.searchAll(query)
+                                        SearchType.SONGS -> searchViewModel.searchSongs(query)
+                                        SearchType.VIDEOS -> searchViewModel.searchVideos(query)
+                                        SearchType.ALBUMS -> searchViewModel.searchAlbums(query)
+                                        SearchType.ARTISTS -> searchViewModel.searchArtists(query)
+                                        SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(query)
+                                        SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(query)
+                                        SearchType.PODCASTS -> searchViewModel.searchPodcast(query)
+                                    }
+                                }
+                            },
+                            expanded = false,
+                            onExpandedChange = {},
+                            enabled = true,
+                            placeholder = {
+                                AnimatedContent(
+                                    targetState = currentPlaceholderIndex,
+                                    transitionSpec = {
+                                        (
+                                            fadeIn(animationSpec = tween(500)) +
+                                                slideInVertically { height -> height }
+                                            ).togetherWith(
+                                                fadeOut(animationSpec = tween(500)) +
+                                                    slideOutVertically { height -> -height },
+                                            )
+                                    },
+                                    label = "placeholder_animation",
+                                ) { index ->
+                                    Text(
+                                        text = placeholderTexts[index],
+                                        style = typo().labelMedium,
+                                    )
+                                }
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = SimpIcons.Search,
+                                    contentDescription = "Search",
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchText.isNotEmpty()) {
+                                    IconButton(
+                                        modifier = Modifier.clip(CircleShape),
+                                        onClick = {
+                                            searchText = ""
+                                            isSearchSubmitted = false
+                                        },
+                                    ) {
+                                        Icon(
+                                            imageVector = SimpIcons.Close,
+                                            contentDescription = "Clear search",
+                                        )
+                                    }
+                                }
+                            },
+                        )
                     },
                     expanded = false,
                     onExpandedChange = {},
-                    enabled = true,
-                    placeholder = {
-                        // Animated placeholder text
-                        AnimatedContent(
-                            targetState = currentPlaceholderIndex,
-                            transitionSpec = {
-                                (
-                                    fadeIn(animationSpec = tween(500)) +
-                                        slideInVertically { height -> height }
-                                ).togetherWith(
-                                    fadeOut(animationSpec = tween(500)) +
-                                        slideOutVertically { height -> -height },
-                                )
-                            },
-                            label = "placeholder_animation",
-                        ) { index ->
-                            Text(
-                                text = placeholderTexts[index],
-                                style = typo().labelMedium,
-                            )
-                        }
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = SimpIcons.Search,
-                            contentDescription = "Search",
-                        )
-                    },
-                    trailingIcon = {
-                        // X button only shows when there's text
-                        if (searchText.isNotEmpty()) {
-                            IconButton(
-                                modifier = Modifier.clip(CircleShape),
-                                onClick = {
-                                    searchText = ""
-                                    isSearchSubmitted = false
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = SimpIcons.Close,
-                                    contentDescription = "Clear search",
-                                )
-                            }
-                        }
-                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .onFocusChanged {
+                                isFocused = it.isFocused
+                            }.padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    windowInsets = WindowInsets(0),
+                    content = {},
                 )
-            },
-            expanded = false,
-            onExpandedChange = {},
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .onFocusChanged {
-                        isFocused = it.isFocused
-                    }.padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(8.dp),
-            // See the note on SongSelectionTopAppBar above — the Column owns the status-bar inset.
-            windowInsets = WindowInsets(0),
-            content = {},
-        )
-                // Filter chips ride along inside the blurred block instead of sitting in the
-                // results branch. That way searchBarHeight covers them too, results scroll
-                // underneath the whole thing, and the glass has something to blur.
                 AnimatedVisibility(visible = searchUIType == SearchUIType.SEARCH_RESULTS) {
                     Row(
                         modifier =

@@ -654,12 +654,12 @@ class Ytmusic {
         }
 
     suspend fun checkForGithubReleaseUpdate() =
-        httpClient.get("https://api.github.com/repos/maxrave-dev/SimpMusic/releases/latest") {
+        httpClient.get("https://api.github.com/repos/silenteye1/DHUN-Music/releases/latest"){
             contentType(ContentType.Application.Json)
         }
 
     suspend fun checkForFdroidUpdate() =
-        httpClient.get("https://f-droid.org/api/v1/packages/com.maxrave.simpmusic") {
+        httpClient.get("https://api.github.com/repos/silenteye1/DHUN-Music/releases/latest") {
             contentType(ContentType.Application.Json)
         }
 

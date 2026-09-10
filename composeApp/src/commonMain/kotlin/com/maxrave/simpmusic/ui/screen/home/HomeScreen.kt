@@ -104,12 +104,10 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
-import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.DropdownButton
 import com.maxrave.simpmusic.ui.component.EndOfPage
-import com.maxrave.simpmusic.ui.component.FootgunsStarDialog
 import com.maxrave.simpmusic.ui.component.HomeItem
 import com.maxrave.simpmusic.ui.component.HomeItemContentPlaylist
 import com.maxrave.simpmusic.ui.component.HomeShimmer
@@ -119,11 +117,9 @@ import com.maxrave.simpmusic.ui.component.MoodMomentAndGenreHomeItem
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.OfflineErrorState
 import com.maxrave.simpmusic.ui.component.QuickPicksItem
-import com.maxrave.simpmusic.ui.component.ReviewDialog
 import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.ShareSavedLyricsDialog
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
-import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Notifications
 import com.maxrave.simpmusic.ui.icon.Settings
@@ -141,7 +137,6 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
-import com.maxrave.simpmusic.viewModel.FOOTGUNS_STAR_KEY
 import com.maxrave.simpmusic.viewModel.HomeViewModel
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_COMMUTE
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_ENERGIZE
@@ -164,7 +159,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.http.Url
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -197,9 +191,6 @@ import simpmusic.composeapp.generated.resources.warning
 import simpmusic.composeapp.generated.resources.welcome_back
 import simpmusic.composeapp.generated.resources.what_is_best_choice_today
 import simpmusic.composeapp.generated.resources.workout
-
-// DataStore key for blog-promo one-shot dialog. Bump the suffix (v2, v3, …) to re-promote.
-private const val BLOG_PROMO_KEY = "blog_promo_v1_seen"
 
 private val listOfHomeChip =
     listOf(
@@ -256,11 +247,7 @@ fun HomeScreen(
 
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLightTheme = backgroundColor.luminance() > 0.5f
-    // What is ACTUALLY painted behind this screen. The desktop shell wraps content in a rounded
-    // panel (App.kt: surfaceContainer on light, desktopPanelDark on dark) — deliberately not
-    // colorScheme.background — so a gradient tail aimed at colorScheme.background ends on the
-    // wrong colour and draws a seam where the first item stops. Same light check as App.kt's
-    // isLightScheme.
+
     val pageBackground =
         if (getPlatform() == Platform.Desktop) {
             if (isLightTheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
@@ -288,22 +275,11 @@ fun HomeScreen(
 
     LaunchedEffect(dominantColorState, isLightTheme) {
         snapshotFlow { dominantColorState.color }.collect {
-            // Light theme: pull the artwork color toward white for a soft pastel header;
-            // dark theme keeps the original darkened tone.
             topHeaderColor = if (isLightTheme) lerp(it, Color.White, 0.85f) else it.rgbFactor(0.3f)
         }
     }
 
-    var showReviewDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
     var showRequestShareLyricsPermissions by rememberSaveable {
-        mutableStateOf(false)
-    }
-    var showBlogPromoDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
-    var showFootgunsDialog by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -356,27 +332,12 @@ fun HomeScreen(
     LaunchedEffect(key1 = homeData) {
         accountShow = homeData.find { it.subtitle == accountInfo?.first } == null
     }
+
+    // Sirf important system permissions check honge; promo popups yahan se disable hain
     LaunchedEffect(openAppTime, shareLyricsPermissions) {
-        Logger.w("HomeScreen", "openAppTime: $openAppTime, shareLyricsPermissions: $shareLyricsPermissions")
-        if (openAppTime >= 10 && openAppTime % 10 == 0 && openAppTime <= 50) {
-            showReviewDialog = true
-        } else if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
+        if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
             showRequestShareLyricsPermissions = true
-        } else if (openAppTime == 5) {
-            // Blog promo: one-shot after 5 app opens, bump key suffix to re-promote later
-            if (sharedViewModel.getString(BLOG_PROMO_KEY) != "true") {
-                showBlogPromoDialog = true
-            }
-        } else if (openAppTime % 10 == 6 &&
-            openAppTime <= 46 &&
-            sharedViewModel.getString(FOOTGUNS_STAR_KEY) != "true"
-        ) {
-            // kotlin-footguns star prompt: 6, 16, 26, 36, 46 - one open after each review milestone,
-            // and clear of the share-lyrics (15, 45) and blog-promo (5) milestones
-            showFootgunsDialog = true
         } else {
-            showReviewDialog = false
-            showFootgunsDialog = false
             showRequestShareLyricsPermissions = false
         }
     }
@@ -389,7 +350,7 @@ fun HomeScreen(
                         scrollState.layoutInfo.visibleItemsInfo
                             .lastOrNull()
                             ?.index ?: -9
-                    ) >= (scrollState.layoutInfo.totalItemsCount - 1)
+                        ) >= (scrollState.layoutInfo.totalItemsCount - 1)
             }
         }
 
@@ -404,59 +365,7 @@ fun HomeScreen(
         }
     }
 
-//    if (shouldShowGetDataSyncIdBottomSheet) {
-//        GetDataSyncIdBottomSheet(
-//            cookie = youTubeCookie,
-//            onDismissRequest = {
-//                shouldShowGetDataSyncIdBottomSheet = false
-//            },
-//        )
-//    }
-
-    if (showReviewDialog) {
-        ReviewDialog(
-            onDismissRequest = {
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = true,
-                )
-                showReviewDialog = false
-            },
-            onDoneReview = {
-                sharedViewModel.onDoneReview(
-                    isDismissOnly = false,
-                )
-                showReviewDialog = false
-            },
-        )
-    }
-
-    if (showFootgunsDialog) {
-        FootgunsStarDialog(
-            onDismissRequest = {
-                // "Later" only closes the dialog: it must not touch OPEN_APP_TIME,
-                // so the next milestone stays exactly where it was.
-                showFootgunsDialog = false
-            },
-            onDoneStar = {
-                sharedViewModel.putString(FOOTGUNS_STAR_KEY, "true")
-                showFootgunsDialog = false
-            },
-        )
-    }
-
-    if (showBlogPromoDialog) {
-        BlogPromoDialog(
-            onDismissRequest = {
-                sharedViewModel.putString(BLOG_PROMO_KEY, "true")
-                showBlogPromoDialog = false
-            },
-            onVisitBlog = {
-                sharedViewModel.putString(BLOG_PROMO_KEY, "true")
-                showBlogPromoDialog = false
-            },
-        )
-    }
-
+    // Important System Alert 1: Saved lyrics permissions
     if (showRequestShareLyricsPermissions) {
         ShareSavedLyricsDialog(
             onDismissRequest = {
@@ -473,6 +382,7 @@ fun HomeScreen(
         )
     }
 
+    // Important System Alert 2: Login required warning
     if (shouldShowLogInAlert) {
         var doNotShowAgain by rememberSaveable {
             mutableStateOf(false)
@@ -580,13 +490,6 @@ fun HomeScreen(
                                     Box(
                                         modifier =
                                             Modifier
-                                                // matchParentSize, not height(300.dp): 300 is the
-                                                // height of this shelf ON A PHONE. On a desktop
-                                                // window the first item is taller, the gradient
-                                                // stopped mid-item and everything below it fell
-                                                // back to the flat background — a hard colour seam
-                                                // straight across Home. Sized by the item, the
-                                                // bottom scrim always lands on the item's edge.
                                                 .matchParentSize()
                                                 .angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
                                     ) {
@@ -639,23 +542,23 @@ fun HomeScreen(
                                                                     Res.string.quick_picks,
                                                                 )
                                                         } ?: return@AnimatedVisibility
-                                                    ).let { content ->
-                                                        content.copy(
-                                                            contents =
-                                                                content.contents.mapNotNull { ct ->
-                                                                    ct?.copy(
-                                                                        artists =
-                                                                            ct.artists?.let { art ->
-                                                                                if (art.size > 1) {
-                                                                                    art.dropLast(1)
-                                                                                } else {
-                                                                                    art
-                                                                                }
-                                                                            },
-                                                                    )
-                                                                },
-                                                        )
-                                                    },
+                                                        ).let { content ->
+                                                            content.copy(
+                                                                contents =
+                                                                    content.contents.mapNotNull { ct ->
+                                                                        ct?.copy(
+                                                                            artists =
+                                                                                ct.artists?.let { art ->
+                                                                                    if (art.size > 1) {
+                                                                                        art.dropLast(1)
+                                                                                    } else {
+                                                                                        art
+                                                                                    }
+                                                                                },
+                                                                        )
+                                                                    },
+                                                            )
+                                                        },
                                                 navController = navController,
                                                 viewModel = viewModel,
                                             )
@@ -934,7 +837,6 @@ fun HomeTopAppBar(navController: NavController) {
             RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
                 navController.navigate(RecentlySongsDestination)
             }
-            // Fourth button, immediately before Settings — the position the design canvas fixes.
             ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
             RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
                 navController.navigate(SettingsDestination)
@@ -1094,10 +996,6 @@ fun MoodMomentAndGenre(
             text = stringResource(Res.string.let_s_pick_a_playlist_for_you),
             style = typo().bodyMedium,
         )
-        // One block per section YouTube returned, headed by ITS OWN title. Hard-coding
-        // "Moods & moment" / "Genre" here (and reading mood.moodsMoments / mood.genres by
-        // index) mislabelled every row as soon as a signed-in account got an extra
-        // "For you" section, and hid the real Genres section altogether.
         mood.sections.forEach { section ->
             val gridState = rememberLazyGridState()
             val flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = gridState))

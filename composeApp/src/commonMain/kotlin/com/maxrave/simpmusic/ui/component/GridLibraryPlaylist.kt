@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -38,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.maxrave.domain.data.entities.AlbumEntity
@@ -75,15 +73,8 @@ internal inline fun <reified T> GridLibraryPlaylist(
     contentPadding: PaddingValues,
     data: LocalResource<List<T>>,
     emptyText: StringResource,
-    // Hoisted so a caller can read the scroll position itself — Mix for you derives its
-    // top-bar frost from `index == 0 && offset == 0`, which the coarse onScrolling below
-    // cannot say.
     state: LazyGridState = rememberLazyGridState(),
     noinline onScrolling: (onTop: Boolean) -> Unit = { _ -> },
-    // A full-width block above the tiles, as a real grid item spanning every column — the same
-    // mechanism the create tile and the chart button below already use. A caller drawing it in a
-    // Box over the grid instead has to reserve its height in contentPadding and translate it by
-    // the scroll offset by hand, which is what left a screen-tall hole above the Wrapped tab.
     noinline header: (@Composable () -> Unit)? = null,
     noinline createNewPlaylist: (() -> Unit)? = null,
     noinline onReload: () -> Unit,
@@ -125,8 +116,6 @@ internal inline fun <reified T> GridLibraryPlaylist(
     ) {
         Crossfade(targetState = data) { data ->
             val list = (data as? LocalResource.Success)?.data ?: emptyList()
-            // A header counts as content: a tab whose list is empty but whose header is the
-            // point of the tab must not fall through to the empty text and hide it.
             if ((data is LocalResource.Success && list.isNotEmpty()) || createNewPlaylist != null || header != null) {
                 LazyVerticalGrid(
                     columns = GridCells.FixedSize(size = 132.dp),
@@ -177,9 +166,6 @@ internal inline fun <reified T> GridLibraryPlaylist(
                                     Text(
                                         text = stringResource(Res.string.create),
                                         style = typo().titleSmall,
-                                        // Sits on the page background, not on the tile, so it has
-                                        // to follow the theme — hard-coded white vanished in light
-                                        // theme while every other tile label stayed readable.
                                         color = MaterialTheme.colorScheme.onBackground,
                                         maxLines = 1,
                                         modifier =
@@ -253,9 +239,6 @@ internal inline fun <reified T> GridLibraryPlaylist(
                                         )
                                     }
 
-                                    // The recap is not a stored playlist — it is a query over
-                                    // `playback_event` — so it opens the dynamic playlist screen,
-                                    // which rebuilds it from the year and month carried here.
                                     is MonthlyRecapItem -> {
                                         navController.navigate(
                                             LibraryDynamicPlaylistDestination(
@@ -272,19 +255,6 @@ internal inline fun <reified T> GridLibraryPlaylist(
                             },
                             data = item,
                             thumbSize = 132.dp,
-                        )
-                    }
-
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        val uriHandler = LocalUriHandler.current
-                        SimpMusicChartButton(
-                            modifier =
-                                Modifier.wrapContentWidth().padding(
-                                    vertical = 16.dp,
-                                ),
-                            onClick = {
-                                uriHandler.openUri("https://chart.simpmusic.org")
-                            },
                         )
                     }
 

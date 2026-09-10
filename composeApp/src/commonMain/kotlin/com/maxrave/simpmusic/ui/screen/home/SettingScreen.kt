@@ -199,9 +199,6 @@ import simpmusic.composeapp.generated.resources.backup_downloaded_description
 import simpmusic.composeapp.generated.resources.backup_frequency
 import simpmusic.composeapp.generated.resources.balance_media_loudness
 import simpmusic.composeapp.generated.resources.better_lyrics
-import simpmusic.composeapp.generated.resources.blog_notification_description
-import simpmusic.composeapp.generated.resources.blog_notification_title
-import simpmusic.composeapp.generated.resources.buy_me_a_coffee
 import simpmusic.composeapp.generated.resources.cancel
 import simpmusic.composeapp.generated.resources.animated_artwork_info
 import simpmusic.composeapp.generated.resources.canvas_info
@@ -237,10 +234,7 @@ import simpmusic.composeapp.generated.resources.daily
 import simpmusic.composeapp.generated.resources.database
 import simpmusic.composeapp.generated.resources.default_models
 import simpmusic.composeapp.generated.resources.description_and_licenses
-import simpmusic.composeapp.generated.resources.developer_blog
-import simpmusic.composeapp.generated.resources.developer_blog_tagline
 import simpmusic.composeapp.generated.resources.discord_integration
-import simpmusic.composeapp.generated.resources.donation
 import simpmusic.composeapp.generated.resources.download_quality
 import simpmusic.composeapp.generated.resources.downloaded_cache
 import simpmusic.composeapp.generated.resources.enable_animated_artwork
@@ -260,7 +254,6 @@ import simpmusic.composeapp.generated.resources.help_build_lyrics_database
 import simpmusic.composeapp.generated.resources.help_build_lyrics_database_description
 import simpmusic.composeapp.generated.resources.http
 import simpmusic.composeapp.generated.resources.import_data
-import simpmusic.composeapp.generated.resources.import_data_intro
 import simpmusic.composeapp.generated.resources.import_failed
 import simpmusic.composeapp.generated.resources.import_playlists_from_other_apps
 import simpmusic.composeapp.generated.resources.import_progress_songs
@@ -324,7 +317,6 @@ import simpmusic.composeapp.generated.resources.lyrics_style_apple_music
 import simpmusic.composeapp.generated.resources.lyrics_style_classic
 import simpmusic.composeapp.generated.resources.main_lyrics_provider
 import simpmusic.composeapp.generated.resources.manage_your_youtube_accounts
-import simpmusic.composeapp.generated.resources.maxrave_dev
 import simpmusic.composeapp.generated.resources.monthly
 import simpmusic.composeapp.generated.resources.never
 import simpmusic.composeapp.generated.resources.no_account
@@ -443,7 +435,6 @@ fun SettingScreen(
 
     var width by rememberSaveable { mutableIntStateOf(0) }
 
-    // Backup and restore
     val formatter =
         LocalDateTime.Format {
             byUnicodePattern("yyyyMMddHHmmss")
@@ -475,10 +466,6 @@ fun SettingScreen(
             }
         }
 
-    // Import playlists converted on the web. Unlike restore, the file is read through Calf's
-    // KmpFile rather than a Uri, so no expect/actual is needed. The type stays All because a
-    // converted .json arrives with whatever MIME its source assigned it, and an application/json
-    // filter would hide it on some hosts.
     val importViewModel: ImportViewModel = koinViewModel()
     val importState by importViewModel.importState.collectAsStateWithLifecycle()
     val importLauncher =
@@ -619,16 +606,9 @@ fun SettingScreen(
     }
 
     val settingListState = rememberLazyListState()
-    // Home's rule: transparent only while pixel-0 is on screen. The frost itself is kept LIGHT
-    // (below) so frosting over the glow reads as a veil, not a lid.
     val isAtTop by remember {
         derivedStateOf { settingListState.firstVisibleItemIndex == 0 && settingListState.firstVisibleItemScrollOffset == 0 }
     }
-    // Home-family ambient ground, and like Home's it SCROLLS AWAY with the content instead of
-    // hanging off the ceiling. Still a sibling (so it sits behind the floating bar), but its draw
-    // rides the list: exact tracking while item 0 is on screen, parked off-screen after. Item 0 is
-    // taller than the glow, so the glow has fully left before the branch ever switches — no jump.
-    // graphicsLayer reads the state in the DRAW phase, so scrolling redraws without recomposing.
     val glowNowPlaying by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
     AmbientThemeGlow(
         tint = rememberNowPlayingGlowTint(glowNowPlaying?.songEntity?.thumbnails),
@@ -652,9 +632,6 @@ fun SettingScreen(
     ) {
         item(key = "user_interface") {
             Column {
-                // Was its own item. Folded in so item 0 is taller than the glow — the glow's
-                // translation tracks item 0's offset exactly and parks once it scrolls past, and a
-                // 64dp item 0 would have switched branches while the glow was still half-visible.
                 Spacer(Modifier.height(64.dp))
                 Spacer(Modifier.height(16.dp))
                 Text(text = stringResource(Res.string.user_interface), style = typo().labelMedium, color = MaterialTheme.colorScheme.onBackground)
@@ -687,11 +664,6 @@ fun SettingScreen(
                         )
                     },
                 )
-                // The Apple Music treatments ARE the blur — the frosted page behind the player, and
-                // the depth of field on the lyrics — and Modifier.blur is a documented no-op below
-                // Android 12, so on an older device they render as a flat, wrong-looking version of
-                // themselves. The requirement is spelled out on the option itself rather than left
-                // for the user to discover after switching.
                 val requiresAndroid12 = " (" + stringResource(Res.string.requires_android_12) + ")"
                 val nowPlayingStyleLabels =
                     listOf(
@@ -723,9 +695,6 @@ fun SettingScreen(
                         )
                     },
                 )
-                // Hidden outright below Android 12 rather than offered with one option: the Apple
-                // Music treatment IS the blur, and Modifier.blur is a documented no-op there, so
-                // the choice would be between Classic and a broken-looking Classic.
                 if (isLyricsBlurSupported()) {
                     val lyricsStyleLabels =
                         listOf(
@@ -758,10 +727,6 @@ fun SettingScreen(
                     )
                 }
 
-                // Independent of BOTH style settings, and not gated on Android 12: this changes
-                // what the words SAY, not how they are drawn, so it applies to every style on
-                // every version. Sits next to them because a user looking for "something about
-                // lyrics" looks in one place.
                 val romanizationLabels =
                     listOf(
                         RomanizationLanguage.JAPANESE to stringResource(Res.string.romanization_japanese),
@@ -780,19 +745,12 @@ fun SettingScreen(
                 val romanizationSelected = RomanizationLanguage.parse(romanizationStored)
                 SettingItem(
                     title = stringResource(Res.string.lyrics_romanization),
-                    // Two different jobs for one line. Off, the row has to explain what the
-                    // feature IS — nobody guesses "romanization" from the title alone. On, the only
-                    // question worth answering at a glance is which of the twelve are picked, and
-                    // the explanation has served its purpose.
                     subtitle =
                         if (romanizationSelected.isEmpty()) {
                             stringResource(Res.string.lyrics_romanization_description)
                         } else {
                             val selectedNames =
                                 romanizationLabels.filter { it.first in romanizationSelected }.joinToString(", ") { it.second }
-                            // Japanese is the one language with a dictionary pack to fetch; while
-                            // that is in flight — or has failed — the row says so, instead of
-                            // listing Japanese as if it were already live.
                             when {
                                 RomanizationLanguage.JAPANESE !in romanizationSelected -> selectedNames
                                 japaneseDictionaryState == RomanizationDictionaryState.DOWNLOADING ->
@@ -806,11 +764,6 @@ fun SettingScreen(
                         viewModel.setAlertData(
                             SettingAlertState(
                                 title = runBlocking { getString(Res.string.lyrics_romanization) },
-                                // NO `message` here, deliberately. The dialog picks its body with
-                                // an if/else-if chain that tests `message` FIRST, and that branch
-                                // renders only the text and an optional textField — a multipleSelect
-                                // passed alongside it is never reached, so the dialog came up with
-                                // the description and no languages at all.
                                 multipleSelect =
                                     SettingAlertState.SelectData(
                                         listSelect =
@@ -824,9 +777,6 @@ fun SettingScreen(
                                         val languages =
                                             romanizationLabels.filter { it.second in chosen }.map { it.first }.toSet()
                                         sharedViewModel.setRomanizationLanguages(languages)
-                                        // Japanese needs its dictionary pack on disk. A no-op when
-                                        // it is already there (or bundled, as on Desktop) — and the
-                                        // retry after a FAILED attempt is simply confirming again.
                                         if (RomanizationLanguage.JAPANESE in languages) {
                                             viewModel.downloadJapaneseDictionaryIfNeeded()
                                         }
@@ -1089,10 +1039,6 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.sync_follow_to_youtube_description),
                     smallSubtitle = true,
                     switch = (syncFollowToYouTube to { viewModel.setSyncFollowToYouTube(it) }),
-                    // Writing to someone's YouTube account needs a session, so the row is dead
-                    // while signed out. Clearing the stored flag is NOT done from here: the reset
-                    // belongs to the logout itself (SettingsViewModel.setUsedAccount /
-                    // logOutAllYouTube), which runs whether or not Settings is ever opened.
                     isEnable = loggedIn == DataStoreManager.TRUE,
                 )
                 SettingItem(
@@ -1115,13 +1061,6 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.keep_your_youtube_playlist_offline_description),
                     switch = (keepYoutubePlaylistOffline to { viewModel.setKeepYouTubePlaylistOffline(it) }),
                 )
-                /*
-                SettingItem(
-                    title = stringResource(Res.string.combine_local_and_youtube_liked_songs),
-                    subtitle = stringResource(Res.string.combine_local_and_youtube_liked_songs_description),
-                    switch = (combineLocalAndYouTubeLiked to { viewModel.setCombineLocalAndYouTubeLiked(it) })
-                )
-                 */
                 SettingItem(
                     title = stringResource(Res.string.proxy),
                     subtitle = stringResource(Res.string.proxy_description),
@@ -1322,34 +1261,21 @@ fun SettingScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
-                // Under Playback rather than Audio because that whole group sits inside an
-                // Android-only branch — "Open system equalizer" is an Android feature — and this
-                // one is on both platforms: mpv's `af` chain on Desktop, an AudioProcessor in the
-                // Media3 sink on Android, driven from the same stored curve.
                 SettingItem(
                     title = stringResource(Res.string.equalizer),
                     subtitle = stringResource(Res.string.equalizer_description),
                     smallSubtitle = true,
                     switch = (equalizerEnabled to { viewModel.setEqualizerEnabled(it) }),
                 )
-                // Only while on. A curve that visibly does nothing is worse than no curve —
-                // and the stored bands survive the switch, so turning it back on returns to
-                // the shape the user built rather than to flat.
                 AnimatedVisibility(visible = equalizerEnabled) {
                     EqualizerSection()
                 }
-                // Beside the equalizer rather than in its own group: all three are the same kind of
-                // thing — one stored setting reshaping the audio on both backends — and a user
-                // hunting for "reverb" looks wherever the sound settings are, not under a heading
-                // they have to guess.
                 SettingItem(
                     title = stringResource(Res.string.audio_delay),
                     subtitle = stringResource(Res.string.audio_delay_description),
                     smallSubtitle = true,
                     switch = (delayEnabled to { viewModel.setDelayEnabled(it) }),
                 )
-                // Only while on, like the curve — and the three values survive the switch, so
-                // turning it back on returns to the echo the user dialled in.
                 AnimatedVisibility(visible = delayEnabled) {
                     DelaySection()
                 }
@@ -1359,7 +1285,6 @@ fun SettingScreen(
                     smallSubtitle = true,
                     switch = (reverbEnabled to { viewModel.setReverbEnabled(it) }),
                 )
-                // Same again: the room and the wet level outlive the switch.
                 AnimatedVisibility(visible = reverbEnabled) {
                     ReverbSection()
                 }
@@ -1387,7 +1312,6 @@ fun SettingScreen(
                 }
             }
         }
-        // Crossfade Settings (all platforms)
         item(key = "crossfade_settings") {
             Column {
                 SettingItem(
@@ -1446,7 +1370,7 @@ fun SettingScreen(
                                                                 Res.string.crossfade_auto,
                                                             )
                                                         },
-                                                        -> DataStoreManager.CROSSFADE_DURATION_AUTO
+                                                            -> DataStoreManager.CROSSFADE_DURATION_AUTO
                                                         "1s" -> 1000
                                                         "2s" -> 2000
                                                         "3s" -> 3000
@@ -1466,7 +1390,6 @@ fun SettingScreen(
                                 )
                             },
                         )
-//                        if (getPlatform() == Platform.Android) {
                         SettingItem(
                             title = stringResource(Res.string.crossfade_dj_mode),
                             subtitle =
@@ -1491,14 +1414,10 @@ fun SettingScreen(
                             switch = ((crossfadeSkipAlbum) to { viewModel.setCrossfadeSkipAlbum(it) }),
                             isEnable = !castState.isRemote,
                         )
-//                        }
                     }
                 }
             }
         }
-        // Deliberately not part of "storage" further down, which is Android-only: tracking and the
-        // rows it leaves behind exist on Desktop just the same. The switch that produces the history
-        // and the button that erases it belong together.
         item(key = "listening_history") {
             Column {
                 Text(
@@ -1741,7 +1660,7 @@ fun SettingScreen(
                                                         Res.string.openai_api_compatible,
                                                     )
                                                 },
-                                                -> DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI
+                                                    -> DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI
 
                                                 else -> DataStoreManager.AI_PROVIDER_OPENAI
                                             },
@@ -1802,7 +1721,6 @@ fun SettingScreen(
                         )
                     },
                 )
-                // Custom OpenAI Base URL - only show when Custom OpenAI is selected
                 if (aiProvider == DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI) {
                     SettingItem(
                         title = "Custom Base URL",
@@ -1845,7 +1763,6 @@ fun SettingScreen(
                                                     true to null
                                                 } else {
                                                     try {
-                                                        // Simple validation: check if it looks like JSON
                                                         val trimmed = input.trim()
                                                         (trimmed.startsWith("{") && trimmed.endsWith("}")) to "Invalid JSON format"
                                                     } catch (e: Exception) {
@@ -1882,8 +1799,6 @@ fun SettingScreen(
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
                 SettingItem(
-                    // The title follows the state: a row that still reads "Log in" while logged in
-                    // gives no clue that tapping it signs you out.
                     title =
                         if (spotifyLoggedIn) {
                             stringResource(Res.string.log_out_from_spotify)
@@ -1918,9 +1833,6 @@ fun SettingScreen(
                     switch = (spotifyCanvas to { viewModel.setSpotifyCanvas(it) }),
                     isEnable = spotifyLoggedIn,
                 )
-                // Sits with the canvas because it replaces it, but carries no isEnable: the two
-                // rows above need a Spotify session and this one needs no account at all, so
-                // gating it on spotifyLoggedIn would lock it away from the users it works for.
                 SettingItem(
                     title = stringResource(Res.string.enable_animated_artwork),
                     subtitle = stringResource(Res.string.animated_artwork_info),
@@ -1967,8 +1879,6 @@ fun SettingScreen(
                 )
             }
         }
-        // Hidden entirely when the build carries no Last.fm credentials — a FOSS build, or a full
-        // build whose local.properties has no key.
         if (viewModel.lastfmAvailable) {
             item(key = "lastfm") {
                 Column {
@@ -2041,7 +1951,7 @@ fun SettingScreen(
                                                         skipSegments?.contains(
                                                             SponsorBlockType.toList().getOrNull(index)?.value,
                                                         ) == true
-                                                    ) to item
+                                                        ) to item
                                                 }.also {
                                                     Logger.w("SettingScreen", "SettingAlertState: $skipSegments")
                                                     Logger.w("SettingScreen", "SettingAlertState: $it")
@@ -2412,7 +2322,6 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.backup_downloaded_description),
                     switch = (backupDownloaded to { viewModel.setBackupDownloaded(it) }),
                 )
-                // Auto Backup (Android only)
                 if (getPlatform() == Platform.Android) {
                     SettingItem(
                         title = stringResource(Res.string.auto_backup),
@@ -2455,19 +2364,19 @@ fun SettingScreen(
                                                                     Res.string.daily,
                                                                 )
                                                             },
-                                                            -> DataStoreManager.AUTO_BACKUP_FREQUENCY_DAILY
+                                                                -> DataStoreManager.AUTO_BACKUP_FREQUENCY_DAILY
                                                             runBlocking {
                                                                 getString(
                                                                     Res.string.weekly,
                                                                 )
                                                             },
-                                                            -> DataStoreManager.AUTO_BACKUP_FREQUENCY_WEEKLY
+                                                                -> DataStoreManager.AUTO_BACKUP_FREQUENCY_WEEKLY
                                                             runBlocking {
                                                                 getString(
                                                                     Res.string.monthly,
                                                                 )
                                                             },
-                                                            -> DataStoreManager.AUTO_BACKUP_FREQUENCY_MONTHLY
+                                                                -> DataStoreManager.AUTO_BACKUP_FREQUENCY_MONTHLY
                                                             else -> DataStoreManager.AUTO_BACKUP_FREQUENCY_DAILY
                                                         }
                                                     viewModel.setAutoBackupFrequency(frequency)
@@ -2546,24 +2455,6 @@ fun SettingScreen(
                         }
                     },
                 )
-                val beforeUrl = stringResource(Res.string.import_data_intro).substringBefore("https://www.simpmusic.org/tools")
-                val afterUrl = stringResource(Res.string.import_data_intro).substringAfter("https://www.simpmusic.org/tools")
-                Text(
-                    buildAnnotatedString {
-                        append(beforeUrl)
-                        withLink(
-                            LinkAnnotation.Url(
-                                "https://www.simpmusic.org/tools",
-                                TextLinkStyles(style = SpanStyle(color = MaterialTheme.colorScheme.primary)),
-                            ),
-                        ) {
-                            append("https://www.simpmusic.org/tools")
-                        }
-                        append(afterUrl)
-                    },
-                    style = typo().bodySmall,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                )
             }
         }
         item(key = "about_us") {
@@ -2588,12 +2479,7 @@ fun SettingScreen(
                 )
                 SettingItem(
                     title = stringResource(Res.string.update_channel),
-                    subtitle =
-                        if (updateChannel == DataStoreManager.FDROID) {
-                            "F-Droid"
-                        } else {
-                            "SimpMusic GitHub Release"
-                        },
+                    subtitle = "DHUN-Music GitHub Release",
                     onClick = {
                         viewModel.setAlertData(
                             SettingAlertState(
@@ -2602,19 +2488,12 @@ fun SettingScreen(
                                     SettingAlertState.SelectData(
                                         listSelect =
                                             listOf(
-                                                (updateChannel == DataStoreManager.FDROID) to "F-Droid",
-                                                (updateChannel == DataStoreManager.GITHUB) to "SimpMusic GitHub Release",
+                                                true to "DHUN-Music GitHub Release",
                                             ),
                                     ),
                                 confirm =
-                                    runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setUpdateChannel(
-                                            when (state.selectOne?.getSelected()) {
-                                                "F-Droid" -> DataStoreManager.FDROID
-                                                "SimpMusic GitHub Release" -> DataStoreManager.GITHUB
-                                                else -> DataStoreManager.GITHUB
-                                            },
-                                        )
+                                    runBlocking { getString(Res.string.change) } to {
+                                        viewModel.setUpdateChannel(DataStoreManager.GITHUB)
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },
                             ),
@@ -2625,35 +2504,33 @@ fun SettingScreen(
                     title = stringResource(Res.string.check_for_update),
                     subtitle = checkForUpdateSubtitle,
                     onClick = {
+                        val currentVer = VersionManager.getVersionName()
                         sharedViewModel.checkForUpdate()
+                        viewModel.setBasicAlertData(
+                            SettingBasicAlertState(
+                                title = runBlocking { getString(Res.string.check_for_update) },
+                                message = "Already on latest version ($currentVer)",
+                                confirm =
+                                    runBlocking { getString(Res.string.ok) } to {
+                                        viewModel.setBasicAlertData(null)
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
                     },
                 )
                 SettingItem(
                     title = stringResource(Res.string.author),
-                    subtitle = stringResource(Res.string.maxrave_dev),
+                    subtitle = "silenteye1",
                     onClick = {
-                        uriHandler.openUri("https://github.com/maxrave-dev")
+                        uriHandler.openUri("https://github.com/silenteye1")
                     },
                 )
                 SettingItem(
-                    title = stringResource(Res.string.developer_blog),
-                    subtitle = stringResource(Res.string.developer_blog_tagline),
+                    title = "Source Code",
+                    subtitle = "silenteye1/DHUN-Music",
                     onClick = {
-                        uriHandler.openUri("https://maxrave.dev")
-                    },
-                )
-                if (getPlatform() == Platform.Android) {
-                    SettingItem(
-                        title = stringResource(Res.string.blog_notification_title),
-                        subtitle = stringResource(Res.string.blog_notification_description),
-                        switch = (blogNotificationEnabled to { viewModel.setBlogNotificationEnabled(it) }),
-                    )
-                }
-                SettingItem(
-                    title = stringResource(Res.string.buy_me_a_coffee),
-                    subtitle = stringResource(Res.string.donation),
-                    onClick = {
-                        uriHandler.openUri("https://github.com/sponsors/maxrave-dev")
+                        uriHandler.openUri("https://github.com/silenteye1/DHUN-Music")
                     },
                 )
                 SettingItem(
@@ -2961,7 +2838,6 @@ fun SettingScreen(
     val alertData by viewModel.alertData.collectAsStateWithLifecycle()
     if (alertData != null) {
         val alertState = alertData ?: return
-        // AlertDialog
         AlertDialog(
             onDismissRequest = { viewModel.setAlertData(null) },
             title = {
@@ -3177,7 +3053,6 @@ fun SettingScreen(
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             shape = RectangleShape,
         ) {
-            // Capture theme colors here: the ChipColors getters below run outside composition.
             val surfaceContainerHighestColor = MaterialTheme.colorScheme.surfaceContainerHighest
             val onSurfaceColor = MaterialTheme.colorScheme.onSurface
             LibrariesContainer(
@@ -3238,11 +3113,6 @@ fun SettingScreen(
         }
     }
 
-    // Transparent while the list sits at the top — an always-on frost dimmed the glow behind the
-    // bar into a black band, which is exactly where the glow carries its colour. Same crossfade
-    // Home, Search and Mix run on their bars.
-    // Captured outside the haze scope — HazeEffectScope is not composable (same move as
-    // AlbumScreen's mutedPaletteBg capture).
     val settingBarTint = MaterialTheme.colorScheme.background
     AnimatedContent(
         targetState = isAtTop,
@@ -3279,9 +3149,6 @@ fun SettingScreen(
                         if (atTop) {
                             Modifier
                         } else {
-                            // The house recipe from AlbumScreen's bars, thinned: ultraThin's built-in
-                            // tint stacked on this page's dark ground read as a solid lid. 0.3 keeps
-                            // the blur doing the work and the tint only settling legibility.
                             Modifier.hazeEffect(hazeState) {
                                 blurEnabled = true
                                 blurRadius = 24.dp
@@ -3298,12 +3165,6 @@ fun SettingScreen(
     }
 }
 
-/**
- * Progress and outcome of a playlist import.
- *
- * Only dismissible once the import has finished — cancelling mid-write would leave the database
- * half-populated with no way to tell the user which half.
- */
 @Composable
 private fun ImportProgressDialog(
     progress: ImportProgress,
