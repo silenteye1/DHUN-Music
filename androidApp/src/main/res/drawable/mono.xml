@@ -1,0 +1,55 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Dark Rounded Background -->
+    <path
+        android:fillColor="#1E2235"
+        android:pathData="M70,0 L442,0 A70,70 0,0 1 512,70 L512,442 A70,70 0,0 1 442,512 L70,512 A70,70 0,0 1 0,442 L0,70 A70,70 0,0 1 70,0 Z" />
+
+    <!-- Outer Vinyl Disk -->
+    <path
+        android:fillColor="#D9DCE1"
+        android:pathData="M256,256m-142,0a142,142 0,1 1,284 0a142,142 0,1 1,-284 0" />
+
+    <!-- Outer Groove Ring -->
+    <path
+        android:strokeColor="#ADB5BD"
+        android:strokeWidth="5"
+        android:fillColor="#00000000"
+        android:pathData="M256,256m-116,0a116,116 0,1 1,232 0a116,116 0,1 1,-232 0" />
+
+    <!-- Inner Groove Ring -->
+    <path
+        android:strokeColor="#ADB5BD"
+        android:strokeWidth="5"
+        android:fillColor="#00000000"
+        android:pathData="M256,256m-90,0a90,90 0,1 1,180 0a90,90 0,1 1,-180 0" />
+
+    <!-- Center Dark Label -->
+    <path
+        android:fillColor="#1E2235"
+        android:pathData="M256,256m-58,0a58,58 0,1 1,116 0a58,58 0,1 1,-116 0" />
+
+    <!-- Center Spindle Hole -->
+    <path
+        android:fillColor="#EAEEF2"
+        android:pathData="M256,256m-23,0a23,23 0,1 1,46 0a23,23 0,1 1,-46 0" />
+
+    <!-- Tonearm -->
+    <path
+        android:strokeColor="#F5F7FA"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M360,132 L360,256 L320,296" />
+
+    <!-- Cartridge / Head -->
+    <path
+        android:fillColor="#EAEEF2"
+        android:pathData="M312,286 L328,302 A6,6 0 0,1 328,311 L319,320 A6,6 0 0,1 310,320 L294,304 A6,6 0 0,1 294,295 L303,286 A6,6 0 0,1 312,286 Z" />
+
+</vector>
