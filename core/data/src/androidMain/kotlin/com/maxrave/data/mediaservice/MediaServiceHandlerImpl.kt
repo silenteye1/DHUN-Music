@@ -30,6 +30,7 @@ import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.mediaService.SponsorSkipSegments
 import com.maxrave.domain.data.model.searchResult.songs.Artist
+import com.maxrave.domain.data.model.searchResult.songs.Thumbnail
 import com.maxrave.domain.data.model.streams.YouTubeWatchEndpoint
 import com.maxrave.domain.data.player.AudioEffects
 import com.maxrave.domain.data.player.DelayEffect
@@ -496,7 +497,9 @@ internal class MediaServiceHandlerImpl(
                             track?.thumbnails?.lastOrNull()?.url
                                 ?: songEntity.thumbnails
                                 ?: "http://i.ytimg.com/vi/${songEntity.videoId}/maxresdefault.jpg"
-                        thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+                        if (thumbUrl.isNotBlank()) {
+                            thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+                        }
                         if (songEntity.thumbnails != thumbUrl) {
                             songRepository.updateThumbnailsSongEntity(thumbUrl, songEntity.videoId).singleOrNull()
                         }
@@ -522,11 +525,17 @@ internal class MediaServiceHandlerImpl(
                         var thumbUrl =
                             track?.thumbnails?.lastOrNull()?.url
                                 ?: "http://i.ytimg.com/vi/${track?.videoId}/maxresdefault.jpg"
-                        thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
-                        val songEntity =
-                            (track?.toSongEntity() ?: mediaItem.toSongEntity()).copy(
-                                thumbnails = thumbUrl,
-                            )
+                        if (thumbUrl.isNotBlank()) {
+                            thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+                        }
+
+                        val baseSong = runCatching { track?.toSongEntity() }.getOrNull()
+                            ?: mediaItem.toSongEntity()
+
+                        val songEntity = baseSong.copy(
+                            thumbnails = thumbUrl,
+                        )
+
                         songRepository.insertSong(songEntity).singleOrNull()
                         _nowPlayingState.update {
                             it.copy(
@@ -564,11 +573,15 @@ internal class MediaServiceHandlerImpl(
                             }
                         }
                     }
-                if (dataStoreManager.sponsorBlockEnabled.first() == TRUE) {
-                    getSkipSegments(videoId)
-                }
-                if (dataStoreManager.sendBackToGoogle.first() == TRUE) {
-                    getFormat(videoId)
+
+                val isLocal = videoId.startsWith("content://") || videoId.startsWith("file://")
+                if (!isLocal) {
+                    if (dataStoreManager.sponsorBlockEnabled.first() == TRUE) {
+                        getSkipSegments(videoId)
+                    }
+                    if (dataStoreManager.sendBackToGoogle.first() == TRUE) {
+                        getFormat(videoId)
+                    }
                 }
             }
     }
@@ -1470,7 +1483,9 @@ internal class MediaServiceHandlerImpl(
             var thumbUrl =
                 track.thumbnails?.lastOrNull()?.url
                     ?: "http://i.ytimg.com/vi/${track.videoId}/maxresdefault.jpg"
-            thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+            if (thumbUrl.isNotBlank()) {
+                thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+            }
             val artistName: String = track.artists.toListName().connectArtists()
             val isSong =
                 (
@@ -1479,10 +1494,8 @@ internal class MediaServiceHandlerImpl(
                         track.thumbnails?.lastOrNull()?.height != null
                     ) &&
                     (
-                        !thumbUrl
-                            .contains("hq720") &&
-                            !thumbUrl
-                                .contains("maxresdefault") &&
+                        !thumbUrl.contains("hq720") &&
+                            !thumbUrl.contains("maxresdefault") &&
                             !thumbUrl.contains("sddefault")
                         )
             if (track.artists.isNullOrEmpty()) {
@@ -1600,7 +1613,9 @@ internal class MediaServiceHandlerImpl(
                 var thumbUrl =
                     track.thumbnails?.lastOrNull()?.url
                         ?: "http://i.ytimg.com/vi/${track.videoId}/maxresdefault.jpg"
-                thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+                if (thumbUrl.isNotBlank()) {
+                    thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+                }
                 val isSong =
                     (
                         track.thumbnails?.lastOrNull()?.height != 0 &&
@@ -1608,10 +1623,8 @@ internal class MediaServiceHandlerImpl(
                             track.thumbnails?.lastOrNull()?.height != null
                         ) &&
                         (
-                            !thumbUrl
-                                .contains("hq720") &&
-                                !thumbUrl
-                                    .contains("maxresdefault") &&
+                            !thumbUrl.contains("hq720") &&
+                                !thumbUrl.contains("maxresdefault") &&
                                 !thumbUrl.contains("sddefault")
                             )
                 if (downloaded == 1) {
@@ -1817,7 +1830,9 @@ internal class MediaServiceHandlerImpl(
         var thumbUrl =
             track.thumbnails?.lastOrNull()?.url
                 ?: "http://i.ytimg.com/vi/${track.videoId}/maxresdefault.jpg"
-        thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+        if (thumbUrl.isNotBlank()) {
+            thumbUrl = Regex("=w\\d+-h\\d+").replace(thumbUrl, "=w544-h544")
+        }
         val artistName: String = track.artists.toListName().connectArtists()
         val isSong =
             (
@@ -1826,10 +1841,8 @@ internal class MediaServiceHandlerImpl(
                     track.thumbnails?.lastOrNull()?.height != null
                 ) &&
                 (
-                    !thumbUrl
-                        .contains("hq720") &&
-                        !thumbUrl
-                            .contains("maxresdefault") &&
+                    !thumbUrl.contains("hq720") &&
+                        !thumbUrl.contains("maxresdefault") &&
                         !thumbUrl.contains("sddefault")
                     )
         if ((player.currentMediaItemIndex + 1 in 0..queueData.value.data.listTracks.size)) {
@@ -2253,15 +2266,20 @@ internal class MediaServiceHandlerImpl(
         } else if (mediaItem != null) {
             nowPlayingState.value.songEntity?.let { updateDiscordRpc(it) }
         }
-        queueData.value.data.listTracks.let { list ->
-            if ((list.size > 3 || runBlocking { dataStoreManager.endlessQueue.first() == TRUE }) &&
-                list.size - player.currentMediaItemIndex < 3 &&
-                list.size - player.currentMediaItemIndex >= 0 &&
-                queueData.value.queueState == QueueData.StateSource.STATE_INITIALIZED
-            ) {
-                loadMore()
+
+        val isDevicePlaylist = queueData.value.data.playlistId == "DEVICE_SONGS"
+        if (!isDevicePlaylist) {
+            queueData.value.data.listTracks.let { list ->
+                if ((list.size > 3 || runBlocking { dataStoreManager.endlessQueue.first() == TRUE }) &&
+                    list.size - player.currentMediaItemIndex < 3 &&
+                    list.size - player.currentMediaItemIndex >= 0 &&
+                    queueData.value.queueState == QueueData.StateSource.STATE_INITIALIZED
+                ) {
+                    loadMore()
+                }
             }
         }
+
         updateNextPreviousTrackAvailability()
         updateNotification()
         if (player.currentMediaItemIndex == 0) {
@@ -2417,7 +2435,7 @@ private fun getDeviceTracksDirectly(context: Context): List<Track> {
                         artists = listOf(Artist("", artist)),
                         duration = durString,
                         durationSeconds = durSec,
-                        thumbnails = emptyList(),
+                        thumbnails = listOf(Thumbnail(height = 544, url = "", width = 544)),
                         album = null,
                         isAvailable = true,
                         isExplicit = false,
