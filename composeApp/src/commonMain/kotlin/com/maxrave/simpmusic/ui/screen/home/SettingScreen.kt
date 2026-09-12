@@ -571,12 +571,18 @@ fun SettingScreen(
             blurEnabled = true,
         )
 
+    var manualCheckedTime by rememberSaveable { mutableStateOf<Long?>(null) }
+
     val checkForUpdateSubtitle by remember {
         derivedStateOf {
             if (isCheckingUpdate) {
                 return@derivedStateOf runBlocking { getString(Res.string.checking) }
             } else {
-                val lastCheckLong = lastCheckUpdate?.toLong() ?: 0L
+                val lastCheckLong =
+                    manualCheckedTime
+                        ?: lastCheckUpdate?.toLong()?.takeIf { it > 0L }
+                        ?: System.currentTimeMillis()
+
                 return@derivedStateOf runBlocking {
                     getString(
                         Res.string.last_checked_at,
@@ -2504,19 +2510,10 @@ fun SettingScreen(
                     title = stringResource(Res.string.check_for_update),
                     subtitle = checkForUpdateSubtitle,
                     onClick = {
-                        val currentVer = VersionManager.getVersionName()
+                        val now = System.currentTimeMillis()
+                        manualCheckedTime = now
+                        sharedViewModel.showedUpdateDialog = false
                         sharedViewModel.checkForUpdate()
-                        viewModel.setBasicAlertData(
-                            SettingBasicAlertState(
-                                title = runBlocking { getString(Res.string.check_for_update) },
-                                message = "Already on latest version ($currentVer)",
-                                confirm =
-                                    runBlocking { getString(Res.string.ok) } to {
-                                        viewModel.setBasicAlertData(null)
-                                    },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
-                        )
                     },
                 )
                 SettingItem(

@@ -1,5 +1,6 @@
 package com.maxrave.media3.service.mediasourcefactory
 
+import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
@@ -13,12 +14,20 @@ import com.maxrave.logger.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.koin.mp.KoinPlatform.getKoin
 
 @UnstableApi
 internal class MergingMediaSourceFactory(
     private val defaultMediaSourceFactory: DefaultMediaSourceFactory,
     private val dataStoreManager: DataStoreManager,
 ) : MediaSource.Factory {
+
+    // Device storage ke gaano ke liye plain Android media source factory
+    private val standardMediaSourceFactory by lazy {
+        val context: Context = getKoin().get()
+        DefaultMediaSourceFactory(context)
+    }
+
     override fun setDrmSessionManagerProvider(drmSessionManagerProvider: DrmSessionManagerProvider): MediaSource.Factory {
         defaultMediaSourceFactory.setDrmSessionManagerProvider(drmSessionManagerProvider)
         return this
@@ -32,6 +41,16 @@ internal class MergingMediaSourceFactory(
     override fun getSupportedTypes(): IntArray = defaultMediaSourceFactory.supportedTypes
 
     override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+        val uriString = mediaItem.requestMetadata.mediaUri?.toString()
+            ?: mediaItem.localConfiguration?.uri?.toString()
+            ?: mediaItem.mediaId
+
+        // Agar gaana device storage ka hai, toh direct play karein (online resolver bypass)
+        if (uriString.startsWith("content://") || uriString.startsWith("file://")) {
+            Logger.d("Merging Media Source", "Playing local audio directly: $uriString")
+            return standardMediaSourceFactory.createMediaSource(mediaItem)
+        }
+
         Logger.w("Merging Media Source", mediaItem.mediaMetadata.description.toString())
         val getVideo = runBlocking(Dispatchers.IO) { dataStoreManager.watchVideoInsteadOfPlayingAudio.first() } == DataStoreManager.Values.TRUE
         Logger.w("Merging Media Source", getVideo.toString())
@@ -49,7 +68,5 @@ internal class MergingMediaSourceFactory(
         } else {
             return defaultMediaSourceFactory.createMediaSource(mediaItem)
         }
-
-//        val default = defaultMediaSourceFactory.createMediaSource(mediaItem.buildUpon().setMediaId("AUDIO-${mediaItem.mediaId}").build())
     }
 }

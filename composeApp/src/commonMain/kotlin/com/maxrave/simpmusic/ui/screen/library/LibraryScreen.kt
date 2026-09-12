@@ -64,6 +64,8 @@ import com.maxrave.common.LibraryChipType
 import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.logger.Logger
+import com.maxrave.simpmusic.expect.fetchDeviceLocalTracks
+import com.maxrave.simpmusic.expect.rememberStoragePermissionLauncher
 import com.maxrave.simpmusic.extension.copy
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
@@ -89,8 +91,10 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -135,6 +139,27 @@ fun LibraryScreen(
     val favoritePodcasts by viewModel.favoritePodcasts.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
 
+    var isShowingDeviceTracks by rememberSaveable { mutableStateOf(false) }
+    var deviceTracks by remember { mutableStateOf<List<SongEntity>>(emptyList()) }
+    var isScanningTracks by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    val requestStoragePermission = rememberStoragePermissionLauncher { isGranted ->
+        if (isGranted) {
+            isShowingDeviceTracks = true
+            if (deviceTracks.isEmpty()) {
+                isScanningTracks = true
+                coroutineScope.launch(Dispatchers.Default) {
+                    deviceTracks = fetchDeviceLocalTracks()
+                    isScanningTracks = false
+                }
+            }
+        } else {
+            viewModel.makeToast("Audio permission required to view local songs")
+        }
+    }
+
     val selectionState = rememberSongSelectionState()
     val selectionViewModel: SongSelectionViewModel = koinViewModel()
     var showSelectionSheet by rememberSaveable { mutableStateOf(false) }
@@ -153,6 +178,17 @@ fun LibraryScreen(
     LaunchedEffect(nowPlaying) {
         Logger.w("LibraryScreen", "Check nowPlaying: $nowPlaying")
         viewModel.getRecentlyAdded()
+    }
+
+    LaunchedEffect(isShowingDeviceTracks) {
+        if (isShowingDeviceTracks && deviceTracks.isEmpty()) {
+            isScanningTracks = true
+            val tracks = withContext(Dispatchers.Default) {
+                fetchDeviceLocalTracks()
+            }
+            deviceTracks = tracks
+            isScanningTracks = false
+        }
     }
 
     val chipRowState = rememberScrollState()
@@ -201,150 +237,188 @@ fun LibraryScreen(
         }
     }
 
-    Crossfade(
-        modifier = Modifier.hazeSource(hazeState),
-        targetState = currentFilter,
-    ) { filter ->
-        when (filter) {
-            LibraryChipType.YOUR_LIBRARY -> {
-                val state = rememberLazyListState()
-                val isScrollingUp by state.isScrollingUp()
-                LaunchedEffect(state) {
-                    snapshotFlow { state.firstVisibleItemIndex }
-                        .collect {
-                            if (it <= 1) {
-                                onScrolling.invoke(true)
-                            } else {
-                                onScrolling.invoke(isScrollingUp)
+    if (isShowingDeviceTracks) {
+        val deviceListState = rememberLazyListState()
+        val isScrollingUp by deviceListState.isScrollingUp()
+        LaunchedEffect(deviceListState) {
+            snapshotFlow { deviceListState.firstVisibleItemIndex }
+                .collect {
+                    if (it <= 1) {
+                        onScrolling.invoke(true)
+                    } else {
+                        onScrolling.invoke(isScrollingUp)
+                    }
+                }
+        }
+        LazyColumn(
+            modifier = Modifier.hazeSource(hazeState),
+            contentPadding = innerPadding.copy(top = topAppBarHeight),
+            state = deviceListState,
+        ) {
+            item {
+                LibraryItem(
+                    state =
+                        LibraryItemState(
+                            type =
+                                LibraryItemType.RecentlyAdded(
+                                    playingVideoId = nowPlaying,
+                                ),
+                            data = deviceTracks,
+                            isLoading = isScanningTracks,
+                        ),
+                    navController = navController,
+                    selectionState = selectionState,
+                )
+            }
+            item {
+                EndOfPage()
+            }
+        }
+    } else {
+        Crossfade(
+            modifier = Modifier.hazeSource(hazeState),
+            targetState = currentFilter,
+        ) { filter ->
+            when (filter) {
+                LibraryChipType.YOUR_LIBRARY -> {
+                    val state = rememberLazyListState()
+                    val isScrollingUp by state.isScrollingUp()
+                    LaunchedEffect(state) {
+                        snapshotFlow { state.firstVisibleItemIndex }
+                            .collect {
+                                if (it <= 1) {
+                                    onScrolling.invoke(true)
+                                } else {
+                                    onScrolling.invoke(isScrollingUp)
+                                }
+                            }
+                    }
+                    LazyColumn(
+                        contentPadding =
+                            innerPadding.copy(
+                                top = topAppBarHeight,
+                            ),
+                        state = state,
+                    ) {
+                        item {
+                            LibraryTilingBox(navController)
+                        }
+
+                        if (!listCanvasSong.data.isNullOrEmpty()) {
+                            item {
+                                LibraryItem(
+                                    state =
+                                        LibraryItemState(
+                                            type = LibraryItemType.CanvasSong,
+                                            data = listCanvasSong.data ?: emptyList(),
+                                            isLoading = listCanvasSong is LocalResource.Loading,
+                                        ),
+                                    navController = navController,
+                                )
                             }
                         }
-                }
-                LazyColumn(
-                    contentPadding =
-                        innerPadding.copy(
-                            top = topAppBarHeight,
-                        ),
-                    state = state,
-                ) {
-                    item {
-                        LibraryTilingBox(navController)
-                    }
 
-                    if (!listCanvasSong.data.isNullOrEmpty()) {
                         item {
                             LibraryItem(
                                 state =
                                     LibraryItemState(
-                                        type = LibraryItemType.CanvasSong,
-                                        data = listCanvasSong.data ?: emptyList(),
-                                        isLoading = listCanvasSong is LocalResource.Loading,
+                                        type =
+                                            LibraryItemType.RecentlyAdded(
+                                                playingVideoId = nowPlaying,
+                                            ),
+                                        data = recentlyAdded.data ?: emptyList(),
+                                        isLoading = recentlyAdded is LocalResource.Loading,
                                     ),
                                 navController = navController,
+                                selectionState = selectionState,
                             )
                         }
-                    }
-
-                    item {
-                        LibraryItem(
-                            state =
-                                LibraryItemState(
-                                    type =
-                                        LibraryItemType.RecentlyAdded(
-                                            playingVideoId = nowPlaying,
-                                        ),
-                                    data = recentlyAdded.data ?: emptyList(),
-                                    isLoading = recentlyAdded is LocalResource.Loading,
-                                ),
-                            navController = navController,
-                            selectionState = selectionState,
-                        )
-                    }
-                    item {
-                        EndOfPage()
+                        item {
+                            EndOfPage()
+                        }
                     }
                 }
-            }
 
-            LibraryChipType.YOUTUBE_MUSIC_PLAYLIST -> {
-                GridLibraryPlaylist(
-                    navController,
-                    innerPadding.copy(top = topAppBarHeight),
-                    youTubePlaylist,
-                    emptyText = Res.string.no_YouTube_playlists,
-                    onScrolling = onScrolling,
-                ) {
-                    viewModel.getYouTubePlaylist()
+                LibraryChipType.YOUTUBE_MUSIC_PLAYLIST -> {
+                    GridLibraryPlaylist(
+                        navController,
+                        innerPadding.copy(top = topAppBarHeight),
+                        youTubePlaylist,
+                        emptyText = Res.string.no_YouTube_playlists,
+                        onScrolling = onScrolling,
+                    ) {
+                        viewModel.getYouTubePlaylist()
+                    }
                 }
-            }
 
-            LibraryChipType.YOUTUBE_MIX_FOR_YOU -> Unit
+                LibraryChipType.YOUTUBE_MIX_FOR_YOU -> Unit
 
-            LibraryChipType.LOCAL_PLAYLIST -> {
-                GridLibraryPlaylist(
-                    navController,
-                    innerPadding.copy(top = topAppBarHeight),
-                    yourLocalPlaylist,
-                    onScrolling = onScrolling,
-                    emptyText = Res.string.no_playlists_added,
-                    createNewPlaylist = {
-                        showAddSheet = true
-                    },
-                ) {
-                    viewModel.getLocalPlaylist()
+                LibraryChipType.LOCAL_PLAYLIST -> {
+                    GridLibraryPlaylist(
+                        navController,
+                        innerPadding.copy(top = topAppBarHeight),
+                        yourLocalPlaylist,
+                        onScrolling = onScrolling,
+                        emptyText = Res.string.no_playlists_added,
+                        createNewPlaylist = {
+                            showAddSheet = true
+                        },
+                    ) {
+                        viewModel.getLocalPlaylist()
+                    }
                 }
-            }
 
-            LibraryChipType.FAVORITE_PLAYLIST -> {
-                GridLibraryPlaylist(
-                    navController,
-                    innerPadding.copy(top = topAppBarHeight),
-                    favoritePlaylist,
-                    emptyText = Res.string.no_favorite_playlists,
-                    onScrolling = onScrolling,
-                ) {
-                    viewModel.getPlaylistFavorite()
+                LibraryChipType.FAVORITE_PLAYLIST -> {
+                    GridLibraryPlaylist(
+                        navController,
+                        innerPadding.copy(top = topAppBarHeight),
+                        favoritePlaylist,
+                        emptyText = Res.string.no_favorite_playlists,
+                        onScrolling = onScrolling,
+                    ) {
+                        viewModel.getPlaylistFavorite()
+                    }
                 }
-            }
 
-            LibraryChipType.DOWNLOADED_PLAYLIST -> {
-                GridLibraryPlaylist(
-                    navController,
-                    innerPadding.copy(top = topAppBarHeight),
-                    downloadedPlaylist,
-                    emptyText = Res.string.no_playlists_downloaded,
-                    onScrolling = onScrolling,
-                ) {
-                    viewModel.getDownloadedPlaylist()
+                LibraryChipType.DOWNLOADED_PLAYLIST -> {
+                    GridLibraryPlaylist(
+                        navController,
+                        innerPadding.copy(top = topAppBarHeight),
+                        downloadedPlaylist,
+                        emptyText = Res.string.no_playlists_downloaded,
+                        onScrolling = onScrolling,
+                    ) {
+                        viewModel.getDownloadedPlaylist()
+                    }
                 }
-            }
 
-            LibraryChipType.FAVORITE_PODCAST -> {
-                GridLibraryPlaylist(
-                    navController,
-                    innerPadding.copy(top = topAppBarHeight),
-                    favoritePodcasts,
-                    emptyText = Res.string.no_favorite_podcasts,
-                    onScrolling = onScrolling,
-                ) {
-                    viewModel.getFavoritePodcasts()
+                LibraryChipType.FAVORITE_PODCAST -> {
+                    GridLibraryPlaylist(
+                        navController,
+                        innerPadding.copy(top = topAppBarHeight),
+                        favoritePodcasts,
+                        emptyText = Res.string.no_favorite_podcasts,
+                        onScrolling = onScrolling,
+                    ) {
+                        viewModel.getFavoritePodcasts()
+                    }
                 }
-            }
 
-            LibraryChipType.CHART -> Unit
+                LibraryChipType.CHART -> Unit
 
-            LibraryChipType.WRAPPED -> {
-                LibraryWrappedTab(
-                    navController = navController,
-                    contentPadding = innerPadding.copy(top = topAppBarHeight),
-                    recaps = monthlyRecaps,
-                    onScrolling = onScrolling,
-                ) {
-                    viewModel.getMonthlyRecaps()
+                LibraryChipType.WRAPPED -> {
+                    LibraryWrappedTab(
+                        navController = navController,
+                        contentPadding = innerPadding.copy(top = topAppBarHeight),
+                        recaps = monthlyRecaps,
+                        onScrolling = onScrolling,
+                    ) {
+                        viewModel.getMonthlyRecaps()
+                    }
                 }
             }
         }
     }
-    val coroutineScope = rememberCoroutineScope()
     if (showAddSheet) {
         var newTitle by remember { mutableStateOf("") }
         val showAddSheetState =
@@ -476,11 +550,14 @@ fun LibraryScreen(
                 state = selectionState,
                 windowInsets = WindowInsets(0),
                 onSelectAll = {
-                    selectionState.toggleSelectAll(
+                    val activeList = if (isShowingDeviceTracks) {
+                        deviceTracks.map { it.videoId }
+                    } else {
                         (recentlyAdded.data ?: emptyList())
                             .filterIsInstance<SongEntity>()
-                            .map { it.videoId },
-                    )
+                            .map { it.videoId }
+                    }
+                    selectionState.toggleSelectAll(activeList)
                 },
                 onOpenActions = { showSelectionSheet = true },
                 containerColor = Color.Transparent,
@@ -496,6 +573,17 @@ fun LibraryScreen(
                     .background(Color.Transparent),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            Chip(
+                isAnimated = false,
+                isSelected = isShowingDeviceTracks,
+                text = "Device Songs",
+            ) {
+                if (!isShowingDeviceTracks) {
+                    requestStoragePermission()
+                } else {
+                    isShowingDeviceTracks = false
+                }
+            }
             LibraryChipType.entries.forEach { type ->
                 if (type == LibraryChipType.YOUTUBE_MIX_FOR_YOU) {
                     return@forEach
@@ -511,7 +599,7 @@ fun LibraryScreen(
                 }
                 Chip(
                     isAnimated = false,
-                    isSelected = type == currentFilter,
+                    isSelected = !isShowingDeviceTracks && type == currentFilter,
                     text =
                         when (type) {
                             LibraryChipType.YOUR_LIBRARY -> stringResource(Res.string.your_library)
@@ -525,6 +613,7 @@ fun LibraryScreen(
                             LibraryChipType.WRAPPED -> stringResource(Res.string.wrapped)
                         },
                 ) {
+                    isShowingDeviceTracks = false
                     viewModel.setCurrentScreen(type)
                 }
             }

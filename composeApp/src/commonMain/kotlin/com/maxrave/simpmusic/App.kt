@@ -152,27 +152,15 @@ fun App(
 
     val isTranslucentBottomBar by viewModel.getTranslucentBottomBar().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLiquidGlassEnabled by viewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
-    // Analytics only makes sense with local tracking on, so its tab follows that setting.
     val isLocalTrackingEnabled by viewModel.getLocalTrackingEnabled().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val showAnalyticsTab = isLocalTrackingEnabled == TRUE
-    // Mix for you comes from the signed-in YouTube account, so its tab follows the session — the
-    // same condition that used to hide the chip inside Library.
     val isYouTubeLoggedIn by viewModel.getYouTubeLoggedIn().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val showMixForYouTab = isYouTubeLoggedIn == TRUE
 
     val themeMode by viewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by viewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
     val customThemeColorHex by viewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
-    // MiniPlayer visibility: derived, never stored.
-    //
-    // This used to be a rememberSaveable Boolean written by a LaunchedEffect. Two things went
-    // wrong with that. The effect only runs AFTER the first composition, so the first frame drew
-    // whatever the initial value said — and rememberSaveable RESTORES a previously saved value,
-    // so flipping that initial value from true to false changed nothing on a process that had
-    // already saved true. The bar therefore showed, hid, and showed again on every start.
-    //
-    // Reading it straight from nowPlayingData removes both failure modes: there is no first-frame
-    // guess to be wrong, and no saved copy to disagree with the source.
+
     val isShowMiniPlayer by remember {
         derivedStateOf {
             val item = nowPlayingData?.mediaItem
@@ -180,12 +168,10 @@ fun App(
         }
     }
 
-    // Now playing screen
     var isShowNowPlaylistScreen by rememberSaveable {
         mutableStateOf(false)
     }
 
-    // Fullscreen
     var isInFullscreen by rememberSaveable {
         mutableStateOf(false)
     }
@@ -214,27 +200,12 @@ fun App(
                     NotificationDestination,
                 )
             } else if (data.scheme == "wordbyword" && data.host == "lastfm-auth") {
-                // Last.fm sends the user back here after they approve access, carrying the request
-                // token: wordbyword://lastfm-auth?token=xxx. The callback is fixed on the API
-                // account, which is why the scheme is not "simpmusic".
                 val token = data.getQueryParameter("token")
                 Logger.d("MainActivity", "Last.fm callback, token present: ${!token.isNullOrEmpty()}")
                 viewModel.setIntent(null)
-                // Deliberately no navigation: the login screen is almost certainly already open —
-                // the browser was opened from it — and navigating would stack a second copy on top
-                // of it. The token is handed straight to the shared view model, and the screen
-                // closes itself when it sees a session key appear.
                 token?.let { viewModel.completeLastfmLogin(it) }
             } else if (data.host == "simpmusic.org" || data.scheme == "simpmusic") {
-                // https://simpmusic.org/app/watch?v=VIDEO_ID
-                // https://simpmusic.org/app/playlist?list=PLAYLIST_ID
-                // https://simpmusic.org/app/channel/CHANNEL_ID
-                // simpmusic://watch?v=VIDEO_ID  (host="watch", no path)
-                // simpmusic://playlist?list=PLAYLIST_ID
-                // simpmusic://channel/CHANNEL_ID
                 val segments = data.pathSegments
-                // For simpmusic.org: segments = ["app", "watch"] → appPath = segments[1]
-                // For simpmusic://: host IS the appPath (e.g. host="watch"), segments = []
                 val appPath =
                     if (data.scheme == "simpmusic") {
                         data.host
@@ -263,8 +234,6 @@ fun App(
                     }
 
                     "channel", "c" -> {
-                        // simpmusic://channel/UCxxx → segments = ["UCxxx"]
-                        // simpmusic.org/app/channel/UCxxx → segments = ["app", "channel", "UCxxx"]
                         val artistId =
                             if (data.scheme == "simpmusic") {
                                 segments.firstOrNull()
@@ -286,10 +255,6 @@ fun App(
                         }
                     }
 
-                    // simpmusic://library                     → the Library tab
-                    // simpmusic://library?type=favorite       → one of its collections
-                    // Added for the Playlists widget, whose shortcuts have to reach these
-                    // screens from the home screen without the app already running.
                     "library" -> {
                         val type = data.getQueryParameter("type")
                         if (type.isNullOrBlank()) {
@@ -381,16 +346,11 @@ fun App(
         if (navBackStackEntry?.destination?.route?.contains("FullscreenDestination") == true) {
             isShowNowPlaylistScreen = false
         }
-        // Wrapped counts as fullscreen for the same reason the video player does: it is a
-        // full-bleed reel, and the rail and the mini player would sit on top of the card the user
-        // is meant to be reading — and on top of every card captured as a share image.
         isInFullscreen = navBackStackEntry?.destination?.hierarchy?.any {
             it.hasRoute(FullscreenDestination::class) || it.hasRoute(WrappedDestination::class)
         } == true
     }
     LaunchedEffect(showAnalyticsTab) {
-        // Turning tracking off removes the Analytics tab, so leaving the user standing on it would
-        // strand them on a screen no tab points at anymore.
         if (!showAnalyticsTab &&
             navBackStackEntry?.destination?.hierarchy?.any {
                 it.hasRoute(AnalyticsDestination::class)
@@ -406,8 +366,6 @@ fun App(
         }
     }
     LaunchedEffect(showMixForYouTab) {
-        // Same for signing out of YouTube: the Mix for you tab goes away, so nobody may be left
-        // standing on a screen that has no mixes to show and no tab pointing at it.
         if (!showMixForYouTab &&
             navBackStackEntry?.destination?.hierarchy?.any {
                 it.hasRoute(MixForYouDestination::class)
@@ -432,18 +390,11 @@ fun App(
         themeMode = themeMode,
         themeColorSource = themeColorSource,
         customThemeColor = parseThemeColorHex(customThemeColorHex),
-        // Desktop is unconditionally true — the liquid-glass setting row is Android-only, and the
-        // Desktop capsule player is glass by design. Same rule as MiniPlayer's useGlassSurface.
         liquidGlassEnabled = isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop,
     ) {
-        // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
-        // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).
         val isLightScheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
         val backdrop = rememberBackdrop(if (isLightScheme) Color.White else Color.Black)
 
-        // The desktop shell is a window colour with panels floating on it. The two schemes mirror
-        // each other: the window takes the extreme (pure black / pure white) and the panel steps
-        // one shade back towards the middle, so the panels read as raised either way.
         val desktopWindow = if (isLightScheme) desktopWindowLight else desktopWindowDark
         val desktopPanel =
             if (isLightScheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
@@ -532,10 +483,6 @@ fun App(
                                 viewModel.reloadDestination(klass)
                             }
                         }
-                        // Desktop only: the content sits in its own rounded panel floating on a
-                        // pure black window, Spotify style, while the rail stays flat black
-                        // outside it. Phones keep one continuous surface — the inset only reads
-                        // as deliberate when there is a window frame around it.
                         Box(
                             Modifier
                                 .fillMaxSize()
@@ -555,11 +502,6 @@ fun App(
                                 Modifier
                                     .fillMaxSize()
                                     .then(
-                                        // Desktop is unconditional: the floating capsule player is ALWAYS
-                                        // liquid glass there, and glass with no recorded source draws as
-                                        // plain transparency. Gating the source on the setting while the
-                                        // capsule ignored it was exactly the nested-flag split that kept
-                                        // the capsule see-through.
                                         if ((isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop) &&
                                             isTablet &&
                                             !isInFullscreen
@@ -607,17 +549,6 @@ fun App(
                                                 bottom = 4.dp,
                                             )
                                     } else {
-                                        // Floating capsule, Apple Music style: a fixed size so it never
-                                        // stretches to the window width, and no haze at all — the capsule
-                                        // paints its own liquid glass. Layering haze underneath blurs the
-                                        // same pixels twice and reads as a dark smear, not glass.
-                                        // padding BEFORE height: the other way round the bottom margin
-                                        // eats into the 72dp and the capsule ends up 52dp tall.
-                                        // 60dp is the floor for this layout: the content row is centred
-                                        // on the capsule's axis and the 16dp progress box hangs off the
-                                        // bottom, so the height has to cover the taller of the artwork
-                                        // (32dp) and the two text lines (~33dp), plus that 16dp, plus a
-                                        // gap. Going lower means shrinking the artwork again.
                                         Modifier
                                             .wrapContentWidth()
                                             .padding(bottom = 20.dp)
@@ -655,9 +586,6 @@ fun App(
                                                     bottom = 0.dp,
                                                 ),
                                             ).then(
-                                                // Matches the inset of the content panel so the two
-                                                // read as a pair of floating cards, not one panel
-                                                // with a seam down the middle.
                                                 if (isDesktopShell) {
                                                     Modifier.padding(top = 8.dp, end = 8.dp, bottom = 8.dp)
                                                 } else {
@@ -753,7 +681,7 @@ fun App(
                                 onClick = {
                                     shouldShowUpdateDialog = false
                                     viewModel.showedUpdateDialog = false
-                                    openUrl("https://simpmusic.org/download")
+                                    openUrl("https://github.com/silenteye1/DHUN-Music/releases/latest")
                                 },
                             ) {
                                 Text(

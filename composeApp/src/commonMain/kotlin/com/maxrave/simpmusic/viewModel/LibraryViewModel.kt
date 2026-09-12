@@ -10,10 +10,14 @@ import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.searchResult.playlists.PlaylistsResult
 import com.maxrave.domain.data.type.ChartItem
 import com.maxrave.domain.data.type.MonthlyRecapItem
-import com.maxrave.domain.data.type.PlaylistType
+import com.maxrave.domain.data.type.PlaylistType as DomainPlaylistType
 import com.maxrave.domain.data.type.RecentlyType
 import com.maxrave.domain.extension.now
+import com.maxrave.domain.extension.toGenericMediaItem
 import com.maxrave.domain.manager.DataStoreManager
+import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
+import com.maxrave.domain.mediaservice.handler.PlaylistType
+import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.repository.AlbumRepository
 import com.maxrave.domain.repository.AnalyticsRepository
 import com.maxrave.domain.repository.CommonRepository
@@ -24,6 +28,7 @@ import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.domain.utils.Resource
 import com.maxrave.domain.utils.isRadioPlaylistId
+import com.maxrave.domain.utils.toTrack
 import com.maxrave.simpmusic.ui.screen.home.analytics.monthFullNameResource
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
@@ -49,6 +54,7 @@ import kotlinx.datetime.atTime
 import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import org.koin.mp.KoinPlatform.getKoin
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.added_local_playlist
 import simpmusic.composeapp.generated.resources.wrapped_recap_month
@@ -65,6 +71,8 @@ class LibraryViewModel(
     private val albumRepository: AlbumRepository,
     private val podcastRepository: PodcastRepository,
 ) : BaseViewModel() {
+    private val mediaServiceHandler: MediaPlayerHandler by lazy { getKoin().get() }
+
     private val _currentScreen: MutableStateFlow<LibraryChipType> = MutableStateFlow(LibraryChipType.YOUR_LIBRARY)
     val currentScreen: StateFlow<LibraryChipType> get() = _currentScreen.asStateFlow()
     private val _recentlyAdded: MutableStateFlow<LocalResource<List<RecentlyType>>> =
@@ -83,17 +91,17 @@ class LibraryViewModel(
         MutableStateFlow(LocalResource.Loading())
     val youTubeMixForYou: StateFlow<LocalResource<List<PlaylistsResult>>> get() = _youTubeMixForYou.asStateFlow()
 
-    private val _favoritePlaylist: MutableStateFlow<LocalResource<List<PlaylistType>>> =
+    private val _favoritePlaylist: MutableStateFlow<LocalResource<List<DomainPlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val favoritePlaylist: StateFlow<LocalResource<List<PlaylistType>>> get() = _favoritePlaylist.asStateFlow()
+    val favoritePlaylist: StateFlow<LocalResource<List<DomainPlaylistType>>> get() = _favoritePlaylist.asStateFlow()
 
-    private val _favoritePodcasts: MutableStateFlow<LocalResource<List<PlaylistType>>> =
+    private val _favoritePodcasts: MutableStateFlow<LocalResource<List<DomainPlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val favoritePodcasts: StateFlow<LocalResource<List<PlaylistType>>> get() = _favoritePodcasts.asStateFlow()
+    val favoritePodcasts: StateFlow<LocalResource<List<DomainPlaylistType>>> get() = _favoritePodcasts.asStateFlow()
 
-    private val _downloadedPlaylist: MutableStateFlow<LocalResource<List<PlaylistType>>> =
+    private val _downloadedPlaylist: MutableStateFlow<LocalResource<List<DomainPlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val downloadedPlaylist: StateFlow<LocalResource<List<PlaylistType>>> get() = _downloadedPlaylist.asStateFlow()
+    val downloadedPlaylist: StateFlow<LocalResource<List<DomainPlaylistType>>> get() = _downloadedPlaylist.asStateFlow()
 
     private val _chartPlaylists: MutableStateFlow<LocalResource<List<ChartItem>>> =
         MutableStateFlow(LocalResource.Loading())
@@ -103,15 +111,6 @@ class LibraryViewModel(
         MutableStateFlow(LocalResource.Loading())
     val listCanvasSong: StateFlow<LocalResource<List<SongEntity>>> get() = _listCanvasSong.asStateFlow()
 
-    /**
-     * The months the Wrapped tab offers a recap for, newest first.
-     *
-     * A [MonthlyRecapItem] rather than the destination's own
-     * [LibraryDynamicPlaylistType.MonthlyRecap]: the tab draws these through the shared
-     * `GridLibraryPlaylist`, which renders only [PlaylistType]s, and a tile needs a title and a
-     * cover on top of the year and month the destination carries. The destination is rebuilt from
-     * the year and month when a tile is tapped.
-     */
     private val _monthlyRecaps: MutableStateFlow<LocalResource<List<MonthlyRecapItem>>> =
         MutableStateFlow(LocalResource.Loading())
     val monthlyRecaps: StateFlow<LocalResource<List<MonthlyRecapItem>>> get() = _monthlyRecaps.asStateFlow()
@@ -122,12 +121,6 @@ class LibraryViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val youtubeLoggedIn = dataStoreManager.loggedIn.mapLatest { it == DataStoreManager.TRUE }
 
-    /**
-     * Whether the Wrapped chip has anything behind it.
-     *
-     * The same setting the Analytics tab follows, read the same way — Wrapped and the recaps are
-     * built entirely from `playback_event`, which local tracking is what fills.
-     */
     @OptIn(ExperimentalCoroutinesApi::class)
     val localTrackingEnabled = dataStoreManager.localTrackingEnabled.mapLatest { it == DataStoreManager.TRUE }
 
@@ -212,12 +205,12 @@ class LibraryViewModel(
     fun getPlaylistFavorite() {
         viewModelScope.launch {
             albumRepository.getLikedAlbums().collect { album ->
-                val temp: MutableList<PlaylistType> = mutableListOf()
+                val temp: MutableList<DomainPlaylistType> = mutableListOf()
                 temp.addAll(album)
                 playlistRepository.getLikedPlaylists().collect { playlist ->
                     temp.addAll(playlist)
                     val sortedList =
-                        temp.sortedWith<PlaylistType>(
+                        temp.sortedWith<DomainPlaylistType>(
                             Comparator { p0, p1 ->
                                 val timeP0: LocalDateTime? =
                                     when (p0) {
@@ -240,7 +233,7 @@ class LibraryViewModel(
                                         1
                                     }
                                 }
-                                timeP0.compareTo(timeP1) // Sort in descending order by inLibrary time
+                                timeP0.compareTo(timeP1)
                             },
                         )
                     _favoritePlaylist.value = LocalResource.Success(sortedList)
@@ -271,7 +264,6 @@ class LibraryViewModel(
         _yourLocalPlaylist.value = LocalResource.Loading()
         viewModelScope.launch {
             localPlaylistRepository.getAllLocalPlaylists().collect { values ->
-//                    _listLocalPlaylist.postValue(values)
                 _yourLocalPlaylist.value = LocalResource.Success(values.reversed())
             }
         }
@@ -285,21 +277,6 @@ class LibraryViewModel(
         }
     }
 
-    /**
-     * Which of the last twelve months the user actually listened in, and what each tile shows.
-     *
-     * A month with no plays is left out rather than shown empty: a "Recap March" that opens onto
-     * nothing is worse than no row at all. Twelve is a cap, not a quota — a new install shows one
-     * row, or none.
-     *
-     * The count comes first and gates everything after it: twelve `COUNT`s over an indexed
-     * timestamp range are cheap, so the months with nothing in them are dropped before anything
-     * asks them for a ranking. Only the survivors pay for a cover.
-     *
-     * Title and cover are resolved here rather than in the tile, which cannot suspend: the title
-     * needs a month name out of a string resource with a format argument, and the cover needs a
-     * ranking query followed by a song lookup.
-     */
     fun getMonthlyRecaps() {
         _monthlyRecaps.value = LocalResource.Loading()
         viewModelScope.launch {
@@ -329,14 +306,6 @@ class LibraryViewModel(
         }
     }
 
-    /**
-     * "Recap January", or "Recap January 2025" once the year stops being obvious.
-     *
-     * The same rule and the same two format strings as the header the tile opens — see
-     * [LibraryDynamicPlaylistType.title]. Fully qualified because [BaseViewModel] has a `getString`
-     * of its own that takes no format argument and wraps `runBlocking`, which has no business
-     * running inside a coroutine that is already suspended here.
-     */
     private suspend fun recapTitle(
         year: Int,
         month: Month,
@@ -386,13 +355,38 @@ class LibraryViewModel(
         viewModelScope.launch {
             songRepository.setInLibrary(videoId, Config.REMOVED_SONG_DATE_TIME)
             songRepository.resetTotalPlayTime(videoId)
-            delay(500) // Wait for the database to update
+            delay(500)
             getRecentlyAdded()
         }
     }
 
+    fun playDeviceSongs(songs: List<SongEntity>, clickedIndex: Int) {
+        viewModelScope.launch {
+            val clickedSong = songs.getOrNull(clickedIndex) ?: return@launch
+            val trackList = ArrayList(songs.map { it.toTrack() })
+
+            songs.forEach { song ->
+                songRepository.insertSong(song).lastOrNull()
+            }
+
+            mediaServiceHandler.setQueueData(
+                QueueData.Data(
+                    listTracks = trackList,
+                    firstPlayedTrack = clickedSong.toTrack(),
+                    playlistId = "DEVICE_SONGS",
+                    playlistName = "Device Songs",
+                    playlistType = PlaylistType.PLAYLIST,
+                    continuation = null,
+                ),
+            )
+
+            mediaServiceHandler.clearMediaItems()
+            mediaServiceHandler.addMediaItem(clickedSong.toGenericMediaItem(), playWhenReady = true)
+            mediaServiceHandler.loadPlaylistOrAlbum(clickedIndex)
+        }
+    }
+
     companion object {
-        /** How far back the Wrapped tab offers recaps, counting the current month as the first. */
         private const val MONTHS_OF_RECAP = 12
     }
 }
