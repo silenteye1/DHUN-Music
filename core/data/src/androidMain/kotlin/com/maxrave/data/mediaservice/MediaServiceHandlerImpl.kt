@@ -75,6 +75,7 @@ import com.maxrave.domain.utils.toArrayListTrack
 import com.maxrave.domain.utils.toListName
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
+import com.maxrave.kotlinytmusicscraper.YouTube
 import com.maxrave.logger.Logger
 import com.my.kizzy.DiscordRPC
 import kotlinx.coroutines.CoroutineScope
@@ -119,6 +120,7 @@ internal class MediaServiceHandlerImpl(
     private val localPlaylistRepository: LocalPlaylistRepository,
     private val analyticsRepository: AnalyticsRepository,
     private val coroutineScope: CoroutineScope,
+    private val youTube: YouTube = getKoin().get(),
 ) : MediaPlayerHandler,
     MediaPlayerListener {
     private val backgroundScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -728,20 +730,26 @@ internal class MediaServiceHandlerImpl(
     private fun updateNotification() {
         updateNotificationJob?.cancel()
         updateNotificationJob =
-            coroutineScope.launch {
+            coroutineScope.launch(Dispatchers.IO) {
                 var id = (player.currentMediaItem?.mediaId ?: "")
                 if (id.contains("Video")) {
                     id = id.removePrefix("Video")
                 }
-                val liked =
-                    songRepository
-                        .getSongById(id)
-                        .singleOrNull()
-                        ?.liked ?: false
-                _controlState.value = _controlState.value.copy(isLiked = liked)
+                if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) return@launch
+
+                val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
+                val isLikedStatus = if (isLoggedIn) {
+                    val ytStatus = runCatching { youTube.getLikedInfo(id).getOrNull() }.getOrNull()
+                    ytStatus?.name == "LIKE" || _controlState.value.isLiked
+                } else {
+                    songRepository.getSongById(id).singleOrNull()?.liked ?: false
+                }
+
+                _controlState.update { it.copy(isLiked = isLikedStatus) }
+
                 onUpdateNotification.invoke(
                     listOf(
-                        GenericCommandButton.Like(liked),
+                        GenericCommandButton.Like(isLikedStatus),
                         GenericCommandButton.Shuffle(isShuffled = _controlState.value.isShuffle),
                         GenericCommandButton.Repeat(repeatState = _controlState.value.repeatState),
                         GenericCommandButton.Radio,
@@ -920,16 +928,36 @@ internal class MediaServiceHandlerImpl(
     override fun toggleLike() {
         toggleLikeJob?.cancel()
         toggleLikeJob =
-            coroutineScope.launch {
+            coroutineScope.launch(Dispatchers.IO) {
                 var id = (player.currentMediaItem?.mediaId ?: "")
                 if (id.contains("Video")) {
                     id = id.removePrefix("Video")
                 }
+                if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) return@launch
+
+                val currentLiked = controlState.first().isLiked
+                val targetLiked = !currentLiked
+
+                _controlState.update { it.copy(isLiked = targetLiked) }
+                updateNotification()
+
                 songRepository.updateLikeStatus(
                     id,
-                    if (!(controlState.first().isLiked)) 1 else 0,
+                    if (targetLiked) 1 else 0,
                 )
-                delay(200)
+
+                val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
+                if (isLoggedIn) {
+                    runCatching {
+                        if (targetLiked) {
+                            youTube.addToLiked(id)
+                        } else {
+                            youTube.removeFromLiked(id)
+                        }
+                    }.onFailure { error ->
+                        Logger.e(TAG, "YouTube sync failed: ${error.message}")
+                    }
+                }
             }
     }
 

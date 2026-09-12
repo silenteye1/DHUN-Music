@@ -130,8 +130,6 @@ import com.maxrave.simpmusic.ui.component.PlayerControlLayout
 import com.maxrave.simpmusic.ui.component.lyrics.ShareLyricsSheet
 import com.maxrave.simpmusic.ui.component.lyrics.toShareLyricsLines
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
-import com.maxrave.simpmusic.ui.icon.AddCircleOutline
-import com.maxrave.simpmusic.ui.icon.CheckCircle
 import com.maxrave.simpmusic.ui.icon.Forward5
 import com.maxrave.simpmusic.ui.icon.Fullscreen
 import com.maxrave.simpmusic.ui.icon.Info
@@ -177,9 +175,6 @@ import simpmusic.composeapp.generated.resources.show
 import simpmusic.composeapp.generated.resources.spotify_lyrics_provider
 import simpmusic.composeapp.generated.resources.unsynced
 import simpmusic.composeapp.generated.resources.view_count
-
-// stripRichSyncTimestamps() lives in NowPlayingContentState.kt (same package) so both
-// content styles share one copy.
 
 /**
  * The original Spotify-inspired Now Playing UI, moved verbatim out of
@@ -255,21 +250,13 @@ fun NowPlayingContentSpotify(
                     state.mainScrollState,
                     enabled = state.isExpanded,
                 )
-                // Horizontal swipe is handled by the unified ArtworkPager below.
-                // Spacers in this Column have no pointer input and don't block hits, so
-                // drags fall through to the Pager.
                 .then(
                     if (state.showHideMiddleLayout) {
                         Modifier
-                            // The backdrop fills the whole scrollable content, then the gradient
-                            // is drawn over just the first screen height. Using background() for
-                            // the gradient instead would stretch it across the entire content,
-                            // which is what made it run on forever while scrolling.
                             .background(PlayerBackdropColor)
                             .drawBehind {
                                 val gradientHeight = screenInfo.hPX.toFloat()
                                 val area = Size(size.width, gradientHeight)
-                                // Palette gradient, keeping its diagonal angle.
                                 drawRect(
                                     brush =
                                         Brush.linearGradient(
@@ -283,19 +270,12 @@ fun NowPlayingContentSpotify(
                                         ),
                                     size = area,
                                 )
-                                // Vertical fade to the backdrop colour, fully opaque from 90%
-                                // down, so the bottom edge meets the area underneath seamlessly
-                                // across the whole width. Adding the same colour as a stop to
-                                // the diagonal gradient above could not do that — it would only
-                                // arrive in one corner and leave a visible diagonal seam.
                                 drawRect(
                                     brush =
                                         smoothScrimBrush(
                                             from = PlayerBackdropColor.copy(alpha = 0f),
                                             to = PlayerBackdropColor,
                                             startY = 0f,
-                                            // Reaches full opacity at 95% and is held there by Clamp,
-                                            // same as the old `0.95f to PlayerBackdropColor` stop.
                                             endY = gradientHeight * 0.95f,
                                         ),
                                     size = area,
@@ -307,11 +287,6 @@ fun NowPlayingContentSpotify(
                 ),
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                // === Unified ArtworkPager (Spotify-style swipe) ===
-                // ONE HorizontalPager wraps both the fullscreen canvas backdrop AND the
-                // centered square thumbnail. Both layers slide together as a single page
-                // so when the user swipes during canvas mode, they see the next track's
-                // thumbnail enter and the canvas exit in lockstep.
                 HorizontalPager(
                     state = state.artworkPagerState,
                     modifier =
@@ -329,10 +304,6 @@ fun NowPlayingContentSpotify(
                     val isCurrentArtworkPage = page == state.currentOrderIndex
                     val pageHasCanvas = isCurrentArtworkPage && state.screenData.canvasData != null
 
-                    // Per-page palette state for the gradient backdrop.
-                    // The bitmap is fed in by Layer 2's adjacent-thumbnail AsyncImage
-                    // (onSuccess), so we use the SAME bitmap that's painted on screen —
-                    // matches the outer Column's palette extraction characteristics.
                     val pagePaletteState = rememberPaletteState()
                     val pageStartColor =
                         remember(pageTrack?.videoId) {
@@ -353,12 +324,7 @@ fun NowPlayingContentSpotify(
                         modifier =
                             Modifier
                                 .fillMaxSize()
-                                // Prevent the canvas video (9:16 aspect, can be wider than the
-                                // page) and any other content from bleeding into adjacent pages.
                                 .clipToBounds()
-                                // Tap toggles controls only when the canvas is covering this page;
-                                // otherwise no-op (matches the legacy behaviour where the touch
-                                // overlay only appeared in canvas mode).
                                 .clickable(
                                     enabled = pageHasCanvas,
                                     onClick = {
@@ -373,15 +339,7 @@ fun NowPlayingContentSpotify(
                                         },
                                 ),
                     ) {
-                        // ── Layer 0: per-page backdrop (adjacent pages only) ──
-                        // Palette gradient (startColor → endColor) so the adjacent page never
-                        // falls back to a flat dark void during a swipe.
-                        // The CURRENT page deliberately skips this layer so the existing
-                        // gradient / canvas on the Column stays visible.
                         if (!isCurrentArtworkPage && pageTrack != null) {
-                            // Palette is fed by Layer 2's adjacent-thumbnail AsyncImage
-                            // (see below) so the gradient color stays consistent with
-                            // the bitmap actually painted for that page.
                             Box(
                                 modifier =
                                     Modifier
@@ -400,7 +358,6 @@ fun NowPlayingContentSpotify(
                             )
                         }
 
-                        // ── Layer 1: fullscreen canvas backdrop (current track + canvas data) ──
                         if (pageHasCanvas) {
                             Crossfade(targetState = state.screenData.canvasData?.isVideo) { isVideo ->
                                 if (isVideo == true) {
@@ -436,10 +393,6 @@ fun NowPlayingContentSpotify(
                                     )
                                 }
                             }
-                            // Bottom gradient overlay — different intensity per state:
-                            // - Focus: original full-height heavy gradient (controls readability)
-                            // - Unfocus: 50% height + 50% lighter colors (just enough for metadata,
-                            //   lets more canvas show through)
                             Crossfade(
                                 targetState = state.showControlLayout,
                                 modifier =
@@ -461,18 +414,6 @@ fun NowPlayingContentSpotify(
                                                 ),
                                     )
                                 } else {
-                                    // Box fullscreen — gradient stops control where darkening starts.
-                                    // Note: pager content can extend past visible viewport bottom due
-                                    // to parent offsets. We span the FULL pager height (instead of a
-                                    // fixed 120.dp BottomCenter Box) so the colorStops are anchored
-                                    // to pager height — guaranteeing the visible viewport bottom
-                                    // always falls inside the held-Black region (>=0.85f).
-                                    // Unfocused gradient — compact dark coverage at the very bottom only:
-                                    //   - 0%-92%: fully Transparent (canvas clear)
-                                    //   - 92%-97%: quick fade to Black
-                                    //   - 97%-100%: held solid Black (avoids canvas bleed-through
-                                    //     at visible viewport bottom — alpha must reach 0xFF before
-                                    //     the visible bottom, which sits at ~94-95% of pager).
                                     Box(
                                         modifier =
                                             Modifier
@@ -490,11 +431,6 @@ fun NowPlayingContentSpotify(
                             }
                         }
 
-                        // ── Layer 2: centered square thumbnail ──
-                        // Positioned at the same Y as the original middle layout
-                        // (TopAppBar height + middleLayoutPaddingDp from the top of the page).
-                        // alpha=0 when the canvas is covering this page; otherwise visible so
-                        // adjacent pages always show the upcoming/previous track artwork.
                         Column(modifier = Modifier.fillMaxSize()) {
                             Spacer(modifier = Modifier.height(topAppBarHeightDp.dp))
                             Spacer(
@@ -513,15 +449,6 @@ fun NowPlayingContentSpotify(
                                         .aspectRatio(1f),
                             ) {
                                 if (isCurrentArtworkPage) {
-                                    // Live artwork (drives palette extraction via setBitmap).
-                                    // The artwork URL that is actually loading. `maxresdefault.jpg` —
-                                    // the fallback artworkUri many video tracks carry — only EXISTS
-                                    // for videos with an HD thumbnail; everything else 404s,
-                                    // onSuccess never fires, the palette never generates, and the
-                                    // gradient sits on its fallback for a grey song. On error we
-                                    // retry once with `hqdefault.jpg`, which YouTube guarantees for
-                                    // every video. Song artwork (googleusercontent) never matches
-                                    // the replace, so this is a no-op for it.
                                     var artworkUrl by remember(state.screenData.thumbnailURL) {
                                         mutableStateOf(state.screenData.thumbnailURL)
                                     }
@@ -579,7 +506,6 @@ fun NowPlayingContentSpotify(
                                         )
                                     }
 
-                                    // Inline video player (current page + isVideo + shouldShowVideo).
                                     androidx.compose.animation.AnimatedVisibility(
                                         visible = state.screenData.isVideo && state.shouldShowVideo,
                                         modifier = Modifier.align(Alignment.Center),
@@ -630,9 +556,6 @@ fun NowPlayingContentSpotify(
                                                                 Modifier
                                                                     .fillMaxSize()
                                                                     .background(
-                                                                        // The old middle stop (0.15f to overlay)
-                                                                        // hand-approximated a convex falloff;
-                                                                        // smoothstep does that on its own.
                                                                         smoothScrimBrush(
                                                                             from = blackMoreOverlay,
                                                                             to = overlay.copy(alpha = 0f),
@@ -734,7 +657,6 @@ fun NowPlayingContentSpotify(
                                         }
                                     }
                                 } else if (pageTrack != null) {
-                                    // Adjacent page — static thumbnail from Track.thumbnails.
                                     val staticThumb =
                                         pageTrack.thumbnails
                                             ?.maxByOrNull { it.width * it.height }
@@ -766,9 +688,6 @@ fun NowPlayingContentSpotify(
                                             contentScale = ContentScale.Crop,
                                             placeholder = rememberHolderPainter(),
                                             error = rememberHolderPainter(),
-                                            // Feed the per-page palette using the SAME bitmap
-                                            // we just rendered so the Layer 0 gradient backdrop
-                                            // matches what the user sees on screen.
                                             onSuccess = { state ->
                                                 palettePageScope.launch {
                                                     pagePaletteState.generate(
@@ -811,8 +730,6 @@ fun NowPlayingContentSpotify(
                         TopAppBarDefaults.topAppBarColors().copy(
                             containerColor = Color.Transparent,
                         ),
-                    // Position-aware insets shrink per frame while the sheet is dragged (pinned
-                    // bar + layout jitter) — status-bar space is static padding on the modifier.
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     title = {
                         Column(
@@ -886,10 +803,6 @@ fun NowPlayingContentSpotify(
                                         ).fillMaxWidth(),
                             )
 
-                            // Artwork is rendered by the unified ArtworkPager above (which lives in the
-                            // outer Box). Reserve the same vertical space here so the Info Layout below
-                            // stays at its original Y position. Spacer has no pointer input so it does
-                            // not block the pager swipe gesture beneath it.
                             Spacer(
                                 modifier =
                                     Modifier
@@ -906,10 +819,6 @@ fun NowPlayingContentSpotify(
                                         }.aspectRatio(1f),
                             )
 
-                            // Spotify-style current lyric line — vertically centered in the gap
-                            // between the artwork and the info layout below. This Box replaces the
-                            // plain gap Spacer at the same middleLayoutPaddingDp height, so the
-                            // info layout position never moves; the line just lives inside the gap.
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
@@ -925,7 +834,6 @@ fun NowPlayingContentSpotify(
                                         inlineLyrics.syncType != null &&
                                         inlineLyrics.syncType != "UNSYNCED" &&
                                         inlineLyrics.lines != null
-                                // Canvas mode has its own subtitle overlay — never show both.
                                 val currentLyricLineText =
                                     if (!hasSyncedLyrics ||
                                         state.screenData.canvasData != null ||
@@ -1044,15 +952,6 @@ fun NowPlayingContentSpotify(
                                             }
                                             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                                                 Slider(
-                                                    // material3 1.5.0-alpha25 keeps a
-                                                    // binary-compatibility overload of Slider that
-                                                    // accepts valueRange and then forwards without
-                                                    // it, so the slider silently runs on the
-                                                    // default 0f..1f and anything larger is clamped
-                                                    // to a full track. Hand it a fraction instead;
-                                                    // sliderValue stays on the 0..100 scale that
-                                                    // UIEvent.UpdateProgress and the time labels
-                                                    // are built around.
                                                     value = state.sliderValue / 100f,
                                                     onValueChangeFinished = {
                                                         actions.onSliderChangeFinished()
@@ -1123,10 +1022,6 @@ fun NowPlayingContentSpotify(
                                                 modifier = Modifier.weight(1f),
                                                 textAlign = TextAlign.Left,
                                             )
-                                            // Sweep head for the "Crossfading" shimmer, 0..1. Runs
-                                            // unconditionally: behind the crossfade check it would
-                                            // restart from zero each time the label appears (same
-                                            // rationale as MiniPlayer's crossfadeSweep).
                                             val sweepTransition = rememberInfiniteTransition(label = "nowPlayingCrossfadeSweep")
                                             val crossfadeSweep by sweepTransition.animateFloat(
                                                 initialValue = 0f,
@@ -1143,9 +1038,6 @@ fun NowPlayingContentSpotify(
                                                 exit = fadeOut(),
                                                 visible = state.timelineState.isCrossfading,
                                             ) {
-                                                // Same effect as the desktop MiniPlayer label: a
-                                                // highlight sweeping through the glyphs via a text
-                                                // brush — no overlay, no clipping.
                                                 val shimmerSpan = 140f
                                                 val shimmerHead = crossfadeSweep * (shimmerSpan * 3f) - shimmerSpan
                                                 val labelColor = typo().bodyMedium.color
@@ -1156,8 +1048,6 @@ fun NowPlayingContentSpotify(
                                                             brush =
                                                                 Brush.horizontalGradient(
                                                                     0f to labelColor.copy(alpha = 0.45f),
-                                                                    // The sweep head is PURE white, not the resting label colour — the label
-                                                                    // colour is an adaptive grey, and a grey gleam reads as no gleam at all.
                                                                     0.5f to Color.White,
                                                                     1f to labelColor.copy(alpha = 0.45f),
                                                                     startX = shimmerHead,
@@ -1183,7 +1073,6 @@ fun NowPlayingContentSpotify(
                                                     .fillMaxWidth()
                                                     .height(5.dp),
                                         )
-                                        // Control Button Layout
                                         PlayerControlLayout(
                                             state.controllerState,
                                         ) {
@@ -1192,7 +1081,7 @@ fun NowPlayingContentSpotify(
                                     } else {
                                         Spacer(Modifier.height(16.dp))
                                     }
-                                    // List Bottom Buttons - MODIFIED TO ADD PLAYLIST BUTTON
+                                    // List Bottom Buttons
                                     Row(
                                         modifier =
                                             Modifier
@@ -1202,9 +1091,6 @@ fun NowPlayingContentSpotify(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        // Info + Cast Buttons (Left)
-                                        // weight(fill = false) keeps a long device name from shoving the
-                                        // playlist/queue buttons off the end of this SpaceBetween row.
                                         Row(
                                             modifier = Modifier.weight(1f, fill = false),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1222,9 +1108,6 @@ fun NowPlayingContentSpotify(
                                             ) {
                                                 Icon(imageVector = SimpIcons.Info, tint = Color.White, contentDescription = "")
                                             }
-                                            // Cyan rather than colorScheme.primary: this screen is force-dark whatever
-                                            // the app theme is, so a light-theme primary would sink into the black
-                                            // backdrop. Mirrors the `if (forceDark) Color.Cyan` rule in FullWidthItems.
                                             PlatformCastButton(
                                                 modifier = Modifier.size(24.dp),
                                                 tint = if (state.castState.isRemote) Color.Cyan else Color.White,
@@ -1248,7 +1131,6 @@ fun NowPlayingContentSpotify(
                                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            // NEW: Add to Playlist Button (Center-Right)
                                             IconButton(
                                                 modifier =
                                                     Modifier
@@ -1266,7 +1148,6 @@ fun NowPlayingContentSpotify(
                                                 )
                                             }
 
-                                            // Queue Button (Right)
                                             IconButton(
                                                 modifier =
                                                     Modifier
@@ -1311,9 +1192,6 @@ fun NowPlayingContentSpotify(
                                                 ),
                                         contentAlignment = Alignment.BottomStart,
                                     ) {
-                                        // Gradient backdrop — transparent at top so Canvas shows
-                                        // through, fading to dark at the bottom for a Spotify-like
-                                        // backdrop under the metadata row.
                                         Box(
                                             modifier =
                                                 Modifier
@@ -1337,7 +1215,6 @@ fun NowPlayingContentSpotify(
                                                 enter = fadeIn() + expandVertically(),
                                                 exit = fadeOut() + shrinkVertically(),
                                             ) {
-                                                // Canvas subtitle - Spotify-style: lyrics line above metadata row
                                                 val lineText =
                                                     state.screenData.lyricsData
                                                         ?.lyrics
@@ -1401,13 +1278,8 @@ fun NowPlayingContentSpotify(
                                 }
                             }
                         }
-                        // The original Touch Area overlay was removed: tap-to-toggle is now
-                        // wired directly onto each ArtworkPager page (canvas + middle), so
-                        // drag gestures reach HorizontalPager without competing with a
-                        // sibling clickable.
                     }
                     Column(Modifier.padding(horizontal = 20.dp)) {
-                        // Lyrics Layout
                         AnimatedVisibility(
                             visible = state.screenData.lyricsData != null,
                             modifier = Modifier.padding(top = 10.dp),
@@ -1433,10 +1305,6 @@ fun NowPlayingContentSpotify(
                                             AIBadge()
                                         }
                                         Spacer(modifier = Modifier.weight(1f))
-                                        // Vote button — only when the lyrics or the translation came from
-                                        // SimpMusic Lyrics. The rule itself lives on the shared contract
-                                        // (canVote), so a style cannot ship without it the way the Apple
-                                        // Music tab did.
                                         if (state.screenData.lyricsData.canVote()) {
                                             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                                                 IconButton(
@@ -1482,7 +1350,6 @@ fun NowPlayingContentSpotify(
                                             }
                                         }
                                     }
-                                    // Lyrics Layout
                                     Spacer(modifier = Modifier.height(18.dp))
                                     Box(
                                         modifier =
@@ -1570,10 +1437,6 @@ fun NowPlayingContentSpotify(
                                     ),
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth()) {
-                                    // Artwork occupies the top of the card; only the section
-                                    // label sits on top of it. Name and subscriber count moved
-                                    // below onto the solid card surface so they stay readable
-                                    // regardless of how bright the artist photo is.
                                     Box(
                                         modifier =
                                             Modifier
@@ -1594,13 +1457,8 @@ fun NowPlayingContentSpotify(
                                             error = rememberHolderPainter(isVideo = true),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
-                                            // No explicit clip: the ElevatedCard already clips to
-                                            // its 8.dp shape, so only the card's top corners round
-                                            // and the image meets the panel below flush.
                                             modifier = Modifier.fillMaxSize(),
                                         )
-                                        // Scrim behind the label: artist photos are often bright
-                                        // at the top, which swallowed the white text.
                                         Box(
                                             modifier =
                                                 Modifier
@@ -1819,8 +1677,16 @@ fun NowPlayingContentSpotify(
                             }
                         }
                         Spacer(modifier = Modifier.width(15.dp))
-                        HeartCheckBox(checked = state.controllerState.isLiked, size = 30) {
-                            actions.onUIEvent(UIEvent.ToggleLike)
+                        // Mini-Toolbar Heart Button: Synced with YouTube Like
+                        HeartCheckBox(
+                            checked = if (state.isUserLoggedIn) state.likeStatus else state.controllerState.isLiked,
+                            size = 30,
+                        ) {
+                            if (state.isUserLoggedIn) {
+                                actions.onAddToYouTubeLiked()
+                            } else {
+                                actions.onUIEvent(UIEvent.ToggleLike)
+                            }
                         }
                         Spacer(modifier = Modifier.width(15.dp))
                         Crossfade(targetState = state.timelineState.loading, label = "") {
@@ -1881,9 +1747,6 @@ fun NowPlayingContentSpotify(
     }
 }
 
-// The focused info layout (controls visible) and the canvas-unfocused overlay rendered this
-// exact metadata row twice — thumbnail-when-canvas, title, explicit badge + artists,
-// YouTube like button, favourite heart. Extracted once; both call sites pass the same holders.
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NowPlayingTrackInfoRow(
@@ -1973,51 +1836,19 @@ private fun NowPlayingTrackInfoRow(
                 }
             }
         }
-        if (state.isUserLoggedIn) {
-            Spacer(modifier = Modifier.size(16.dp))
-            Crossfade(
-                targetState = state.likeStatus,
-            ) {
-                if (it) {
-                    IconButton(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .aspectRatio(1f)
-                                .clip(
-                                    CircleShape,
-                                ),
-                        onClick = {
-                            actions.onAddToYouTubeLiked()
-                        },
-                    ) {
-                        Icon(imageVector = SimpIcons.CheckCircle, tint = Color.White, contentDescription = "")
-                    }
-                } else {
-                    IconButton(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .aspectRatio(1f)
-                                .clip(
-                                    CircleShape,
-                                ),
-                        onClick = {
-                            actions.onAddToYouTubeLiked()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = SimpIcons.AddCircleOutline,
-                            tint = Color.White,
-                            contentDescription = "",
-                        )
-                    }
-                }
+
+        Spacer(modifier = Modifier.size(16.dp))
+
+        // Single Unified Heart Button: YouTube Like status se checked rahega aur direct YouTube par sync karega
+        HeartCheckBox(
+            checked = if (state.isUserLoggedIn) state.likeStatus else state.controllerState.isLiked,
+            size = 32,
+        ) {
+            if (state.isUserLoggedIn) {
+                actions.onAddToYouTubeLiked()
+            } else {
+                actions.onUIEvent(UIEvent.ToggleLike)
             }
-        }
-        Spacer(modifier = Modifier.size(12.dp))
-        HeartCheckBox(checked = state.controllerState.isLiked, size = 32) {
-            actions.onUIEvent(UIEvent.ToggleLike)
         }
     }
 }
