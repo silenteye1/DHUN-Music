@@ -73,6 +73,9 @@ import kotlinx.datetime.toInstant
 import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.serialization.XML
 import okio.FileSystem
@@ -108,8 +111,6 @@ class Ytmusic {
                 checkHttpMethod = false
                 allowHttpsDowngrade = true
             }
-            // Disable logging for download - significantly improves performance
-            // Note: Don't install Logging plugin for download client
         }.also { downloadClient = it }
 
     var cookiePath: Path? = null
@@ -131,9 +132,6 @@ class Ytmusic {
 
     var pageId: String? = null
 
-    // TIDAL credentials. Empty until CommonRepositoryImpl pushes the values fetched from the
-    // remote config (cached in DataStore). Deliberately NOT hard-coded in source — while
-    // empty, TIDAL metadata lookups fail silently until the first successful fetch.
     var tidalClientId: String = ""
     var tidalClientSecret: String = ""
 
@@ -341,24 +339,6 @@ class Ytmusic {
             setBody("[\"$poTokenChallengeRequestKey\", \"$challenge\"]")
         }
 
-//    curl 'https://jnn-pa.googleapis.com/$rpc/google.internal.waa.v1.Waa/Create' \
-//    -H 'accept: */*' \
-//    -H 'accept-language: vi,en;q=0.9,en-GB;q=0.8,en-US;q=0.7' \
-//    -H 'content-type: application/json+protobuf' \
-//    -H 'origin: https://www.youtube.com' \
-//    -H 'priority: u=1, i' \
-//    -H 'referer: https://www.youtube.com/' \
-//    -H 'sec-ch-ua: "Microsoft Edge";v="131", "Chromium";v="131", "Not_A Brand";v="24"' \
-//    -H 'sec-ch-ua-mobile: ?0' \
-//    -H 'sec-ch-ua-platform: "macOS"' \
-//    -H 'sec-fetch-dest: empty' \
-//    -H 'sec-fetch-mode: cors' \
-//    -H 'sec-fetch-site: cross-site' \
-//    -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0' \
-//    -H 'x-goog-api-key: AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw' \
-//    -H 'x-user-agent: grpc-web-javascript/0.1' \
-//    --data-raw '["O43z0dpjhgX20SCx4KAo"]'
-
     suspend fun noLogInPlayer(
         videoId: String,
         cookie: String,
@@ -435,14 +415,6 @@ class Ytmusic {
                                 signatureTimestamp = signatureTimestamp ?: 20073,
                             ),
                     ),
-//                serviceIntegrityDimensions =
-//                    if (poToken != null) {
-//                        PlayerBody.ServiceIntegrityDimensions(
-//                            poToken = poToken,
-//                        )
-//                    } else {
-//                        null
-//                    },
             ),
         )
     }
@@ -484,6 +456,18 @@ class Ytmusic {
         )
     }
 
+    suspend fun deleteYouTubePlaylist(
+        playlistId: String,
+    ) = httpClient.post("playlist/delete") {
+        ytClient(WEB_REMIX, setLogin = true)
+        setBody(
+            buildJsonObject {
+                put("playlistId", playlistId.removePrefix("VL"))
+                put("context", normalJson.encodeToJsonElement(WEB_REMIX.toContext(locale, visitorData)))
+            },
+        )
+    }
+
     suspend fun editYouTubePlaylist(
         playlistId: String,
         title: String? = null,
@@ -504,13 +488,6 @@ class Ytmusic {
         )
     }
 
-    /**
-     * Step 1 of setting a playlist cover: reserve a resumable upload slot.
-     *
-     * The upload id is returned in the `x-guploader-uploadid` RESPONSE HEADER, not in the body —
-     * the body is empty. This is Google's generic resumable-upload handshake, which is why the
-     * host is music.youtube.com but the path is outside the usual /youtubei/v1 tree.
-     */
     suspend fun getPlaylistThumbnailUploadSlot(contentLength: Int) =
         httpClient.post("https://music.youtube.com/playlist_image_upload/playlist_custom_thumbnail") {
             ytClient(WEB_REMIX, setLogin = true)
@@ -521,7 +498,6 @@ class Ytmusic {
             }
         }
 
-    /** Step 2: send the bytes and finalise, which answers with the blob id. */
     suspend fun uploadPlaylistThumbnail(
         uploadId: String,
         image: ByteArray,
@@ -536,7 +512,6 @@ class Ytmusic {
         setBody(image)
     }
 
-    /** Step 3: attach the uploaded blob to the playlist. */
     suspend fun setYouTubePlaylistCustomThumbnail(
         playlistId: String,
         blobId: String,
@@ -603,13 +578,6 @@ class Ytmusic {
         )
     }
 
-    /**
-     * Move a playlist item before another item.
-     * @param playlistId The YouTube playlist ID
-     * @param setVideoId The setVideoId of the item to move
-     * @param movedSetVideoIdSuccessor The setVideoId of the item that should come AFTER the moved item.
-     *        If null, the item is moved to the end of the playlist.
-     */
     suspend fun moveItemYouTubePlaylist(
         playlistId: String,
         setVideoId: String,
@@ -632,11 +600,6 @@ class Ytmusic {
         )
     }
 
-    /***
-     * SponsorBlock testing
-     * @author maxrave-dev
-     */
-
     suspend fun getSkipSegments(videoId: String) =
         httpClient.get("https://sponsor.ajay.app/api/skipSegments/") {
             contentType(ContentType.Application.Json)
@@ -654,7 +617,7 @@ class Ytmusic {
         }
 
     suspend fun checkForGithubReleaseUpdate() =
-        httpClient.get("https://api.github.com/repos/silenteye1/DHUN-Music/releases/latest"){
+        httpClient.get("https://api.github.com/repos/silenteye1/DHUN-Music/releases/latest") {
             contentType(ContentType.Application.Json)
         }
 
@@ -946,7 +909,6 @@ class Ytmusic {
             with(getDownloadClient()) {
                 var lastException: Throwable? = null
 
-                // First, check if server supports Range requests
                 val supportsRange =
                     try {
                         val rangeResponse =
@@ -960,7 +922,6 @@ class Ytmusic {
                         false
                     }
 
-                // Get file size
                 val fileSize =
                     try {
                         head(url) {
@@ -970,7 +931,6 @@ class Ytmusic {
                         0L
                     }
 
-                // If server supports Range and file is large enough, use parallel download
                 if (supportsRange && fileSize > CHUNK_SIZE * 2) {
                     parallelDownload(
                         url = url,
@@ -988,7 +948,6 @@ class Ytmusic {
                         },
                     )
                 } else {
-                    // Fallback to single-threaded download
                     singleThreadedDownload(
                         url = url,
                         path = path,
@@ -1021,14 +980,12 @@ class Ytmusic {
         val tempDir = path.parent?.let { it / "temp_chunks_${path.name}" } ?: throw IllegalArgumentException("Path has no parent")
 
         try {
-            // Create temp directory
             fileSystem.createDirectories(tempDir)
             val tempFiles =
                 (0 until parallelDownloads).map { index ->
                     tempDir / "chunk_$index.tmp"
                 }
 
-            // Download each chunk in parallel
             coroutineScope {
                 val jobs =
                     (0 until parallelDownloads).map { index ->
@@ -1078,10 +1035,8 @@ class Ytmusic {
                         }
                     }
 
-                // Wait for all chunks and track progress
                 var completedChunks = 0
 
-                // Simplified progress tracking - emit after each chunk completes
                 jobs.forEach { job ->
                     launch {
                         job.join()
@@ -1092,11 +1047,9 @@ class Ytmusic {
                     }
                 }
 
-                // Wait for all to complete
                 jobs.forEach { it.join() }
             }
 
-            // Merge all chunks into final file
             Logger.d(TAG, "Merging chunks into $path")
             fileSystem.sink(path).buffer().use { finalSink ->
                 tempFiles.forEach { tempFile ->
@@ -1109,20 +1062,17 @@ class Ytmusic {
                 }
             }
 
-            // Cleanup temp directory
             fileSystem.delete(tempDir)
 
             Logger.d(TAG, "Parallel download completed: $fileSize bytes")
             onComplete(true, null)
         } catch (e: Exception) {
             Logger.e(TAG, "Parallel download failed: ${e.message}")
-            // Cleanup temp directory
             try {
                 if (fileSystem.exists(tempDir)) {
                     fileSystem.deleteRecursively(tempDir)
                 }
             } catch (ignored: Exception) {
-                // Ignore cleanup errors
             }
             onComplete(false, e)
         }
@@ -1273,13 +1223,6 @@ class Ytmusic {
         parameter("supportsUserData", true)
     }
 
-    /**
-     * Fetch the remote app config (TIDAL credentials) from GitHub raw.
-     *
-     * raw.githubusercontent.com serves .json files as `text/plain`, so Ktor's
-     * ContentNegotiation will not auto-deserialize the body. We read it as text and parse
-     * it explicitly with [normalJson] (which ignores unknown keys for forward-compat).
-     */
     suspend fun getTidalRemoteConfig(): RemoteConfig {
         val text =
             httpClient
@@ -1292,10 +1235,6 @@ class Ytmusic {
     companion object {
         private const val TIDAL_AUTH_URL = "https://auth.tidal.com/v1/oauth2/token"
         private const val TIDAL_SEARCH_URL = "https://tidal.com/v2/client-search/"
-
-        // Remote config (TIDAL credentials) hosted on GitHub raw, fetched on each app launch.
-        // Credentials are NOT hard-coded in source — they live only in this remote file,
-        // kept in a separate repo (simpmusic-files) so the main repo stays credential-free.
         const val TIDAL_REMOTE_CONFIG_URL =
             "https://raw.githubusercontent.com/maxrave-dev/simpmusic-files/refs/heads/main/remote-config.json"
     }

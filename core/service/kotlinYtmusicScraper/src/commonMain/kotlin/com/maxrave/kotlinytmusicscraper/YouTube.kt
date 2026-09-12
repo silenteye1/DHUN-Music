@@ -639,7 +639,6 @@ class YouTube {
     suspend fun getYouTubePlaylistFullTracksWithSetVideoId(playlistId: String): Result<List<Pair<SongItem, String>>> =
         runCatching {
             val plId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
-            // SongItem / SetVideoId
             val listPair = mutableListOf<Pair<SongItem, String>>()
             val response = ytMusic.playlist(plId).body<BrowseResponse>()
             listPair.addAll(
@@ -1109,7 +1108,6 @@ class YouTube {
                 like = returnYouTubeDislikeResponse.likes,
                 dislike = returnYouTubeDislikeResponse.dislikes,
             )
-            // Get author thumbnails, subscribers, description, like count
         }
 
     private suspend fun getVisitorData(
@@ -1262,13 +1260,13 @@ class YouTube {
                     ?.adaptiveFormats
                     ?.mapNotNull { it.url }
                     ?.toMutableList() ?: mutableListOf()
-            ).apply {
-                decodedSigResponse
-                    .streamingData
-                    ?.formats
-                    ?.mapNotNull { it.url }
-                    ?.let { addAll(it) }
-            },
+                ).apply {
+                    decodedSigResponse
+                        .streamingData
+                        ?.formats
+                        ?.mapNotNull { it.url }
+                        ?.let { addAll(it) }
+                },
         )
         listUrlSig.forEach {
             Logger.d(TAG, "YouTube NewPipe URL $it")
@@ -1550,7 +1548,6 @@ class YouTube {
                         ?.content
                         ?.playlistPanelRenderer
             if (playlistPanelRenderer != null) {
-                // load automix items
                 if (playlistPanelRenderer.contents
                         .lastOrNull()
                         ?.automixPreviewVideoRenderer
@@ -1610,9 +1607,6 @@ class YouTube {
                             )
                         }
                 }
-//        else if (playlistPanelRenderer.contents.firstOrNull()?.playlistPanelVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint != null) {
-//
-//        }
                 return@runCatching NextResult(
                     title = playlistPanelRenderer.title,
                     items =
@@ -1877,13 +1871,6 @@ class YouTube {
 
     /**
      * Puts a custom cover on a YouTube Music playlist.
-     *
-     * Three legs, because that is what the web client does: reserve a resumable upload slot, send
-     * the bytes, then attach the returned blob to the playlist. The upload id comes back as a
-     * response HEADER (`x-guploader-uploadid`) with an empty body, which is easy to miss.
-     *
-     * Returns the HTTP status of the final attach, the same way [editPlaylist] does — the response
-     * body is a fresh playlist header, and nothing here needs to read it back.
      */
     suspend fun setPlaylistCustomThumbnail(
         playlistId: String,
@@ -1894,10 +1881,6 @@ class YouTube {
                 .getPlaylistThumbnailUploadSlot(image.size)
                 .headers["x-guploader-uploadid"]
                 ?: throw IllegalStateException("No upload id returned for playlist thumbnail")
-        // bodyAsText + manual decode, NOT body<T>(): this endpoint answers with JSON but does not
-        // label it as such — the response carries an html content type — so ContentNegotiation
-        // never engages and body<T>() fails with "expected ImageUploadResponse but was
-        // SourceByteReadChannel" on an otherwise perfectly good 200.
         val blobId =
             Json { ignoreUnknownKeys = true }
                 .decodeFromString<ImageUploadResponse>(
@@ -1913,12 +1896,13 @@ class YouTube {
         ytMusic.createYouTubePlaylist(title, listVideoId).body<CreatePlaylistResponse>()
     }
 
-    /**
-     * Subscribes the signed-in account to a channel.
-     *
-     * Returns the HTTP status rather than a parsed body, the same way the like endpoints do —
-     * these calls answer with an empty payload, so the status is the whole result.
-     */
+    suspend fun deletePlaylist(
+        playlistId: String,
+    ): Result<Int> = runCatching {
+        val cleanId = playlistId.removePrefix("VL")
+        ytMusic.deleteYouTubePlaylist(cleanId).status.value
+    }
+
     suspend fun subscribeChannel(channelId: String) =
         runCatching {
             ytMusic.subscribeChannel(channelId).status.value
@@ -1944,19 +1928,11 @@ class YouTube {
             ytMusic.getSimpMusicChart().body<SimpMusicChartResponse>()
         }
 
-    /**
-     * Fetch the remote app config (TIDAL credentials) from GitHub raw.
-     * Returns a [Result] so callers can fall back silently when the fetch/parse fails.
-     */
     suspend fun getTidalRemoteConfig(): Result<RemoteConfig> =
         runCatching {
             ytMusic.getTidalRemoteConfig()
         }
 
-    /**
-     * Ensure a valid Tidal OAuth token is available, refreshing if expired.
-     * In-memory only — token is re-fetched on each app launch (follows Spotify auth pattern).
-     */
     private suspend fun ensureTidalToken(): String =
         tidalTokenMutex.withLock {
             val now = Clock.System.now().toEpochMilliseconds()
@@ -1970,10 +1946,6 @@ class YouTube {
             response.accessToken
         }
 
-    /**
-     * Search Tidal official API for metadata (bpm, key, keyScale).
-     * Token is managed in-memory and auto-refreshed when expired.
-     */
     suspend fun searchTidalMetadata(
         query: String,
         durationSeconds: Int,
@@ -1995,12 +1967,6 @@ class YouTube {
         )
     }
 
-    // Any format carrying a signatureCipher would do; medium Opus is the one YouTube returns for
-    // every video, logged in or not, which is why the lookup pins that itag rather than scanning.
-    /**
-     * Which extractor and cipher decoder produced this video's URLs in THIS run of the app, or null
-     * if it has not been extracted yet. Diagnostic only — see [com.maxrave.kotlinytmusicscraper.extractor.ExtractSource].
-     */
     fun getExtractSource(videoId: String): String? = ExtractSource.of(videoId)
 
     private fun getNParam(listFormat: List<PlayerResponse.StreamingData.Format>): String? =
@@ -2025,7 +1991,6 @@ class YouTube {
         isVideo: Boolean = false,
     ): Flow<DownloadProgress> =
         channelFlow {
-            // Video if videoId is not null
             trySend(DownloadProgress(0.01f))
             player(videoId = videoId)
                 .onSuccess { playerResponse ->
@@ -2090,7 +2055,6 @@ class YouTube {
                             trySend(DownloadProgress.failed(it.message ?: "Download failed"))
                         }
                     } else {
-                        // Song if url is not null
                         runCatching {
                             ytMusic
                                 .download(audioUrl, ("$filePath.webm"))
@@ -2103,7 +2067,6 @@ class YouTube {
                                 }
                         }.onSuccess {
                             Logger.d(TAG, "Download only Audio Success")
-                            // Convert to mp3
                             trySend(
                                 ytMusic.saveAudioWithThumbnail(
                                     filePath,
@@ -2130,6 +2093,5 @@ class YouTube {
         private const val VISITOR_DATA_PREFIX = "Cgt"
 
         const val DEFAULT_VISITOR_DATA = "CgtsZG1ySnZiQWtSbyiMjuGSBg%3D%3D"
-
     }
 }

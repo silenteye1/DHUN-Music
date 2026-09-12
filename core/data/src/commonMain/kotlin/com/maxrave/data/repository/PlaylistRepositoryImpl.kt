@@ -127,7 +127,8 @@ internal class PlaylistRepositoryImpl(
     override fun getAllDownloadingPlaylist(): Flow<List<PlaylistType>> =
         flow { emit(localDataSource.getAllDownloadingPlaylist()) }.flowOn(Dispatchers.IO)
 
-    private suspend fun insertSetVideoId(setVideoId: SetVideoIdEntity) = withContext(Dispatchers.IO) { localDataSource.insertSetVideoId(setVideoId) }
+    private suspend fun insertSetVideoId(setVideoId: SetVideoIdEntity) =
+        withContext(Dispatchers.IO) { localDataSource.insertSetVideoId(setVideoId) }
 
     override fun getRadio(
         radioId: String,
@@ -177,7 +178,7 @@ internal class PlaylistRepositoryImpl(
                                 PlaylistBrowse(
                                     author = Author(id = "", name = "YouTube Music"),
                                     description =
-                                    defaultDescription,
+                                        defaultDescription,
                                     duration = "",
                                     durationSeconds = 0,
                                     id = radioId,
@@ -278,8 +279,6 @@ internal class PlaylistRepositoryImpl(
                             result.getPlaylistContinuation()
                         Logger.d("Repository", "playlist data: ${listContent.size}")
                         Logger.d("Repository", "continueParam: $finalContinueParam")
-//                        else {
-//                            var listTrack = playlistBrowse.tracks.toMutableList()
                         Logger.d("Repository", "playlist final data: ${listContent.size}")
                         if (finalContinueParam != null) {
                             parsePlaylistData(header, listContent, radioId, viewString)?.let { playlist ->
@@ -379,8 +378,6 @@ internal class PlaylistRepositoryImpl(
                         var count = 0
                         Logger.d("getPlaylistData", "playlist data: ${listContent.size}")
                         Logger.d("getPlaylistData", "continueParam: $continueParam")
-//                        else {
-//                            var listTrack = playlistBrowse.tracks.toMutableList()
                         while (continueParam != null) {
                             youTube
                                 .customQuery(
@@ -534,14 +531,14 @@ internal class PlaylistRepositoryImpl(
                             } ?: emit(
                                 Resource.Error<
                                     Pair<PlaylistBrowse, String?>,
-                                >("Error"),
+                                    >("Error"),
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()
                             emit(
                                 Resource.Error<
                                     Pair<PlaylistBrowse, String?>,
-                                >(e.message.toString()),
+                                    >(e.message.toString()),
                             )
                         }
                     }.onFailure { e ->
@@ -549,7 +546,7 @@ internal class PlaylistRepositoryImpl(
                         emit(
                             Resource.Error<
                                 Pair<PlaylistBrowse, String?>,
-                            >(e.message.toString()),
+                                >(e.message.toString()),
                         )
                     }
             }
@@ -787,6 +784,100 @@ internal class PlaylistRepositoryImpl(
                 }.onFailure { exception ->
                     exception.printStackTrace()
                     emit(Resource.Error<List<ChartItem>>(exception.message ?: "Unknown error"))
+                }
+        }.flowOn(Dispatchers.IO)
+
+    // --- Remote YouTube Playlist Operations ---
+
+    override fun createYouTubePlaylist(
+        title: String,
+        listVideoId: List<String>?,
+    ): Flow<Resource<String>> =
+        flow {
+            youTube
+                .createPlaylist(title, listVideoId)
+                .onSuccess { response ->
+                    val playlistId = response.playlistId
+                    if (!playlistId.isNullOrEmpty()) {
+                        emit(Resource.Success(playlistId))
+                    } else {
+                        emit(Resource.Error("Could not get created playlist ID"))
+                    }
+                }.onFailure { e ->
+                    e.printStackTrace()
+                    emit(Resource.Error(e.message ?: "Failed to create YouTube playlist"))
+                }
+        }.flowOn(Dispatchers.IO)
+
+    override fun addSongToYouTubePlaylist(
+        playlistId: String,
+        videoId: String,
+    ): Flow<Resource<Boolean>> =
+        flow {
+            val cleanId = playlistId.removePrefix("VL")
+            youTube
+                .addPlaylistItem(cleanId, videoId)
+                .onSuccess {
+                    emit(Resource.Success(true))
+                }.onFailure { e ->
+                    e.printStackTrace()
+                    emit(Resource.Error(e.message ?: "Failed to add song to YouTube playlist"))
+                }
+        }.flowOn(Dispatchers.IO)
+
+    override fun removeSongFromYouTubePlaylist(
+        playlistId: String,
+        videoId: String,
+        setVideoId: String,
+    ): Flow<Resource<Boolean>> =
+        flow {
+            val cleanId = playlistId.removePrefix("VL")
+            var targetSetVideoId = setVideoId
+            if (targetSetVideoId.isBlank()) {
+                val fullList = youTube.getYouTubePlaylistFullTracksWithSetVideoId(cleanId).getOrNull()
+                targetSetVideoId = fullList?.firstOrNull { it.first.id == videoId }?.second ?: ""
+            }
+
+            if (targetSetVideoId.isBlank()) {
+                emit(Resource.Error("Could not find song ID in playlist"))
+                return@flow
+            }
+
+            youTube
+                .removeItemYouTubePlaylist(cleanId, videoId, targetSetVideoId)
+                .onSuccess { statusCode ->
+                    if (statusCode in 200..299) {
+                        emit(Resource.Success(true))
+                    } else {
+                        emit(Resource.Error("YouTube returned status: $statusCode"))
+                    }
+                }.onFailure { e ->
+                    e.printStackTrace()
+                    emit(Resource.Error(e.message ?: "Failed to remove song from playlist"))
+                }
+        }.flowOn(Dispatchers.IO)
+
+    override fun deleteYouTubePlaylist(
+        playlistId: String,
+    ): Flow<Resource<Boolean>> =
+        flow {
+            val cleanId = playlistId.removePrefix("VL")
+            youTube
+                .deletePlaylist(cleanId)
+                .onSuccess { statusCode ->
+                    if (statusCode in 200..299) {
+                        runCatching {
+                            localDataSource.getPlaylist(cleanId)?.let {
+                                localDataSource.updatePlaylistInLibrary(now(), cleanId)
+                            }
+                        }
+                        emit(Resource.Success(true))
+                    } else {
+                        emit(Resource.Error("YouTube returned status: $statusCode"))
+                    }
+                }.onFailure { e ->
+                    e.printStackTrace()
+                    emit(Resource.Error(e.message ?: "Failed to delete playlist"))
                 }
         }.flowOn(Dispatchers.IO)
 }

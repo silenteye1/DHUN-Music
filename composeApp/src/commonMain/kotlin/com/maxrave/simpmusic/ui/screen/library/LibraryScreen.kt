@@ -346,6 +346,9 @@ fun LibraryScreen(
                         youTubePlaylist,
                         emptyText = Res.string.no_YouTube_playlists,
                         onScrolling = onScrolling,
+                        createNewPlaylist = {
+                            showAddSheet = true
+                        },
                     ) {
                         viewModel.getYouTubePlaylist()
                     }
@@ -481,7 +484,13 @@ fun LibraryScreen(
                             if (newTitle.isBlank()) {
                                 viewModel.makeToast(runBlocking { getString(Res.string.playlist_name_cannot_be_empty) })
                             } else {
-                                viewModel.createPlaylist(newTitle)
+                                if (currentFilter == LibraryChipType.YOUTUBE_MUSIC_PLAYLIST) {
+                                    viewModel.createYouTubePlaylist(newTitle) {
+                                        viewModel.getYouTubePlaylist()
+                                    }
+                                } else {
+                                    viewModel.createPlaylist(newTitle)
+                                }
                                 hideEditTitleBottomSheet()
                             }
                         },

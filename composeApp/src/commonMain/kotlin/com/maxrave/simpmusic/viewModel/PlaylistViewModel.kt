@@ -672,8 +672,113 @@ class PlaylistViewModel(
                         is Resource.Error -> {
                             makeToast(it.message ?: getString(Res.string.error))
                         }
+
+                        else -> {}
                     }
                 }
+        }
+    }
+
+    // --- New YouTube Playlist Management Implementations ---
+
+    fun deletePlaylist(
+        id: String,
+        onSuccess: () -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            playlistRepository.deleteYouTubePlaylist(id).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        makeToast("Playlist deleted successfully")
+                        onSuccess()
+                    }
+
+                    is Resource.Error -> {
+                        makeToast(res.message ?: getString(Res.string.error))
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    fun removeSongFromPlaylist(
+        playlistId: String,
+        videoId: String,
+        setVideoId: String = "",
+    ) {
+        viewModelScope.launch {
+            playlistRepository
+                .removeSongFromYouTubePlaylist(
+                    playlistId = playlistId,
+                    videoId = videoId,
+                    setVideoId = setVideoId,
+                ).collect { res ->
+                    when (res) {
+                        is Resource.Success -> {
+                            _tracks.update { currentList ->
+                                currentList.filterNot { it.videoId == videoId }
+                            }
+                            makeToast("Song removed from playlist")
+                        }
+
+                        is Resource.Error -> {
+                            makeToast(res.message ?: getString(Res.string.error))
+                        }
+
+                        else -> {}
+                    }
+                }
+        }
+    }
+
+    fun addSongToPlaylist(
+        playlistId: String,
+        videoId: String,
+    ) {
+        viewModelScope.launch {
+            playlistRepository
+                .addSongToYouTubePlaylist(
+                    playlistId = playlistId,
+                    videoId = videoId,
+                ).collect { res ->
+                    when (res) {
+                        is Resource.Success -> {
+                            makeToast("Song added to playlist")
+                            getData(playlistId)
+                        }
+
+                        is Resource.Error -> {
+                            makeToast(res.message ?: getString(Res.string.error))
+                        }
+
+                        else -> {}
+                    }
+                }
+        }
+    }
+
+    fun createPlaylist(
+        title: String,
+        listVideoId: List<String>? = null,
+        onSuccess: (String) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            playlistRepository.createYouTubePlaylist(title, listVideoId).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        makeToast("Playlist created")
+                        res.data?.let { onSuccess(it) }
+                    }
+
+                    is Resource.Error -> {
+                        makeToast(res.message ?: getString(Res.string.error))
+                    }
+
+                    else -> {}
+                }
+            }
         }
     }
 
@@ -693,14 +798,14 @@ sealed class PlaylistUIState(
     class Success(
         data: PlaylistState,
     ) : PlaylistUIState(
-            data = data,
-        )
+        data = data,
+    )
 
     class Error(
         message: String? = null,
     ) : PlaylistUIState(
-            message = message,
-        )
+        message = message,
+    )
 }
 
 sealed class PlaylistUIEvent {

@@ -123,7 +123,9 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.repository.LocalPlaylistRepository
+import com.maxrave.domain.repository.PlaylistRepository
 import com.maxrave.domain.utils.FilterState
+import com.maxrave.domain.utils.Resource
 import com.maxrave.domain.utils.connectArtists
 import com.maxrave.domain.utils.toListName
 import com.maxrave.logger.Logger
@@ -187,6 +189,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.add_to_a_playlist
 import simpmusic.composeapp.generated.resources.add_to_queue
+import simpmusic.composeapp.generated.resources.added_local_playlist
 import simpmusic.composeapp.generated.resources.album
 import simpmusic.composeapp.generated.resources.artists
 import simpmusic.composeapp.generated.resources.baseline_favorite_24
@@ -195,9 +198,10 @@ import simpmusic.composeapp.generated.resources.bitrate
 import simpmusic.composeapp.generated.resources.bpm
 import simpmusic.composeapp.generated.resources.can_not_be_empty
 import simpmusic.composeapp.generated.resources.cancel
-import simpmusic.composeapp.generated.resources.crop_cover
 import simpmusic.composeapp.generated.resources.codec
 import simpmusic.composeapp.generated.resources.copied_to_clipboard
+import simpmusic.composeapp.generated.resources.create
+import simpmusic.composeapp.generated.resources.crop_cover
 import simpmusic.composeapp.generated.resources.delete
 import simpmusic.composeapp.generated.resources.delete_playlist
 import simpmusic.composeapp.generated.resources.delete_song_from_playlist
@@ -237,6 +241,7 @@ import simpmusic.composeapp.generated.resources.play_next
 import simpmusic.composeapp.generated.resources.playback_speed
 import simpmusic.composeapp.generated.resources.playback_speed_pitch
 import simpmusic.composeapp.generated.resources.playback_speed_pitch_disabled
+import simpmusic.composeapp.generated.resources.playlist_name
 import simpmusic.composeapp.generated.resources.playlist_name_cannot_be_empty
 import simpmusic.composeapp.generated.resources.plays
 import simpmusic.composeapp.generated.resources.processing
@@ -275,11 +280,6 @@ import simpmusic.composeapp.generated.resources.your_youtube_playlists
 import simpmusic.composeapp.generated.resources.youtube_transcript
 import simpmusic.composeapp.generated.resources.youtube_url
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sentinel value used by SleepTimerBottomSheet to signal "end of current song"
-// Handle this in NowPlayingBottomSheetViewModel / SharedViewModel:
-//   if (minutes == END_OF_SONG_SENTINEL) → stop after current track finishes
-// ─────────────────────────────────────────────────────────────────────────────
 const val END_OF_SONG_SENTINEL = Int.MAX_VALUE
 
 @ExperimentalMaterial3Api
@@ -316,13 +316,6 @@ fun InfoPlayerBottomSheet(
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         shape = RectangleShape,
     ) {
-        // This dialog MUST stay inside the sheet's content lambda. A Dialog is its own window
-        // (Android ComponentDialog) / scene layer (skiko), so nothing in the layout tree orders
-        // it — the layer attached LAST wins, and DisposableEffects attach in composition order.
-        // Written as a sibling BEFORE ModalBottomSheet it lost to the sheet whenever both entered
-        // composition in the same pass: reopening the sheet mid-download, or an Android config
-        // change (downloadProgress lives in the ViewModel, so it survives this composable leaving).
-        // Nested here, the sheet's layer necessarily exists first, so the dialog is always on top.
         if (downloadProgress != DownloadProgress.INIT) {
             BasicAlertDialog(
                 onDismissRequest = { },
@@ -925,7 +918,7 @@ fun InfoPlayerBottomSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class, ExperimentalCoroutinesApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun QueueBottomSheet(
     onDismiss: () -> Unit,
@@ -977,11 +970,9 @@ fun QueueBottomSheet(
             }
         }
 
-    // Convert the state into a cold flow and collect
     LaunchedEffect(shouldLoadMore) {
         snapshotFlow { shouldLoadMore.value }
             .collect {
-                // if should load more, then invoke loadMore
                 if (it && loadMoreState == QueueData.StateSource.STATE_INITIALIZED) musicServiceHandler.loadMore()
             }
     }
@@ -1306,18 +1297,18 @@ fun QueueItemBottomSheet(
                     val canMoveUp =
                         index > 0 &&
                             index < (
-                                musicServiceHandler.queueData.value
-                                    ?.data
-                                    ?.listTracks
-                                    ?.size ?: 0
+                            musicServiceHandler.queueData.value
+                                ?.data
+                                ?.listTracks
+                                ?.size ?: 0
                             )
                     val canMoveDown =
                         index >= 0 &&
                             index < (
-                                musicServiceHandler.queueData.value
-                                    ?.data
-                                    ?.listTracks
-                                    ?.size ?: 0
+                            musicServiceHandler.queueData.value
+                                ?.data
+                                ?.listTracks
+                                ?.size ?: 0
                             ) - 1
                     items(listAction) { action ->
                         val disable =
@@ -1710,9 +1701,6 @@ fun NowPlayingBottomSheet(
                             Text(
                                 text = uiState.songUIState.title,
                                 style = typo().labelMedium,
-                                // typo() bakes a colour into the style, computed from the app's own
-                                // scheme — on this always-dark sheet that reads as washed out next
-                                // to the ActionButton rows below, which take their colour from here.
                                 color = rememberSurfaceDarkColors().content,
                                 maxLines = 1,
                                 modifier =
@@ -1781,8 +1769,6 @@ fun NowPlayingBottomSheet(
                                 DownloadState.STATE_PREPARING -> SimpIcons.Downloading
                                 else -> SimpIcons.DownloadForOfflineOutlined
                             },
-                        // The old baseline_downloaded.xml carried #FF00A0CB baked in; the shared
-                        // symbol is neutral, so the "done" state has to say the colour out loud.
                         iconColor =
                             if (uiState.songUIState.downloadState == DownloadState.STATE_DOWNLOADED) {
                                 Color(0xFF00A0CB)
@@ -1827,13 +1813,6 @@ fun NowPlayingBottomSheet(
                     }
                     ActionButton(
                         icon = SimpIcons.Album,
-                        // Three states, not two. A track can carry an album ID with no title: the
-                        // row it was parsed from links an album but never spells its name out.
-                        // That case still navigates, so it must not read "No album" — but the name
-                        // is genuinely unknown, so fall back to the generic label rather than
-                        // showing a blank row. The parser deliberately leaves the name empty
-                        // instead of inventing one, because a made-up title would travel out to
-                        // MediaSession and into external scrobblers.
                         text =
                             when {
                                 uiState.songUIState.album == null -> Res.string.no_album
@@ -1878,7 +1857,6 @@ fun NowPlayingBottomSheet(
                     Crossfade(targetState = setSleepTimerEnable) {
                         val sleepTimerState = uiState.sleepTimer
                         if (it) {
-                            // timeRemaining > 0 → countdown mode, -1 → end-of-song mode, 0 → off
                             val isEndOfSong = sleepTimerState.timeRemaining == -1
                             val isRunning = sleepTimerState.timeRemaining > 0 || isEndOfSong
                             Crossfade(targetState = isRunning) { running ->
@@ -2033,8 +2011,6 @@ fun CheckBoxActionButton(
                         stringResource(Res.string.like)
                     },
                 style = typo().labelSmall,
-                // Matches [ActionButton], which this sits directly above in every sheet that uses
-                // both — without it the label alone falls back to the colour typo() carries.
                 color = rememberSurfaceDarkColors().content,
                 modifier =
                     Modifier
@@ -2057,14 +2033,9 @@ fun HeartCheckBox(
         modifier =
             Modifier
                 .size(size.dp)
-                // Before .clip: the burst draws outside the button bounds and the circle clip
-                // would trim it to the heart's own circle.
                 .heartBurst(burstState)
                 .clip(CircleShape)
                 .clickable {
-                    // Judged at TAP time: tapping an unchecked heart is a like. Firing from the
-                    // tap — not from watching `checked` — is what keeps a track change onto an
-                    // already-liked song from celebrating a like nobody gave.
                     if (!checked) burstState.fire()
                     onStateChange?.invoke()
                 },
@@ -2122,7 +2093,6 @@ fun PlaybackSpeedPitchBottomSheet(
                     shape = RoundedCornerShape(50),
                 ) {}
                 Spacer(modifier = Modifier.height(16.dp))
-                // Playback Speed row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2172,11 +2142,6 @@ fun PlaybackSpeedPitchBottomSheet(
                         )
                     }
                 }
-                // Shown on every platform. It used to be hidden on Desktop because LibVLC had no
-                // independent pitch control, but that backend is long gone — mpv shifts pitch with
-                // its rubberband filter. The control is still locked out while crossfade is on,
-                // handled by the caller: crossfade owns mpv's filter chain and the two would fight
-                // over it.
                 run {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
@@ -2229,11 +2194,6 @@ fun PlaybackSpeedPitchBottomSheet(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REDESIGNED SleepTimerBottomSheet
-// Quick presets (5, 10, 15, 30, 45 min, 1 hour) + End of Song + Custom input
-// Passes END_OF_SONG_SENTINEL (Int.MAX_VALUE) for "End of Song" option.
-// ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepTimerBottomSheet(
@@ -2244,7 +2204,6 @@ fun SleepTimerBottomSheet(
     val modelBottomSheetState =
         rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // -1 = nothing selected, Int.MAX_VALUE = End of Song, else = minutes
     var selectedPreset by rememberSaveable { mutableIntStateOf(-1) }
     var showCustomInput by rememberSaveable { mutableStateOf(false) }
     var customMinutes by rememberSaveable { mutableStateOf("") }
@@ -2264,7 +2223,6 @@ fun SleepTimerBottomSheet(
             Preset("1 hour", 60),
         )
 
-    // Whether the Set button should be enabled
     val isSetEnabled =
         when {
             selectedPreset == END_OF_SONG_SENTINEL -> true
@@ -2293,7 +2251,6 @@ fun SleepTimerBottomSheet(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Drag handle
                 Card(
                     modifier = Modifier.width(40.dp).height(4.dp),
                     colors = CardDefaults.cardColors().copy(containerColor = rememberSurfaceDarkColors().disabled),
@@ -2302,7 +2259,6 @@ fun SleepTimerBottomSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Title row with alarm icon
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2323,7 +2279,6 @@ fun SleepTimerBottomSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ── Preset grid: 3 columns × 2 rows ──────────────────────
                 val presetRows = presets.chunked(3)
                 presetRows.forEach { row ->
                     Row(
@@ -2363,12 +2318,10 @@ fun SleepTimerBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // ── End of Song + Custom row ─────────────────────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // End of Song
                     val isEndSelected = selectedPreset == END_OF_SONG_SENTINEL && !showCustomInput
                     OutlinedButton(
                         onClick = {
@@ -2397,7 +2350,6 @@ fun SleepTimerBottomSheet(
                         )
                     }
 
-                    // Custom
                     val isCustomSelected = showCustomInput
                     OutlinedButton(
                         onClick = {
@@ -2426,7 +2378,6 @@ fun SleepTimerBottomSheet(
                     }
                 }
 
-                // ── Custom input (animated expand) ───────────────────────
                 AnimatedVisibility(visible = showCustomInput) {
                     Column {
                         Spacer(modifier = Modifier.height(12.dp))
@@ -2460,7 +2411,6 @@ fun SleepTimerBottomSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ── Set button ───────────────────────────────────────────
                 Button(
                     onClick = {
                         when {
@@ -2535,6 +2485,8 @@ fun AddToPlaylistModalBottomSheet(
     onClick: (LocalPlaylistEntity) -> Unit,
     onYTPlaylistClick: (PlaylistsResult) -> Unit,
     onDismiss: () -> Unit,
+    playlistRepository: PlaylistRepository = koinInject(),
+    localPlaylistRepository: LocalPlaylistRepository = koinInject(),
 ) {
     val coroutineScope = rememberCoroutineScope()
     val modelBottomSheetState =
@@ -2546,6 +2498,85 @@ fun AddToPlaylistModalBottomSheet(
                 onDismiss()
             }
         }
+
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistTitle by remember { mutableStateOf("") }
+    var isYouTubePlaylistClicked by remember { mutableStateOf(false) }
+
+    if (showCreatePlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreatePlaylistDialog = false },
+            containerColor = rememberSurfaceDarkColors().container,
+            title = {
+                Text(
+                    text = if (isYouTubePlaylistClicked) "New YouTube Playlist" else "New Playlist",
+                    style = typo().titleMedium,
+                    color = rememberSurfaceDarkColors().content,
+                )
+            },
+            text = {
+                OutlinedTextField(
+                    value = newPlaylistTitle,
+                    onValueChange = { newPlaylistTitle = it },
+                    label = { Text(text = stringResource(Res.string.playlist_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val title = newPlaylistTitle.trim()
+                        if (title.isNotEmpty()) {
+                            showCreatePlaylistDialog = false
+                            newPlaylistTitle = ""
+                            coroutineScope.launch {
+                                if (isYouTubePlaylistClicked) {
+                                    playlistRepository.createYouTubePlaylist(
+                                        title = title,
+                                        listVideoId = if (!videoId.isNullOrEmpty()) listOf(videoId) else null,
+                                    ).collect { res ->
+                                        when (res) {
+                                            is Resource.Success -> {
+                                                showToast("YouTube Playlist created", ToastGravity.Bottom)
+                                                hideModalBottomSheet()
+                                            }
+                                            is Resource.Error -> {
+                                                showToast(res.message ?: "Failed to create", ToastGravity.Bottom)
+                                            }
+                                            else -> {}
+                                        }
+                                    }
+                                } else {
+                                    val newLocal = LocalPlaylistEntity(
+                                        title = title,
+                                        tracks = if (!videoId.isNullOrEmpty()) listOf(videoId) else emptyList(),
+                                    )
+                                    localPlaylistRepository.insertLocalPlaylist(
+                                        newLocal,
+                                        runBlocking { getString(Res.string.added_local_playlist) },
+                                    ).collect {
+                                        showToast(runBlocking { getString(Res.string.added_local_playlist) }, ToastGravity.Bottom)
+                                        hideModalBottomSheet()
+                                    }
+                                }
+                            }
+                        } else {
+                            showToast(runBlocking { getString(Res.string.playlist_name_cannot_be_empty) }, ToastGravity.Bottom)
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(Res.string.create))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreatePlaylistDialog = false }) {
+                    Text(text = stringResource(Res.string.cancel))
+                }
+            },
+        )
+    }
+
     if (isBottomSheetVisible) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
@@ -2578,7 +2609,6 @@ fun AddToPlaylistModalBottomSheet(
                     Spacer(modifier = Modifier.height(5.dp))
 
                     val chipRowState = rememberScrollState()
-                    var isYouTubePlaylistClicked by remember { mutableStateOf(false) }
                     if (listYouTubePlaylist.isNotEmpty()) {
                         Row(
                             modifier =
@@ -2603,6 +2633,38 @@ fun AddToPlaylistModalBottomSheet(
                             )
                         }
                     }
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .clickable { showCreatePlaylistDialog = true },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(12.dp).align(Alignment.CenterStart),
+                        ) {
+                            Image(
+                                imageVector = SimpIcons.Add,
+                                contentDescription = "Create Playlist",
+                                colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isYouTubePlaylistClicked) "New YouTube Playlist" else "New Playlist",
+                                style = typo().labelSmall,
+                                color = rememberSurfaceDarkColors().content,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        thickness = 0.5.dp,
+                        color = rememberSurfaceDarkColors().handle,
+                    )
 
                     if ((listLocalPlaylist.isEmpty() && !isYouTubePlaylistClicked) ||
                         (listYouTubePlaylist.isEmpty() && isYouTubePlaylistClicked)
@@ -2968,8 +3030,6 @@ fun LocalPlaylistBottomSheet(
                 onDismiss()
             }
         }
-    // The picked file is cropped before it is used. A cover slot is square, so an uncropped 16:9
-    // photo would be squashed to fit — which is what it used to do.
     var imageAwaitingCrop by remember { mutableStateOf<ByteArray?>(null) }
     val resultLauncher =
         photoPickerResult { pickedUri ->
@@ -2987,14 +3047,6 @@ fun LocalPlaylistBottomSheet(
             onCropped = { cropped ->
                 imageAwaitingCrop = null
                 coroutineScope.launch {
-                    // Written into the app's own storage, NOT reused from the picker's uri: that
-                    // one still points at the original uncropped file, and on Android the read
-                    // permission granted for it does not outlive the process.
-                    // Named after the CONTENT, not the clock. A fixed name would be overwritten
-                    // in place and Coil, which caches by url, would keep showing the previous
-                    // cover; a timestamp would leave a new file behind every time the user
-                    // re-picked the same picture. Hashing gives a fresh name for a new image and
-                    // the same name for the same one.
                     persistPickedImage(cropped, "cover_${cropped.contentHashCode().toUInt()}.jpg")
                         ?.let(onEditThumbnail)
                 }

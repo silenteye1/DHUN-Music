@@ -90,4 +90,26 @@ interface PlaylistRepository {
      * @return Country Code -> YouTube Music Playlist ID
      */
     fun getChartPlaylist(): Flow<Resource<List<ChartItem>>>
+
+    // --- New YouTube Playlist Management Methods ---
+
+    fun createYouTubePlaylist(
+        title: String,
+        listVideoId: List<String>? = null,
+    ): Flow<Resource<String>>
+
+    fun addSongToYouTubePlaylist(
+        playlistId: String,
+        videoId: String,
+    ): Flow<Resource<Boolean>>
+
+    fun removeSongFromYouTubePlaylist(
+        playlistId: String,
+        videoId: String,
+        setVideoId: String,
+    ): Flow<Resource<Boolean>>
+
+    fun deleteYouTubePlaylist(
+        playlistId: String,
+    ): Flow<Resource<Boolean>>
 }

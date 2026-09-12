@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -175,10 +176,6 @@ fun PlaylistScreen(
     isYourYouTubePlaylist: Boolean,
     navController: NavController,
 ) {
-    // Home shelves navigate with the browseEndpoint id, which is "VL" + the playlist id
-    // (HomeParser reads title.runs[0].navigationEndpoint.browseEndpoint.browseId). Every radio
-    // prefix check and the watch endpoint expect the bare id, so normalise once on the way in
-    // rather than stripping "VL" again at each consumer.
     val id = playlistId.removePrefix("VL")
     val tag = "PlaylistScreen"
 
@@ -245,7 +242,7 @@ fun PlaylistScreen(
                         lazyState.layoutInfo.visibleItemsInfo
                             .lastOrNull()
                             ?.index ?: -9
-                    ) >= (lazyState.layoutInfo.totalItemsCount - 6)
+                        ) >= (lazyState.layoutInfo.totalItemsCount - 6)
             }
         }
 
@@ -284,6 +281,9 @@ fun PlaylistScreen(
     var playlistBottomSheetShow by remember {
         mutableStateOf(false)
     }
+    var showDeletePlaylistDialog by remember {
+        mutableStateOf(false)
+    }
 
     val onPlaylistItemClick: (videoId: String) -> Unit = { videoId ->
         viewModel.onUIEvent(
@@ -319,9 +319,6 @@ fun PlaylistScreen(
     var bitmap by remember {
         mutableStateOf<ImageBitmap?>(null)
     }
-    // Track which thumbnail URL we've already extracted a palette from.
-    // Prevents palette flash when LazyColumn recycles the header item on scroll —
-    // AsyncImage re-mount fires onSuccess again, but we skip the regenerate.
     var paletteGeneratedFor by remember {
         mutableStateOf<String?>(null)
     }
@@ -343,18 +340,10 @@ fun PlaylistScreen(
             }
     }
 
-    // Apple Music-inspired immersive treatment. Which header is used depends on the window's
-    // aspect ratio alone, not on the platform: a portrait window (a phone held upright, or a
-    // narrow desktop window) gets the edge-to-edge artwork header, a landscape one gets the
-    // side-by-side header. Everything else on the page — the palette background, the row
-    // dividers, the blurred top bar — is shared by both.
     val screenInfo = getScreenSizeInfo()
     val isPortrait = screenInfo.wDP < screenInfo.hDP
-    val dominantColor = listColors.firstOrNull() ?: Color.Black
-    // Apple Music-style page background from the artwork's dominant tone (see UIExt.toImmersiveBackground).
     val mutedPaletteBg = paletteState.palette.toImmersiveBackground()
 
-    // Loading dialog
     val showLoadingDialog by viewModel.showLoadingDialog.collectAsStateWithLifecycle()
     if (showLoadingDialog.first) {
         LoadingDialog(
@@ -362,7 +351,7 @@ fun PlaylistScreen(
             showLoadingDialog.second,
         )
     }
-//    Box {
+
     Crossfade(
         targetState = uiState,
     ) { state ->
@@ -402,9 +391,6 @@ fun PlaylistScreen(
                                         horizontalAlignment = Alignment.Start,
                                     ) {
                                         if (isPortrait) {
-                                            // Apple Music-style: edge-to-edge artwork + liquid glass buttons.
-                                            // Glass buttons MUST be siblings of the backdrop source (not children)
-                                            // to avoid render feedback loop / RuntimeShader crash.
                                             val artworkBackdrop = rememberBackdrop(Color.Black)
                                             Box(
                                                 modifier =
@@ -412,7 +398,6 @@ fun PlaylistScreen(
                                                         .fillMaxWidth()
                                                         .height((screenInfo.hDP / 2).dp),
                                             ) {
-                                                // Inner Box — backdrop SOURCE (artwork + overlays only, NO glass)
                                                 Box(modifier = Modifier.fillMaxSize().layerBackdrop(artworkBackdrop)) {
                                                     AsyncImage(
                                                         model =
@@ -434,10 +419,6 @@ fun PlaylistScreen(
                                                         },
                                                         modifier = Modifier.fillMaxSize(),
                                                     )
-                                                    // Scrim spans 70% of the artwork (not a fixed 200dp): the
-                                                    // shorter the ramp, the steeper the alpha, and a steep ramp
-                                                    // is what makes the fade read as an edge. See
-                                                    // artworkScrimBrush for the curve itself.
                                                     Box(
                                                         modifier =
                                                             Modifier
@@ -505,7 +486,6 @@ fun PlaylistScreen(
                                                         )
                                                     }
                                                 }
-                                                // Back + Heart + Search button overlays on artwork top — liquid glass
                                                 Row(
                                                     modifier =
                                                         Modifier
@@ -553,6 +533,19 @@ fun PlaylistScreen(
                                                         ) {
                                                             Icon(SimpIcons.Search, null, tint = Color.White)
                                                         }
+                                                        if (isYourYouTubePlaylist && !data.isRadio) {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    showDeletePlaylistDialog = true
+                                                                },
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = SimpIcons.Close,
+                                                                    contentDescription = "Delete Playlist",
+                                                                    tint = Color(0xFFFF5252),
+                                                                )
+                                                            }
+                                                        }
                                                         IconButton(
                                                             onClick = onPlaylistMoreClick,
                                                         ) {
@@ -566,14 +559,6 @@ fun PlaylistScreen(
                                                 }
                                             }
                                         } else {
-                                            // Apple Music desktop header: back and the overlay actions on
-                                            // their own top row, then a square artwork with the text column
-                                            // and the action cluster laid out beside it rather than under it.
-                                            // Built exactly like the portrait branch, which renders correctly on both
-                                            // platforms: the backdrop SOURCE is the content column — artwork included,
-                                            // so the recorded layer holds something to refract — and the glass buttons
-                                            // are SIBLINGS placed with align(), never children of the source (that
-                                            // nesting is the render-feedback loop that kills the RuntimeShader).
                                             val headerBackdrop = rememberBackdrop(mutedPaletteBg)
                                             Box(modifier = Modifier.fillMaxWidth()) {
                                                 Column(
@@ -584,7 +569,6 @@ fun PlaylistScreen(
                                                             .windowInsetsPadding(WindowInsets.statusBars)
                                                             .padding(horizontal = 32.dp, vertical = 16.dp),
                                                 ) {
-                                                    // Reserves the strip the sibling glass buttons are drawn over.
                                                     Spacer(modifier = Modifier.height(48.dp))
                                                     Spacer(modifier = Modifier.height(16.dp))
                                                     Row(
@@ -628,8 +612,6 @@ fun PlaylistScreen(
                                                             Text(
                                                                 text = data.author.name,
                                                                 style = typo().titleMedium,
-                                                                // The app accent, standing in for the brand red
-                                                                // Apple uses on this line.
                                                                 color = seed,
                                                                 modifier =
                                                                     Modifier.clickable {
@@ -655,8 +637,6 @@ fun PlaylistScreen(
                                                                 color = Color(0xC4FFFFFF),
                                                             )
                                                             Spacer(modifier = Modifier.height(20.dp))
-                                                            // Apple Music-style action row:
-                                                            // [Shuffle][Play pill][Download/More] (cluster centered, all 48dp matching size)
                                                             val isThisPlaying = isPlaying && playingPlaylistId == data.id
                                                             Row(
                                                                 modifier =
@@ -804,16 +784,11 @@ fun PlaylistScreen(
                                                         }
                                                     }
                                                 }
-                                                // Glass overlays — siblings of the source, over the strip the column reserved.
                                                 Box(Modifier.padding(start = 12.dp)) {
                                                     LiquidGlassIconButton(
                                                         backdrop = headerBackdrop,
                                                         imageVector = SimpIcons.ArrowBackIosNew,
                                                         shape = RoundedCornerShape(24.dp),
-                                                        // Same directional style as the like/⋯ pill, a touch thicker. The default
-                                                        // width of 0.5.dp becomes a ~2px stroke (HighlightModifier: ceil(width.toPx()) * 2),
-                                                        // which reads along the pill's long edge but vanishes around a 48dp circle. 1.dp
-                                                        // is the smallest step up that stays visible without looking like a border.
                                                         highlight = Highlight(width = 1.dp),
                                                         modifier =
                                                             Modifier
@@ -856,6 +831,19 @@ fun PlaylistScreen(
                                                     ) {
                                                         Icon(SimpIcons.Search, null, tint = Color.White)
                                                     }
+                                                    if (isYourYouTubePlaylist && !data.isRadio) {
+                                                        IconButton(
+                                                            onClick = {
+                                                                showDeletePlaylistDialog = true
+                                                            },
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.Close,
+                                                                contentDescription = "Delete Playlist",
+                                                                tint = Color(0xFFFF5252),
+                                                            )
+                                                        }
+                                                    }
                                                     IconButton(
                                                         onClick = onPlaylistMoreClick,
                                                     ) {
@@ -876,8 +864,6 @@ fun PlaylistScreen(
                                         ) {
                                             Column(Modifier.padding(horizontal = 32.dp)) {
                                                 if (isPortrait) {
-                                                    // Apple Music-style action row:
-                                                    // [Shuffle][Play pill][Download/More] (cluster centered, all 48dp matching size)
                                                     val isThisPlaying = isPlaying && playingPlaylistId == data.id
                                                     Row(
                                                         modifier =
@@ -1137,7 +1123,6 @@ fun PlaylistScreen(
                     }
                     when (tracksListState) {
                         ListState.IDLE -> {
-                            // DO NOTHING
                             item {
                                 EndOfPage()
                             }
@@ -1329,6 +1314,13 @@ fun PlaylistScreen(
                         },
                         navController = navController,
                         song = track,
+                        onDelete = {
+                            viewModel.removeSongFromPlaylist(
+                                playlistId = data.id,
+                                videoId = track.videoId,
+                                setVideoId = "",
+                            )
+                        },
                     )
                 }
                 if (playlistBottomSheetShow) {
@@ -1356,6 +1348,31 @@ fun PlaylistScreen(
                         onAddToQueue = if (data.isRadio) null else addToQueue,
                     )
                 }
+
+                if (showDeletePlaylistDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDeletePlaylistDialog = false },
+                        title = { Text("Delete Playlist") },
+                        text = { Text("Are you sure you want to delete this playlist from YouTube?") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showDeletePlaylistDialog = false
+                                    viewModel.deletePlaylist(id)
+                                    navController.navigateUp()
+                                },
+                            ) {
+                                Text("Delete", color = Color(0xFFFF5252))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeletePlaylistDialog = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = shouldHideTopBar && !showSearchBar && !selectionState.isActive,
                     enter = fadeIn() + slideInVertically(),

@@ -350,6 +350,24 @@ class LibraryViewModel(
         }
     }
 
+    fun createYouTubePlaylist(title: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            playlistRepository.createYouTubePlaylist(title).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        makeToast("YouTube Playlist created")
+                        getYouTubePlaylist()
+                        onSuccess()
+                    }
+                    is Resource.Error -> {
+                        makeToast(res.message ?: "Failed to create YouTube playlist")
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
     fun deleteSong(videoId: String) {
         _recentlyAdded.value = LocalResource.Loading()
         viewModelScope.launch {
