@@ -424,6 +424,7 @@ fun App(
                                             bottom = 4.dp,
                                         ),
                                     backdrop = backdrop,
+                                    hazeState = hazeState,
                                     onClick = {
                                         isShowNowPlaylistScreen = true
                                     },
@@ -555,6 +556,7 @@ fun App(
                                             .height(60.dp)
                                     },
                                     backdrop = backdrop,
+                                    hazeState = hazeState,
                                     onClick = {
                                         isShowNowPlaylistScreen = true
                                     },

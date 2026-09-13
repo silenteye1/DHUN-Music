@@ -25,6 +25,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -137,6 +138,9 @@ import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -160,6 +164,7 @@ private const val TAG = "MiniPlayer"
 fun MiniPlayer(
     modifier: Modifier,
     backdrop: PlatformBackdrop,
+    hazeState: HazeState? = null,
     sharedViewModel: SharedViewModel = koinInject(),
     onClose: () -> Unit,
     onClick: () -> Unit,
@@ -178,7 +183,7 @@ fun MiniPlayer(
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor by animateColorAsState(
         targetValue =
-            if (useGlassSurface) {
+            if (hazeState != null || useGlassSurface) {
                 if (isDarkTheme) Color.White else Color.Black
             } else if (luminanceAnimation.value > 0.6f) {
                 Color.Black
@@ -313,26 +318,68 @@ fun MiniPlayer(
     val isCurrentSongLiked = if (isUserLoggedIn) ytLikeStatus else controllerState.isLiked
 
     if (getPlatform() == Platform.Android) {
-        val miniPlayerShape =
-            if (isLiquidGlassEnabled == DataStoreManager.TRUE) CircleShape else RoundedCornerShape(12.dp)
+        val miniPlayerShape = RoundedCornerShape(26.dp)
+
         Card(
             shape = miniPlayerShape,
             colors =
                 CardDefaults.cardColors(
-                    containerColor = if (isLiquidGlassEnabled == DataStoreManager.TRUE) Color.Transparent else background.value,
-                    disabledContainerColor = if (isLiquidGlassEnabled == DataStoreManager.TRUE) Color.Transparent else background.value,
+                    containerColor =
+                        if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                            Color.Transparent
+                        } else {
+                            background.value
+                        },
+                    disabledContainerColor =
+                        if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                            Color.Transparent
+                        } else {
+                            background.value
+                        },
                 ),
             modifier =
                 modifier
+                    .graphicsLayer {
+                        shape = miniPlayerShape
+                        clip = true
+                    }
+                    .clip(miniPlayerShape)
                     .then(
-                        if (isLiquidGlassEnabled == DataStoreManager.TRUE) {
-                            Modifier.liquidGlass(backdrop, layer, luminanceAnimation.value, RoundedCornerShape(16.dp))
+                        if (hazeState != null) {
+                            Modifier
+                                .hazeEffect(
+                                    state = hazeState,
+                                    style =
+                                        HazeDefaults.style(
+                                            backgroundColor =
+                                                if (isDarkTheme) {
+                                                    Color.Black.copy(alpha = 0.32f)
+                                                } else {
+                                                    Color.White.copy(alpha = 0.40f)
+                                                },
+                                            blurRadius = 26.dp,
+                                            noiseFactor = 0.04f,
+                                        ),
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush =
+                                        Brush.verticalGradient(
+                                            colors =
+                                                listOf(
+                                                    Color.White.copy(alpha = 0.40f),
+                                                    Color.White.copy(alpha = 0.08f),
+                                                ),
+                                        ),
+                                    shape = miniPlayerShape,
+                                )
+                        } else if (isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                            Modifier.liquidGlass(backdrop, layer, luminanceAnimation.value, miniPlayerShape)
                         } else {
                             Modifier
                         },
                     ).then(
                         Modifier
-                            .clip(miniPlayerShape)
                             .offset { IntOffset(0, offsetY.value.roundToInt()) }
                             .clickable(
                                 onClick = onClick,
@@ -439,7 +486,7 @@ fun MiniPlayer(
                                         .size(40.dp)
                                         .align(Alignment.CenterVertically)
                                         .clip(
-                                            RoundedCornerShape(4.dp),
+                                            RoundedCornerShape(8.dp),
                                         ),
                             )
                             Spacer(modifier = Modifier.width(10.dp))
@@ -504,7 +551,7 @@ fun MiniPlayer(
                                                 text = (songEntity?.artistName?.connectArtists() ?: ""),
                                                 style = typo().bodySmall,
                                                 maxLines = 1,
-                                                color = textColor,
+                                                color = textColor.copy(alpha = 0.8f),
                                                 modifier =
                                                     Modifier
                                                         .weight(1f)
@@ -566,7 +613,7 @@ fun MiniPlayer(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .height(1.dp)
+                                .height(1.5.dp)
                                 .background(
                                     color = Color.Transparent,
                                     shape = RoundedCornerShape(4.dp),
