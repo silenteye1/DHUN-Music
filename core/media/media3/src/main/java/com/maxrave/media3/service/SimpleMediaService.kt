@@ -33,6 +33,7 @@ import com.maxrave.media3.R
 import com.maxrave.media3.extension.toCommandButton
 import com.maxrave.media3.utils.CoilBitmapLoader
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -115,10 +116,13 @@ internal class SimpleMediaService :
         }
 
         simpleMediaServiceHandler.onUpdateNotification = { list ->
-            val commandButtonList = list.map { it.toCommandButton(this) }
-            mediaSession?.setMediaButtonPreferences(
-                commandButtonList,
-            )
+            val commandButtonList = list.map { it.toCommandButton(this@SimpleMediaService) }
+            coroutineScope.launch(Dispatchers.Main) {
+                mediaSession?.let { session ->
+                    session.setMediaButtonPreferences(commandButtonList)
+                    session.setCustomLayout(commandButtonList)
+                }
+            }
         }
 
         val sessionToken = SessionToken(this, ComponentName(this, SimpleMediaService::class.java))
@@ -170,13 +174,6 @@ internal class SimpleMediaService :
             playerNotificationManager.setPlayer(player)
             playerNotificationManager.setSmallIcon(R.drawable.mono)
             mediaSession?.platformToken?.let { playerNotificationManager.setMediaSessionToken(it) }
-        }
-
-        simpleMediaServiceHandler.onUpdateNotification = { list ->
-            val commandButtonList = list.map { it.toCommandButton(this) }
-            mediaSession?.setMediaButtonPreferences(
-                commandButtonList,
-            )
         }
     }
 

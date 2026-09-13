@@ -12,6 +12,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_TIMELINE
 import androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
+import androidx.media3.common.Rating
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.LibraryResult
@@ -129,6 +130,28 @@ internal class SimpleMediaSessionCallback(
         return super.onPlayerCommandRequest(session, controller, playerCommand)
     }
 
+    // Android 13+ System UI notification Heart tap ke liye
+    override fun onSetRating(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        rating: Rating,
+    ): ListenableFuture<SessionResult> {
+        Logger.w(TAG, "onSetRating received from: ${controller.packageName}")
+        toggleLike()
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    }
+
+    override fun onSetRating(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        mediaId: String,
+        rating: Rating,
+    ): ListenableFuture<SessionResult> {
+        Logger.w(TAG, "onSetRating with mediaId ($mediaId) from: ${controller.packageName}")
+        toggleLike()
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    }
+
     @UnstableApi
     override fun onCustomCommand(
         session: MediaSession,
@@ -136,6 +159,7 @@ internal class SimpleMediaSessionCallback(
         customCommand: SessionCommand,
         args: Bundle,
     ): ListenableFuture<SessionResult> {
+        Logger.w(TAG, "onCustomCommand: ${customCommand.customAction} from ${controller.packageName}")
         when (customCommand.customAction) {
             MEDIA_CUSTOM_COMMAND.LIKE -> {
                 toggleLike()
@@ -499,7 +523,6 @@ internal class SimpleMediaSessionCallback(
         startPositionMs: Long,
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
         scope.future {
-            // Play from Android Auto
             val defaultResult =
                 MediaSession.MediaItemsWithStartPosition(emptyList(), startIndex, startPositionMs)
             val path =

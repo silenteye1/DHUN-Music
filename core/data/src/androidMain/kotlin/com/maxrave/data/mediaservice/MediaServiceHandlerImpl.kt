@@ -730,19 +730,21 @@ internal class MediaServiceHandlerImpl(
     private fun updateNotification() {
         updateNotificationJob?.cancel()
         updateNotificationJob =
-            coroutineScope.launch(Dispatchers.IO) {
+            coroutineScope.launch(Dispatchers.Main) {
                 var id = (player.currentMediaItem?.mediaId ?: "")
                 if (id.contains("Video")) {
                     id = id.removePrefix("Video")
                 }
                 if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) return@launch
 
-                val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
-                val isLikedStatus = if (isLoggedIn) {
-                    val ytStatus = runCatching { youTube.getLikedInfo(id).getOrNull() }.getOrNull()
-                    ytStatus?.name == "LIKE" || _controlState.value.isLiked
-                } else {
-                    songRepository.getSongById(id).singleOrNull()?.liked ?: false
+                val isLikedStatus = withContext(Dispatchers.IO) {
+                    val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
+                    if (isLoggedIn) {
+                        val ytStatus = runCatching { youTube.getLikedInfo(id).getOrNull() }.getOrNull()
+                        ytStatus?.name == "LIKE" || _controlState.value.isLiked
+                    } else {
+                        songRepository.getSongById(id).singleOrNull()?.liked ?: false
+                    }
                 }
 
                 _controlState.update { it.copy(isLiked = isLikedStatus) }
@@ -928,34 +930,73 @@ internal class MediaServiceHandlerImpl(
     override fun toggleLike() {
         toggleLikeJob?.cancel()
         toggleLikeJob =
-            coroutineScope.launch(Dispatchers.IO) {
-                var id = (player.currentMediaItem?.mediaId ?: "")
+            coroutineScope.launch(Dispatchers.Main) {
+                // 1. Reliable videoId fetch karein
+                var id = nowPlayingState.value.songEntity?.videoId
+                    ?: (player.currentMediaItem?.mediaId ?: "")
+
                 if (id.contains("Video")) {
                     id = id.removePrefix("Video")
                 }
-                if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) return@launch
 
-                val currentLiked = controlState.first().isLiked
+                Logger.d(TAG, "toggleLike called for videoId: $id")
+                if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) {
+                    Logger.e(TAG, "toggleLike aborted: invalid or local id -> $id")
+                    return@launch
+                }
+
+                // 2. Target like status determine karein
+                val currentLiked = nowPlayingState.value.songEntity?.liked
+                    ?: controlState.first().isLiked
                 val targetLiked = !currentLiked
+                Logger.d(TAG, "toggleLike target state: $targetLiked")
 
+                // Notification & MediaSession State update
                 _controlState.update { it.copy(isLiked = targetLiked) }
                 updateNotification()
 
-                songRepository.updateLikeStatus(
-                    id,
-                    if (targetLiked) 1 else 0,
-                )
+                // Playing Screen UI State update (Now Playing Screen ka heart icon instantly update hoga)
+                _nowPlayingState.update { current ->
+                    current.copy(
+                        songEntity = current.songEntity?.copy(
+                            liked = targetLiked,
+                            likeStatus = if (targetLiked) "LIKE" else "INDIFFERENT",
+                        ),
+                    )
+                }
 
-                val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
-                if (isLoggedIn) {
-                    runCatching {
-                        if (targetLiked) {
-                            youTube.addToLiked(id)
-                        } else {
-                            youTube.removeFromLiked(id)
+                // Native Toast popup
+                android.widget.Toast.makeText(
+                    context,
+                    if (targetLiked) "Added to Liked Songs" else "Removed from Liked Songs",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+
+                // 3. Room Database aur YouTube Music account sync
+                withContext(Dispatchers.IO) {
+                    songRepository.updateLikeStatus(
+                        id,
+                        if (targetLiked) 1 else 0,
+                    )
+
+                    val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
+                    Logger.d(TAG, "User logged in status: $isLoggedIn")
+
+                    if (isLoggedIn) {
+                        runCatching {
+                            if (targetLiked) {
+                                val res = youTube.addToLiked(id)
+                                Logger.d(TAG, "YouTube addToLiked response: $res")
+                            } else {
+                                val res = youTube.removeFromLiked(id)
+                                Logger.d(TAG, "YouTube removeFromLiked response: $res")
+                            }
+                        }.onFailure { error ->
+                            Logger.e(TAG, "YouTube sync failed: ${error.message}")
+                            error.printStackTrace()
                         }
-                    }.onFailure { error ->
-                        Logger.e(TAG, "YouTube sync failed: ${error.message}")
+                    } else {
+                        Logger.w(TAG, "Skipping YouTube API sync because user is not logged in.")
                     }
                 }
             }
@@ -1088,6 +1129,19 @@ internal class MediaServiceHandlerImpl(
     }
 
     override fun currentSongIndex(): Int = player.currentMediaItemIndex
+
+    override fun currentOrderIndex(): Int =
+        if (player.shuffleModeEnabled) {
+            queueData.value.data.listTracks.indexOfLast {
+                it.videoId == player.currentMediaItem?.mediaId?.removePrefix(MERGING_DATA_TYPE.VIDEO)
+            }
+        } else {
+            currentSongIndex()
+        }
+
+    override fun setCurrentSongIndex(index: Int) {
+        _currentSongIndex.value = index
+    }
 
     override suspend fun swap(
         from: Int,
@@ -1831,19 +1885,6 @@ internal class MediaServiceHandlerImpl(
             coroutineScope.launch {
                 load(index = index)
             }
-    }
-
-    override fun currentOrderIndex(): Int =
-        if (player.shuffleModeEnabled) {
-            queueData.value.data.listTracks.indexOfLast {
-                it.videoId == player.currentMediaItem?.mediaId?.removePrefix(MERGING_DATA_TYPE.VIDEO)
-            }
-        } else {
-            currentSongIndex()
-        }
-
-    override fun setCurrentSongIndex(index: Int) {
-        _currentSongIndex.value = index
     }
 
     override suspend fun playNext(track: Track) {

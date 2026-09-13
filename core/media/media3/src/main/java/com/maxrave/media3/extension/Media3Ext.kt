@@ -83,7 +83,7 @@ fun Track.toMediaItem(): MediaItem {
             this.thumbnails?.last()?.height != 0 &&
                 this.thumbnails?.last()?.height == this.thumbnails?.last()?.width &&
                 this.thumbnails?.last()?.height != null
-        ) &&
+            ) &&
             (!thumbUrl.contains("hq720") && !thumbUrl.contains("maxresdefault"))
     return MediaItem
         .Builder()
@@ -129,8 +129,6 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                     } else {
                         CommandButton.ICON_HEART_UNFILLED
                     },
-                    // Resource fallback for hosts (e.g. AA templated surface) that
-                    // don't map the media3 icon constants
                 ).setCustomIconResId(
                     if (liked) {
                         R.drawable.baseline_favorite_24
@@ -146,6 +144,7 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                         )
                     },
                 ).setSessionCommand(SessionCommand(MEDIA_CUSTOM_COMMAND.LIKE, Bundle()))
+                .setEnabled(true)
                 .build()
         }
         GenericCommandButton.Radio -> {
@@ -158,7 +157,8 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                         MEDIA_CUSTOM_COMMAND.RADIO,
                         Bundle(),
                     ),
-                ).build()
+                ).setEnabled(true)
+                .build()
         }
         is GenericCommandButton.Repeat -> {
             val repeatMode = this.repeatState
@@ -184,7 +184,8 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                         MEDIA_CUSTOM_COMMAND.REPEAT,
                         Bundle(),
                     ),
-                ).build()
+                ).setEnabled(true)
+                .build()
         }
         is GenericCommandButton.Shuffle -> {
             CommandButton
@@ -194,8 +195,6 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                     } else {
                         CommandButton.ICON_SHUFFLE_OFF
                     },
-                    // Resource fallback for hosts that don't map the media3 icon
-                    // constants (AA templated surface renders a gear otherwise)
                 ).setCustomIconResId(R.drawable.baseline_shuffle_24)
                 .setDisplayName(context.getString(R.string.shuffle))
                 .setSessionCommand(
@@ -203,7 +202,8 @@ fun GenericCommandButton.toCommandButton(context: Context): CommandButton =
                         MEDIA_CUSTOM_COMMAND.SHUFFLE,
                         Bundle(),
                     ),
-                ).build()
+                ).setEnabled(true)
+                .build()
         }
     }
 
