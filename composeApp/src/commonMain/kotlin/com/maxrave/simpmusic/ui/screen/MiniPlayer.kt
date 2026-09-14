@@ -320,241 +320,241 @@ fun MiniPlayer(
     if (getPlatform() == Platform.Android) {
         val miniPlayerShape = RoundedCornerShape(26.dp)
 
-        Card(
-            shape = miniPlayerShape,
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
-                            Color.Transparent
-                        } else {
-                            background.value
-                        },
-                    disabledContainerColor =
-                        if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
-                            Color.Transparent
-                        } else {
-                            background.value
-                        },
-                ),
-            modifier =
-                modifier
+        Box(
+            modifier = modifier
+        ) {
+            // 1. Ambient Glow Layer (Artwork Palette Shadow)
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
                     .graphicsLayer {
-                        shape = miniPlayerShape
-                        clip = true
+                        alpha = 0.55f
                     }
-                    .clip(miniPlayerShape)
-                    .then(
-                        if (hazeState != null) {
-                            Modifier
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style =
-                                        HazeDefaults.style(
-                                            backgroundColor =
-                                                if (isDarkTheme) {
-                                                    Color.Black.copy(alpha = 0.32f)
-                                                } else {
-                                                    Color.White.copy(alpha = 0.40f)
-                                                },
-                                            blurRadius = 26.dp,
-                                            noiseFactor = 0.04f,
-                                        ),
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    brush =
-                                        Brush.verticalGradient(
-                                            colors =
-                                                listOf(
-                                                    Color.White.copy(alpha = 0.40f),
-                                                    Color.White.copy(alpha = 0.08f),
-                                                ),
-                                        ),
-                                    shape = miniPlayerShape,
-                                )
-                        } else if (isLiquidGlassEnabled == DataStoreManager.TRUE) {
-                            Modifier.liquidGlass(backdrop, layer, luminanceAnimation.value, miniPlayerShape)
-                        } else {
-                            Modifier
-                        },
-                    ).then(
-                        Modifier
-                            .offset { IntOffset(0, offsetY.value.roundToInt()) }
-                            .clickable(
-                                onClick = onClick,
-                            ).pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                    onDragStart = {
-                                    },
-                                    onVerticalDrag = { change: PointerInputChange, dragAmount: Float ->
-                                        if (offsetY.value + dragAmount > 0) {
-                                            coroutineScope.launch {
-                                                change.consume()
-                                                offsetY.animateTo(offsetY.value + 2 * dragAmount)
-                                                Logger.w("MiniPlayer", "Dragged ${offsetY.value}")
-                                            }
-                                        }
-                                    },
-                                    onDragCancel = {
-                                        coroutineScope.launch {
-                                            offsetY.animateTo(0f)
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        Logger.w("MiniPlayer", "Drag Ended")
-                                        coroutineScope.launch {
-                                            if (offsetY.value > 70) {
-                                                onClose()
-                                            }
-                                            offsetY.animateTo(0f)
-                                        }
-                                    },
-                                )
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                background.value.copy(alpha = 0.70f),
+                                background.value.copy(alpha = 0.20f),
+                                Color.Transparent,
+                            ),
+                        ),
+                        shape = RoundedCornerShape(32.dp),
+                    )
+            )
+
+            // 2. Main Frosted Glass Card
+            Card(
+                shape = miniPlayerShape,
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor =
+                            if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                                Color.Transparent
+                            } else {
+                                background.value
+                            },
+                        disabledContainerColor =
+                            if (hazeState != null || isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                                Color.Transparent
+                            } else {
+                                background.value
                             },
                     ),
-        ) {
-            Box(modifier = Modifier.fillMaxHeight()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .fillMaxSize(),
-                ) {
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Box(modifier = Modifier.weight(1F)) {
-                        Row(
-                            modifier =
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            shape = miniPlayerShape
+                            clip = true
+                        }
+                        .clip(miniPlayerShape)
+                        .then(
+                            if (hazeState != null) {
                                 Modifier
-                                    .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                                    .pointerInput(Unit) {
-                                        detectHorizontalDragGestures(
-                                            onDragStart = {
-                                            },
-                                            onHorizontalDrag = {
-                                                    change: PointerInputChange,
-                                                    dragAmount: Float,
-                                                ->
+                                    .hazeEffect(
+                                        state = hazeState,
+                                        style =
+                                            HazeDefaults.style(
+                                                backgroundColor =
+                                                    if (isDarkTheme) {
+                                                        Color.Black.copy(alpha = 0.32f)
+                                                    } else {
+                                                        Color.White.copy(alpha = 0.40f)
+                                                    },
+                                                blurRadius = 26.dp,
+                                                noiseFactor = 0.04f,
+                                            ),
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        brush =
+                                            Brush.verticalGradient(
+                                                colors =
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.40f),
+                                                        Color.White.copy(alpha = 0.08f),
+                                                    ),
+                                            ),
+                                        shape = miniPlayerShape,
+                                    )
+                            } else if (isLiquidGlassEnabled == DataStoreManager.TRUE) {
+                                Modifier.liquidGlass(backdrop, layer, luminanceAnimation.value, miniPlayerShape)
+                            } else {
+                                Modifier
+                            },
+                        ).then(
+                            Modifier
+                                .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                                .clickable(
+                                    onClick = onClick,
+                                ).pointerInput(Unit) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = {
+                                        },
+                                        onVerticalDrag = { change: PointerInputChange, dragAmount: Float ->
+                                            if (offsetY.value + dragAmount > 0) {
                                                 coroutineScope.launch {
                                                     change.consume()
-                                                    offsetX.animateTo(offsetX.value + dragAmount * 2)
-                                                    Logger.w("MiniPlayer", "Dragged ${offsetX.value}")
+                                                    offsetY.animateTo(offsetY.value + 2 * dragAmount)
+                                                    Logger.w("MiniPlayer", "Dragged ${offsetY.value}")
                                                 }
-                                            },
-                                            onDragCancel = {
-                                                Logger.w("MiniPlayer", "Drag Cancelled")
-                                                coroutineScope.launch {
-                                                    if (offsetX.value > 200) {
-                                                        sharedViewModel.onUIEvent(UIEvent.Previous)
-                                                    } else if (offsetX.value < -120) {
-                                                        sharedViewModel.onUIEvent(UIEvent.Next)
-                                                    }
-                                                    offsetX.animateTo(0f)
+                                            }
+                                        },
+                                        onDragCancel = {
+                                            coroutineScope.launch {
+                                                offsetY.animateTo(0f)
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            Logger.w("MiniPlayer", "Drag Ended")
+                                            coroutineScope.launch {
+                                                if (offsetY.value > 70) {
+                                                    onClose()
                                                 }
-                                            },
-                                            onDragEnd = {
-                                                Logger.w("MiniPlayer", "Drag Ended")
-                                                coroutineScope.launch {
-                                                    if (offsetX.value > 200) {
-                                                        sharedViewModel.onUIEvent(UIEvent.Previous)
-                                                    } else if (offsetX.value < -120) {
-                                                        sharedViewModel.onUIEvent(UIEvent.Next)
-                                                    }
-                                                    offsetX.animateTo(0f)
-                                                }
-                                            },
-                                        )
-                                    },
-                        ) {
-                            AsyncImage(
-                                model =
-                                    ImageRequest
-                                        .Builder(LocalPlatformContext.current)
-                                        .data(songEntity?.thumbnails)
-                                        .crossfade(550)
-                                        .build(),
-                                placeholder = rememberHolderPainter(),
-                                error = rememberHolderPainter(),
-                                contentDescription = null,
-                                contentScale = ContentScale.FillWidth,
-                                onSuccess = {
-                                    bitmap =
-                                        it.result.image.toImageBitmap()
-                                },
-                                modifier =
-                                    Modifier
-                                        .size(40.dp)
-                                        .align(Alignment.CenterVertically)
-                                        .clip(
-                                            RoundedCornerShape(8.dp),
-                                        ),
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            AnimatedContent(
-                                targetState = songEntity,
-                                modifier = Modifier.weight(1F).fillMaxHeight(),
-                                contentAlignment = Alignment.CenterStart,
-                                transitionSpec = {
-                                    if (targetState != initialState) {
-                                        (
-                                            slideInHorizontally { width ->
-                                                width
-                                            } + fadeIn()
-                                            ).togetherWith(
-                                                slideOutHorizontally { width -> +width } + fadeOut(),
-                                            )
-                                    } else {
-                                        (
-                                            slideInHorizontally { width ->
-                                                +width
-                                            } + fadeIn()
-                                            ).togetherWith(
-                                                slideOutHorizontally { width -> width } + fadeOut(),
-                                            )
-                                    }.using(
-                                        SizeTransform(clip = false),
+                                                offsetY.animateTo(0f)
+                                            }
+                                        },
                                     )
                                 },
-                            ) { target ->
-                                if (target != null) {
-                                    Column(
+                        ),
+            ) {
+                Box(modifier = Modifier.fillMaxHeight()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                            Modifier
+                                .fillMaxSize(),
+                    ) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Box(modifier = Modifier.weight(1F)) {
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                                        .pointerInput(Unit) {
+                                            detectHorizontalDragGestures(
+                                                onDragStart = {
+                                                },
+                                                onHorizontalDrag = {
+                                                        change: PointerInputChange,
+                                                        dragAmount: Float,
+                                                    ->
+                                                    coroutineScope.launch {
+                                                        change.consume()
+                                                        offsetX.animateTo(offsetX.value + dragAmount * 2)
+                                                        Logger.w("MiniPlayer", "Dragged ${offsetX.value}")
+                                                    }
+                                                },
+                                                onDragCancel = {
+                                                    Logger.w("MiniPlayer", "Drag Cancelled")
+                                                    coroutineScope.launch {
+                                                        if (offsetX.value > 200) {
+                                                            sharedViewModel.onUIEvent(UIEvent.Previous)
+                                                        } else if (offsetX.value < -120) {
+                                                            sharedViewModel.onUIEvent(UIEvent.Next)
+                                                        }
+                                                        offsetX.animateTo(0f)
+                                                    }
+                                                },
+                                                onDragEnd = {
+                                                    Logger.w("MiniPlayer", "Drag Ended")
+                                                    coroutineScope.launch {
+                                                        if (offsetX.value > 200) {
+                                                            sharedViewModel.onUIEvent(UIEvent.Previous)
+                                                        } else if (offsetX.value < -120) {
+                                                            sharedViewModel.onUIEvent(UIEvent.Next)
+                                                        }
+                                                        offsetX.animateTo(0f)
+                                                    }
+                                                },
+                                            )
+                                        },
+                            ) {
+                                AsyncImage(
+                                    model =
+                                        ImageRequest
+                                            .Builder(LocalPlatformContext.current)
+                                            .data(songEntity?.thumbnails)
+                                            .crossfade(550)
+                                            .build(),
+                                    placeholder = rememberHolderPainter(),
+                                    error = rememberHolderPainter(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.FillWidth,
+                                    onSuccess = {
+                                        bitmap =
+                                            it.result.image.toImageBitmap()
+                                    },
+                                    modifier =
                                         Modifier
-                                            .wrapContentHeight()
-                                            .align(Alignment.CenterVertically),
-                                    ) {
-                                        Text(
-                                            text = (songEntity?.title ?: "").toString(),
-                                            style = typo().labelSmall,
-                                            color = textColor,
-                                            maxLines = 1,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .wrapContentHeight(
-                                                        align = Alignment.CenterVertically,
-                                                    ).basicMarquee(
-                                                        iterations = Int.MAX_VALUE,
-                                                        animationMode = MarqueeAnimationMode.Immediately,
-                                                    ).focusable(),
-                                        )
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            androidx.compose.animation.AnimatedVisibility(visible = songEntity?.isExplicit == true) {
-                                                ExplicitBadge(
-                                                    modifier =
-                                                        Modifier
-                                                            .size(20.dp)
-                                                            .padding(end = 4.dp)
-                                                            .weight(1f),
+                                            .size(40.dp)
+                                            .align(Alignment.CenterVertically)
+                                            .clip(
+                                                RoundedCornerShape(8.dp),
+                                            ),
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                AnimatedContent(
+                                    targetState = songEntity,
+                                    modifier = Modifier.weight(1F).fillMaxHeight(),
+                                    contentAlignment = Alignment.CenterStart,
+                                    transitionSpec = {
+                                        if (targetState != initialState) {
+                                            (
+                                                slideInHorizontally { width ->
+                                                    width
+                                                } + fadeIn()
+                                                ).togetherWith(
+                                                    slideOutHorizontally { width -> +width } + fadeOut(),
                                                 )
-                                            }
+                                        } else {
+                                            (
+                                                slideInHorizontally { width ->
+                                                    +width
+                                                } + fadeIn()
+                                                ).togetherWith(
+                                                    slideOutHorizontally { width -> width } + fadeOut(),
+                                                )
+                                        }.using(
+                                            SizeTransform(clip = false),
+                                        )
+                                    },
+                                ) { target ->
+                                    if (target != null) {
+                                        Column(
+                                            Modifier
+                                                .wrapContentHeight()
+                                                .align(Alignment.CenterVertically),
+                                        ) {
                                             Text(
-                                                text = (songEntity?.artistName?.connectArtists() ?: ""),
-                                                style = typo().bodySmall,
+                                                text = (songEntity?.title ?: "").toString(),
+                                                style = typo().labelSmall,
+                                                color = textColor,
                                                 maxLines = 1,
-                                                color = textColor.copy(alpha = 0.8f),
                                                 modifier =
                                                     Modifier
-                                                        .weight(1f)
+                                                        .fillMaxWidth()
                                                         .wrapContentHeight(
                                                             align = Alignment.CenterVertically,
                                                         ).basicMarquee(
@@ -562,67 +562,93 @@ fun MiniPlayer(
                                                             animationMode = MarqueeAnimationMode.Immediately,
                                                         ).focusable(),
                                             )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                androidx.compose.animation.AnimatedVisibility(visible = songEntity?.isExplicit == true) {
+                                                    ExplicitBadge(
+                                                        modifier =
+                                                            Modifier
+                                                                .size(20.dp)
+                                                                .padding(end = 4.dp)
+                                                                .weight(1f),
+                                                    )
+                                                }
+                                                Text(
+                                                    text = (songEntity?.artistName?.connectArtists() ?: ""),
+                                                    style = typo().bodySmall,
+                                                    maxLines = 1,
+                                                    color = textColor.copy(alpha = 0.8f),
+                                                    modifier =
+                                                        Modifier
+                                                            .weight(1f)
+                                                            .wrapContentHeight(
+                                                                align = Alignment.CenterVertically,
+                                                            ).basicMarquee(
+                                                                iterations = Int.MAX_VALUE,
+                                                                animationMode = MarqueeAnimationMode.Immediately,
+                                                            ).focusable(),
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.width(15.dp))
-                    // Mini-Player Heart Icon: Synced with YouTube Likes
-                    HeartCheckBox(
-                        checked = isCurrentSongLiked,
-                        size = 30,
-                        tint = textColor,
-                    ) {
-                        if (isUserLoggedIn) {
-                            sharedViewModel.addToYouTubeLiked()
-                        } else {
-                            sharedViewModel.onUIEvent(UIEvent.ToggleLike)
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(15.dp))
-                    Crossfade(targetState = loading, label = "") {
-                        if (it) {
-                            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = textColor,
-                                    strokeWidth = 3.dp,
-                                )
-                            }
-                        } else {
-                            PlayPauseButton(isPlaying = isPlaying, modifier = Modifier.size(48.dp), tint = textColor) {
-                                sharedViewModel.onUIEvent(UIEvent.PlayPause)
+                        Spacer(modifier = Modifier.width(15.dp))
+                        // Mini-Player Heart Icon: Synced with YouTube Likes
+                        HeartCheckBox(
+                            checked = isCurrentSongLiked,
+                            size = 30,
+                            tint = textColor,
+                        ) {
+                            if (isUserLoggedIn) {
+                                sharedViewModel.addToYouTubeLiked()
+                            } else {
+                                sharedViewModel.onUIEvent(UIEvent.ToggleLike)
                             }
                         }
-                    }
+                        Spacer(modifier = Modifier.width(15.dp))
+                        Crossfade(targetState = loading, label = "") {
+                            if (it) {
+                                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = textColor,
+                                        strokeWidth = 3.dp,
+                                    )
+                                }
+                            } else {
+                                PlayPauseButton(isPlaying = isPlaying, modifier = Modifier.size(48.dp), tint = textColor) {
+                                    sharedViewModel.onUIEvent(UIEvent.PlayPause)
+                                }
+                            }
+                        }
 
-                    Spacer(modifier = Modifier.width(15.dp))
-                }
-                Box(
-                    modifier =
-                        Modifier
-                            .wrapContentSize(Alignment.Center)
-                            .padding(
-                                horizontal = 10.dp,
-                            ).align(Alignment.BottomCenter),
-                ) {
-                    LinearProgressIndicator(
-                        progress = { animatedProgress },
+                        Spacer(modifier = Modifier.width(15.dp))
+                    }
+                    Box(
                         modifier =
                             Modifier
-                                .fillMaxWidth()
-                                .height(1.5.dp)
-                                .background(
-                                    color = Color.Transparent,
-                                    shape = RoundedCornerShape(4.dp),
-                                ),
-                        color = textColor,
-                        trackColor = Color.Transparent,
-                        strokeCap = StrokeCap.Round,
-                        drawStopIndicator = {},
-                    )
+                                .wrapContentSize(Alignment.Center)
+                                .padding(
+                                    horizontal = 10.dp,
+                                ).align(Alignment.BottomCenter),
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.5.dp)
+                                    .background(
+                                        color = Color.Transparent,
+                                        shape = RoundedCornerShape(4.dp),
+                                    ),
+                            color = textColor,
+                            trackColor = Color.Transparent,
+                            strokeCap = StrokeCap.Round,
+                            drawStopIndicator = {},
+                        )
+                    }
                 }
             }
         }

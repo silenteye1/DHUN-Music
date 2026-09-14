@@ -24,18 +24,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -50,6 +45,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,7 +53,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,8 +68,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
@@ -98,6 +95,7 @@ import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
 import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.extension.now
+import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.PlaylistType
 import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.utils.toSongEntity
@@ -105,7 +103,6 @@ import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.extension.angledGradientBackground
-import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
@@ -161,6 +158,7 @@ import dev.chrisbanes.haze.rememberHazeState
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.http.Url
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -216,9 +214,14 @@ private val listOfHomeChip =
 fun HomeScreen(
     onScrolling: (onTop: Boolean) -> Unit = {},
     viewModel: HomeViewModel = koinViewModel(),
+    dataStoreManager: DataStoreManager = koinInject(),
     sharedViewModel: SharedViewModel = koinInject(),
     navController: NavController,
 ) {
+    val isLiquidGlassEnabled by remember {
+        dataStoreManager.enableLiquidGlass.map { it == DataStoreManager.TRUE }
+    }.collectAsStateWithLifecycle(initialValue = true)
+
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
     val isScrollingUp by scrollState.isScrollingUp()
@@ -290,7 +293,7 @@ fun HomeScreen(
 
     val hazeState =
         rememberHazeState(
-            blurEnabled = true,
+            blurEnabled = isLiquidGlassEnabled,
         )
 
     LaunchedEffect(scrollState) {
@@ -436,35 +439,19 @@ fun HomeScreen(
 
     val floatingCapsuleShape = RoundedCornerShape(28.dp)
 
-    Box(modifier = Modifier.background(pageBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(pageBackground)) {
         PullToRefreshBox(
             modifier =
                 Modifier
-                    .hazeSource(hazeState),
+                    .fillMaxSize()
+                    .then(if (isLiquidGlassEnabled) Modifier.hazeSource(hazeState) else Modifier),
             state = pullToRefreshState,
             onRefresh = onRefresh,
             isRefreshing = isRefreshing,
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullToRefreshState,
-                    isRefreshing = isRefreshing,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(
-                                top =
-                                    with(LocalDensity.current) {
-                                        topAppBarHeightPx.toDp()
-                                    },
-                            ),
-                    containerColor = PullToRefreshDefaults.indicatorContainerColor,
-                    color = PullToRefreshDefaults.indicatorColor,
-                    maxDistance = PullToRefreshDefaults.PositionalThreshold,
-                )
-            },
+            indicator = {},
         ) {
-            Crossfade(targetState = loading, label = "Home Shimmer") { loading ->
-                if (!loading) {
+            Crossfade(targetState = loading, label = "Home Shimmer") { loadingState ->
+                if (!loadingState) {
                     if (homeData.isEmpty()) {
                         OfflineErrorState(
                             onRetry = onRefresh,
@@ -491,17 +478,14 @@ fun HomeScreen(
                                         modifier =
                                             Modifier
                                                 .matchParentSize()
-                                                .angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
-                                    ) {
-                                        Box(
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .height(200.dp)
-                                                    .align(Alignment.BottomCenter)
-                                                    .background(artworkScrimBrush(pageBackground)),
-                                        )
-                                    }
+                                                .angledGradientBackground(
+                                                    listOf(
+                                                        animatedColor.copy(alpha = 0.90f),
+                                                        pageBackground,
+                                                    ),
+                                                    35f,
+                                                ),
+                                    )
                                 }
                                 Column(
                                     modifier =
@@ -510,16 +494,23 @@ fun HomeScreen(
                                 ) {
                                     if (index == 0) {
                                         Spacer(
-                                            Modifier.height(
-                                                with(LocalDensity.current) { topAppBarHeightPx.toDp() } + 16.dp,
-                                            ),
+                                            Modifier
+                                                .statusBarsPadding()
+                                                .height(
+                                                    if (topAppBarHeightPx > 0) {
+                                                        with(LocalDensity.current) { topAppBarHeightPx.toDp() + 18.dp }
+                                                    } else {
+                                                        170.dp
+                                                    },
+                                                ),
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     if (index == 0 && accountInfo != null && accountShow) {
                                         AccountLayout(
                                             accountName = accountInfo?.first ?: "",
                                             url = accountInfo?.second ?: "",
+                                            isGlassEnabled = isLiquidGlassEnabled,
                                         )
                                         Spacer(Modifier.height(12.dp))
                                     }
@@ -561,6 +552,7 @@ fun HomeScreen(
                                                         },
                                                 navController = navController,
                                                 viewModel = viewModel,
+                                                isGlassEnabled = isLiquidGlassEnabled,
                                             )
                                         }
                                     } else {
@@ -655,8 +647,8 @@ fun HomeScreen(
                                     Crossfade(
                                         targetState = chartLoading,
                                         label = "Chart",
-                                    ) { loading ->
-                                        if (!loading) {
+                                    ) { loadingInProgress ->
+                                        if (!loadingInProgress) {
                                             chart?.let {
                                                 ChartData(
                                                     chart = it,
@@ -694,106 +686,192 @@ fun HomeScreen(
             }
         }
 
-        // Floating iOS Dynamic Glass Header (Fixed status bar offset + capsule positioning)
-        Column(
+        // Notch & Status Bar Scrim
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            0.0f to Color.Black.copy(alpha = 0.95f),
+                            0.7f to Color.Black.copy(alpha = 0.70f),
+                            1.0f to Color.Transparent,
+                        ),
+                    ),
+        )
+
+        // Floating Header
+        Box(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                    .clip(floatingCapsuleShape)
-                    .hazeEffect(
-                        state = hazeState,
-                        style =
-                            HazeDefaults.style(
-                                backgroundColor =
-                                    if (!isLightTheme) {
-                                        Color.Black.copy(alpha = 0.40f)
-                                    } else {
-                                        Color.White.copy(alpha = 0.55f)
-                                    },
-                                blurRadius = 26.dp,
-                                noiseFactor = 0.05f,
-                            ),
-                    ).border(
-                        width = 1.dp,
-                        brush =
-                            Brush.verticalGradient(
-                                colors =
-                                    listOf(
-                                        Color.White.copy(alpha = 0.45f),
-                                        Color.White.copy(alpha = 0.08f),
-                                    ),
-                            ),
-                        shape = floatingCapsuleShape,
-                    ).onGloballyPositioned { coordinates ->
+                    .padding(top = 10.dp, start = 12.dp, end = 12.dp)
+                    .onGloballyPositioned { coordinates ->
                         topAppBarHeightPx = coordinates.size.height
                     },
         ) {
-            AnimatedVisibility(
-                visible = isScrollingUp,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                HomeTopAppBar(navController)
-            }
-            AnimatedVisibility(
-                visible = !isScrollingUp,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                Spacer(
+            if (isLiquidGlassEnabled) {
+                Box(
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .height(6.dp),
+                            .matchParentSize()
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                            .graphicsLayer {
+                                alpha = 0.85f
+                            }.background(
+                                brush =
+                                    Brush.radialGradient(
+                                        colors =
+                                            listOf(
+                                                animatedColor.copy(alpha = 0.50f),
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                                Color.Transparent,
+                                            ),
+                                    ),
+                                shape = RoundedCornerShape(36.dp),
+                            ),
                 )
             }
-            // Glass Filter Pill Row
-            Row(
+
+            Column(
                 modifier =
                     Modifier
-                        .horizontalScroll(chipRowState)
-                        .padding(bottom = 12.dp, start = 14.dp, end = 14.dp)
-                        .background(Color.Transparent),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .fillMaxWidth()
+                        .shadow(
+                            elevation = if (isLiquidGlassEnabled) 16.dp else 4.dp,
+                            shape = floatingCapsuleShape,
+                            ambientColor = Color.Black.copy(alpha = if (isLiquidGlassEnabled) 0.35f else 0.12f),
+                            spotColor = Color.Black.copy(alpha = if (isLiquidGlassEnabled) 0.35f else 0.12f),
+                        )
+                        .graphicsLayer {
+                            shape = floatingCapsuleShape
+                            clip = true
+                        }.clip(floatingCapsuleShape)
+                        .then(
+                            if (isLiquidGlassEnabled) {
+                                Modifier
+                                    .hazeEffect(
+                                        state = hazeState,
+                                        style =
+                                            HazeDefaults.style(
+                                                backgroundColor = Color.Transparent,
+                                                blurRadius = 24.dp,
+                                                noiseFactor = 0.03f,
+                                            ),
+                                    )
+                                    .background(
+                                        brush =
+                                            Brush.verticalGradient(
+                                                0.0f to Color.White.copy(alpha = if (isLightTheme) 0.45f else 0.22f),
+                                                0.25f to Color.White.copy(alpha = if (isLightTheme) 0.18f else 0.07f),
+                                                0.70f to (if (isLightTheme) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.18f)),
+                                                1.0f to (if (isLightTheme) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.35f)),
+                                            ),
+                                    )
+                                    .border(
+                                        width = 1.2.dp,
+                                        brush =
+                                            Brush.verticalGradient(
+                                                0.0f to Color.White.copy(alpha = 0.80f),
+                                                0.35f to Color.White.copy(alpha = 0.28f),
+                                                0.80f to Color.White.copy(alpha = 0.08f),
+                                                1.0f to Color.White.copy(alpha = 0.18f),
+                                            ),
+                                        shape = floatingCapsuleShape,
+                                    )
+                            } else {
+                                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            }
+                        ),
             ) {
-                listOfHomeChip.forEach { id ->
-                    val isSelected =
-                        when (params) {
-                            HOME_PARAMS_RELAX -> id == Res.string.relax
-                            HOME_PARAMS_SLEEP -> id == Res.string.sleep
-                            HOME_PARAMS_ENERGIZE -> id == Res.string.energize
-                            HOME_PARAMS_SAD -> id == Res.string.sad
-                            HOME_PARAMS_ROMANCE -> id == Res.string.romance
-                            HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
-                            HOME_PARAMS_WORKOUT -> id == Res.string.workout
-                            HOME_PARAMS_PARTY -> id == Res.string.party
-                            HOME_PARAMS_COMMUTE -> id == Res.string.commute
-                            HOME_PARAMS_FOCUS -> id == Res.string.focus
-                            else -> id == Res.string.all
-                        }
-                    iOSGlassChip(
-                        text = stringResource(id),
-                        isSelected = isSelected,
-                        isDark = !isLightTheme,
-                    ) {
-                        when (id) {
-                            Res.string.all -> viewModel.setParams(null)
-                            Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
-                            Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
-                            Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
-                            Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
-                            Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
-                            Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
-                            Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
-                            Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
-                            Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
-                            Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
+                AnimatedVisibility(
+                    visible = isScrollingUp,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    HomeTopAppBar(navController)
+                }
+                AnimatedVisibility(
+                    visible = !isScrollingUp,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Spacer(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                    )
+                }
+                Row(
+                    modifier =
+                        Modifier
+                            .horizontalScroll(chipRowState)
+                            .padding(bottom = 12.dp, start = 14.dp, end = 14.dp)
+                            .background(Color.Transparent),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOfHomeChip.forEach { id ->
+                        val isSelected =
+                            when (params) {
+                                HOME_PARAMS_RELAX -> id == Res.string.relax
+                                HOME_PARAMS_SLEEP -> id == Res.string.sleep
+                                HOME_PARAMS_ENERGIZE -> id == Res.string.energize
+                                HOME_PARAMS_SAD -> id == Res.string.sad
+                                HOME_PARAMS_ROMANCE -> id == Res.string.romance
+                                HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
+                                HOME_PARAMS_WORKOUT -> id == Res.string.workout
+                                HOME_PARAMS_PARTY -> id == Res.string.party
+                                HOME_PARAMS_COMMUTE -> id == Res.string.commute
+                                HOME_PARAMS_FOCUS -> id == Res.string.focus
+                                else -> id == Res.string.all
+                            }
+                        iOSGlassChip(
+                            text = stringResource(id),
+                            isSelected = isSelected,
+                            isDark = !isLightTheme,
+                            isGlassEnabled = isLiquidGlassEnabled,
+                        ) {
+                            when (id) {
+                                Res.string.all -> viewModel.setParams(null)
+                                Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
+                                Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
+                                Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
+                                Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
+                                Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
+                                Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
+                                Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
+                                Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
+                                Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
+                                Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        if (isRefreshing) {
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = with(LocalDensity.current) { topAppBarHeightPx.toDp() + 14.dp })
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.5.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }
@@ -807,40 +885,67 @@ fun iOSGlassChip(
     text: String,
     isSelected: Boolean,
     isDark: Boolean,
+    isGlassEnabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val pillShape = RoundedCornerShape(50)
-    val containerColor =
-        if (isSelected) {
-            if (isDark) Color.White.copy(alpha = 0.90f) else Color.Black.copy(alpha = 0.85f)
-        } else {
-            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.06f)
-        }
-    val contentColor =
-        if (isSelected) {
-            if (isDark) Color.Black else Color.White
-        } else {
-            if (isDark) Color.White.copy(alpha = 0.88f) else Color.Black.copy(alpha = 0.85f)
-        }
 
-    Box(
-        modifier =
+    val chipModifier =
+        if (isGlassEnabled) {
+            val containerBrush =
+                if (isSelected) {
+                    Brush.verticalGradient(
+                        listOf(
+                            (if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black.copy(alpha = 0.90f)),
+                            (if (isDark) Color(0xFFD4D4D4) else Color(0xFF181818)),
+                        ),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        listOf(
+                            (if (isDark) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.08f)),
+                            (if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.02f)),
+                        ),
+                    )
+                }
             Modifier
-                .clip(pillShape)
-                .background(containerColor)
+                .background(brush = containerBrush)
                 .border(
                     width = 1.dp,
                     brush =
                         Brush.verticalGradient(
                             colors =
                                 if (isSelected) {
-                                    listOf(Color.White.copy(alpha = 0.5f), Color.Transparent)
+                                    listOf(Color.White.copy(alpha = 0.6f), Color.Transparent)
                                 } else {
-                                    listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.04f))
+                                    listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.04f))
                                 },
                         ),
                     shape = pillShape,
-                ).clickable(onClick = onClick)
+                )
+        } else {
+            val solidBackground =
+                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+            Modifier.background(solidBackground)
+        }
+
+    val contentColor =
+        if (isGlassEnabled) {
+            if (isSelected) {
+                if (isDark) Color.Black else Color.White
+            } else {
+                if (isDark) Color.White.copy(alpha = 0.92f) else Color.Black.copy(alpha = 0.85f)
+            }
+        } else {
+            if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+        }
+
+    Box(
+        modifier =
+            Modifier
+                .clip(pillShape)
+                .then(chipModifier)
+                .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -862,10 +967,7 @@ fun HomeTopAppBar(navController: NavController) {
             date.hour
         }
     TopAppBar(
-        windowInsets =
-            TopAppBarDefaults.windowInsets.exclude(
-                TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Start),
-            ),
+        windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
             Column {
                 Text(
@@ -921,13 +1023,12 @@ fun HomeTopAppBar(navController: NavController) {
 fun AccountLayout(
     accountName: String,
     url: String,
+    isGlassEnabled: Boolean = true,
 ) {
     val cardShape = RoundedCornerShape(20.dp)
-    Column(
-        modifier =
+    val cardModifier =
+        if (isGlassEnabled) {
             Modifier
-                .fillMaxWidth()
-                .clip(cardShape)
                 .background(Color.White.copy(alpha = 0.05f))
                 .border(
                     width = 1.dp,
@@ -936,7 +1037,18 @@ fun AccountLayout(
                             listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.03f)),
                         ),
                     shape = cardShape,
-                ).padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+        } else {
+            Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+        }
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .then(cardModifier)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(
             text = stringResource(Res.string.welcome_back),
@@ -981,6 +1093,7 @@ fun QuickPicks(
     homeItem: HomeItem,
     navController: NavController,
     viewModel: HomeViewModel = koinViewModel(),
+    isGlassEnabled: Boolean = true,
 ) {
     val lazyListState = rememberLazyGridState()
     val snapperFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState, snapPosition = SnapPosition.Start))
@@ -1000,20 +1113,28 @@ fun QuickPicks(
     }
 
     val glassCardShape = RoundedCornerShape(24.dp)
+    val cardModifier =
+        if (isGlassEnabled) {
+            Modifier
+                .background(Color.White.copy(alpha = 0.03f))
+                .border(
+                    width = 1.dp,
+                    brush =
+                        Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.02f)),
+                        ),
+                    shape = glassCardShape,
+                )
+        } else {
+            Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+        }
 
     Column(
         Modifier
             .fillMaxWidth()
             .clip(glassCardShape)
-            .background(Color.White.copy(alpha = 0.03f))
-            .border(
-                width = 1.dp,
-                brush =
-                    Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.02f)),
-                    ),
-                shape = glassCardShape,
-            ).padding(horizontal = 12.dp, vertical = 14.dp)
+            .then(cardModifier)
+            .padding(horizontal = 12.dp, vertical = 14.dp)
             .onGloballyPositioned { coordinates ->
                 with(density) {
                     widthDp = (coordinates.size.width).toDp()
