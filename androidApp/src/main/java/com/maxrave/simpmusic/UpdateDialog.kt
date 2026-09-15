@@ -31,12 +31,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import java.io.File
 
 @Composable
 fun UpdateDialog(
     state: UpdateState,
     onDismiss: () -> Unit,
-    onUpdateClick: (String) -> Unit
+    onUpdateClick: (String) -> Unit,
+    onInstallClick: (File) -> Unit
 ) {
     if (state is UpdateState.Idle || state is UpdateState.AlreadyLatest) return
 
@@ -209,9 +211,46 @@ fun UpdateDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         BasicText(
-                            text = "Opening installer...",
+                            text = "The update is ready to install.",
                             style = TextStyle(color = Color(0xFF94A3B8), fontSize = 14.sp)
                         )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                    .clickable { onDismiss() }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                BasicText(
+                                    text = "Later",
+                                    style = TextStyle(color = Color.LightGray, fontSize = 14.sp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.size(10.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF16A34A))
+                                    .clickable { onInstallClick(state.apkFile) }
+                                    .padding(horizontal = 18.dp, vertical = 10.dp)
+                            ) {
+                                BasicText(
+                                    text = "Install Now",
+                                    style = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
+                        }
                     }
 
                     is UpdateState.Error -> {

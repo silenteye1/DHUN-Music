@@ -254,7 +254,6 @@ class MainActivity : AppCompatActivity() {
             val updateState by updateManager.updateState.collectAsState()
             val scope = rememberCoroutineScope()
 
-            // App launch hone par background silent check karega (isManual = false)
             LaunchedEffect(Unit) {
                 val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
                 updateManager.checkForUpdates(currentVersion, isManual = false)
@@ -266,9 +265,13 @@ class MainActivity : AppCompatActivity() {
                 state = updateState,
                 onDismiss = { updateManager.resetState() },
                 onUpdateClick = { downloadUrl ->
+                    val version = (updateState as? UpdateState.UpdateAvailable)?.versionName ?: ""
                     scope.launch {
-                        updateManager.downloadAndInstallApk(downloadUrl)
+                        updateManager.downloadAndInstallApk(downloadUrl, version)
                     }
+                },
+                onInstallClick = { apkFile ->
+                    updateManager.installApk(apkFile)
                 }
             )
         }
