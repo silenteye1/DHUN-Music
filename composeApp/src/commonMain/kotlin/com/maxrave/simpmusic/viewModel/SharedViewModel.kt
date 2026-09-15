@@ -24,6 +24,7 @@ import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.canvas.CanvasResult
 import com.maxrave.domain.data.model.download.DownloadProgress
 import com.maxrave.domain.data.model.intent.GenericIntent
+import com.maxrave.domain.data.model.lyrics.RomanizationLanguage
 import com.maxrave.domain.data.model.metadata.Lyrics
 import com.maxrave.domain.data.model.streams.TimeLine
 import com.maxrave.domain.data.model.update.UpdateData
@@ -33,7 +34,6 @@ import com.maxrave.domain.extension.isSong
 import com.maxrave.domain.extension.isVideo
 import com.maxrave.domain.extension.toGenericMediaItem
 import com.maxrave.domain.manager.DataStoreManager
-import com.maxrave.domain.data.model.lyrics.RomanizationLanguage
 import com.maxrave.domain.manager.DataStoreManager.Values.FALSE
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.mediaservice.handler.ControlState
@@ -50,6 +50,7 @@ import com.maxrave.domain.repository.CacheRepository
 import com.maxrave.domain.repository.LocalPlaylistRepository
 import com.maxrave.domain.repository.LyricsCanvasRepository
 import com.maxrave.domain.repository.PlaylistRepository
+import com.maxrave.domain.repository.SearchRepository
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.repository.StreamRepository
 import com.maxrave.domain.repository.UpdateRepository
@@ -66,6 +67,7 @@ import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.getDownloadFolderPath
 import com.maxrave.simpmusic.expect.ui.toByteArray
 import com.maxrave.simpmusic.getPlatform
+import com.maxrave.simpmusic.utils.SpotifyHelper
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +96,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.simpmusic.lastfm.completeLogin
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.added_to_queue
@@ -110,8 +114,6 @@ import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.reflect.KClass
 
-// DataStore key for the kotlin-footguns star prompt. Cleared on every version bump,
-// so the ask comes back after an update - same policy as OPEN_APP_TIME.
 const val FOOTGUNS_STAR_KEY = "footguns_starred"
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -125,7 +127,10 @@ class SharedViewModel(
     private val playlistRepository: PlaylistRepository,
     private val lyricsCanvasRepository: LyricsCanvasRepository,
     private val cacheRepository: CacheRepository,
-) : BaseViewModel() {
+) : BaseViewModel(), KoinComponent {
+
+    private val searchRepository: SearchRepository by inject()
+
     var isFirstLiked: Boolean = false
     var isFirstMiniplayer: Boolean = false
     var isFirstSuggestions: Boolean = false
@@ -148,12 +153,6 @@ class SharedViewModel(
     private var _format: MutableStateFlow<NewFormatEntity?> = MutableStateFlow(null)
     val format: SharedFlow<NewFormatEntity?> = _format.asSharedFlow()
 
-    /**
-     * Which extractor and cipher decoder produced the current track's URLs, shown in the info sheet.
-     *
-     * Read alongside the format rather than stored with it: the format row is cached and reused,
-     * while this describes the extraction that happened in this run of the app.
-     */
     private val _extractSource: MutableStateFlow<String?> = MutableStateFlow(null)
     val extractSource: StateFlow<String?> = _extractSource.asStateFlow()
 
@@ -218,16 +217,6 @@ class SharedViewModel(
     private var _likeStatus = MutableStateFlow<Boolean>(false)
     val likeStatus: StateFlow<Boolean> = _likeStatus
 
-    /**
-     * Which body of the Apple Music player was open last — held by ENUM NAME so this class stays
-     * ignorant of the UI enum, which is internal to the player package.
-     *
-     * It cannot live in the composable: that player is inside a ModalBottomSheet, so dismissing
-     * the sheet disposes the whole tree and takes any rememberSaveable with it — the tab snapped
-     * back to the artwork every single time it was reopened. This class is a Koin `single`, so it
-     * outlives the sheet while still resetting on app restart, which is the right lifetime for
-     * "where I was a moment ago".
-     */
     private val _lastPlayerViewTab = MutableStateFlow<String?>(null)
     val lastPlayerViewTab: StateFlow<String?> = _lastPlayerViewTab
 
@@ -299,21 +288,10 @@ class SharedViewModel(
                         _shareSavedLyrics.value = it == TRUE
                     }
                 }
-//            val controllerStateJob =
-//                launch {
-//                    controllerState.map { it.isLiked }.distinctUntilChanged().collectLatest {
-//                        if (dataStoreManager.combineLocalAndYouTubeLiked.first() == TRUE) {
-//                            nowPlayingState.value?.mediaItem?.mediaId?.let {
-//                                getLikeStatus(it)
-//                            }
-//                        }
-//                    }
-//                }
             timeLineJob.join()
             checkGetVideoJob.join()
             lyricsProviderJob.join()
             shareSavedLyricsJob.join()
-//            controllerStateJob.join()
         }
 
         runBlocking {
@@ -336,23 +314,6 @@ class SharedViewModel(
                     canvasJob?.cancel()
                     _nowPlayingState.value = state
 
-                    // Seed the timeline from METADATA as soon as the track is known, instead of
-                    // waiting for the player. SimpleMediaState.Ready carries a duration and only
-                    // fires once the container is parsed; after a queue restore nothing plays, the
-                    // position poll never starts (it runs only while isPlaying), and so nothing
-                    // ever reports a length — which is why a restored queue showed no times at all.
-                    // SongEntity has known the length since the song was first seen.
-                    //
-                    // Written on EVERY track change, not just when missing: leaving the old value
-                    // in place would show the previous track's length over the new one.
-                    // Order matters: metadata first because it is available immediately, then the
-                    // player's own duration, and only -1 ("not known yet") when neither has one.
-                    //
-                    // Writing -1 whenever metadata is missing — which this did at first — makes
-                    // every radio track and every first-time track flash NA:NA on the clock until
-                    // the container is parsed, because those rows have no durationSeconds stored.
-                    // Asking the player before giving up covers exactly that case: on a normal
-                    // track change it usually already knows.
                     val metadataDurationMs = (state.songEntity?.durationSeconds ?: 0).toLong() * 1000L
                     val seededTotal =
                         metadataDurationMs.takeIf { it > 0L }
@@ -418,13 +379,6 @@ class SharedViewModel(
                             }
 
                             SimpleMediaState.Ended -> {
-                                // Park at the end of the track rather than at -1. The only formatter
-                                // for these fields renders any negative as "NA:NA", and nothing here
-                                // is guaranteed to follow: at the end of the queue the player simply
-                                // stays ended, so a -1 written here stays on screen. Worse, the
-                                // Progress branch below ignores negative values and the Loading
-                                // branch restores `total` without touching `current`, which is how
-                                // the player ends up showing a correct duration next to "NA:NA".
                                 _timeline.update {
                                     it.copy(
                                         current = it.total.coerceAtLeast(0L),
@@ -454,12 +408,6 @@ class SharedViewModel(
                                         }
                                     }
                                 }
-                                // When progress hasn't changed (same value polled again) or is negative,
-                                // don't modify loading state. The loading flag is already managed by
-                                // Buffering/Ready/Loading state events. Setting loading=true here would
-                                // cause rapid flickering because the progress poll interval (100ms) is
-                                // shorter than the adapter's position cache update interval (200ms),
-                                // resulting in duplicate position values that incorrectly triggered loading.
                             }
 
                             is SimpleMediaState.Loading -> {
@@ -477,12 +425,6 @@ class SharedViewModel(
                                     it.copy(
                                         current = mediaPlayerHandler.getProgress(),
                                         loading = false,
-                                        // The player's own duration wins, but ONLY when it has one.
-                                        // ExoPlayer answers C.TIME_UNSET (a large negative, not
-                                        // null) until it has parsed the container, and Ready is
-                                        // also published from onIsLoadingChanged — which fires
-                                        // before STATE_READY. Writing that would throw away the
-                                        // metadata duration seeded on the track change above.
                                         total = mediaState.duration.takeIf { d -> d > 0L } ?: it.total,
                                     )
                                 }
@@ -496,7 +438,6 @@ class SharedViewModel(
                     mediaPlayerHandler.controlState.collectLatest {
                         Logger.w(tag, "ControlState is $it")
                         _controllerState.value = it
-                        // Propagate crossfade state to timeline so UI can react
                         _timeline.update { timeline ->
                             timeline.copy(isCrossfading = it.isCrossfading)
                         }
@@ -521,7 +462,6 @@ class SharedViewModel(
             sleepTimerJob.join()
             playlistNameJob.join()
         }
-        // Reset downloading songs & playlists to not downloaded
         checkAllDownloadingSongs()
         checkAllDownloadingPlaylists()
         checkAllDownloadingLocalPlaylists()
@@ -529,18 +469,93 @@ class SharedViewModel(
 
     fun setIntent(intent: GenericIntent?) {
         _intent.value = intent
+
+        val rawData = intent?.data?.toString()
+        if (!rawData.isNullOrEmpty()) {
+            val spotifyUrl = SpotifyHelper.extractUrl(rawData) ?: if (SpotifyHelper.isSpotifyUrl(rawData)) rawData else null
+            if (spotifyUrl != null) {
+                handleSpotifyLink(spotifyUrl)
+            }
+        }
     }
 
-    /**
-     * Finishes a Last.fm login from the `wordbyword://lastfm-auth` callback.
-     *
-     * It lands here, and not on the login screen, because the callback arrives at the app rather
-     * than at any one screen: the user left for their browser, and the screen they left from may
-     * not even exist any more if the process was killed. Routing the token onwards through
-     * navigation would push a second copy of the login screen on top of the one already open.
-     *
-     * The screen learns it succeeded by watching the stored session key, not by being told.
-     */
+    private fun handleSpotifyLink(spotifyUrl: String) {
+        viewModelScope.launch {
+            if (SpotifyHelper.isPlaylistUrl(spotifyUrl)) {
+                makeToast("Loading Spotify Playlist...")
+                val trackQueries = SpotifyHelper.getTracksFromSpotifyPlaylist(spotifyUrl)
+                if (trackQueries.isNotEmpty()) {
+                    makeToast("Found ${trackQueries.size} tracks. Adding to queue...")
+
+                    var isFirstSongPlayed = false
+
+                    for (query in trackQueries) {
+                        try {
+                            val res = searchRepository.getSearchDataSong(query).firstOrNull()
+                            if (res is Resource.Success) {
+                                val item = res.data?.firstOrNull()?.toTrack()
+                                if (item != null) {
+                                    if (!isFirstSongPlayed) {
+                                        isFirstSongPlayed = true
+                                        // Play as PLAYLIST instead of RADIO so YouTube suggestions don't overwrite it
+                                        mediaPlayerHandler.setQueueData(
+                                            QueueData.Data(
+                                                listTracks = arrayListOf(item),
+                                                firstPlayedTrack = item,
+                                                playlistId = "SPOTIFY_${System.currentTimeMillis()}",
+                                                playlistName = "Spotify Playlist",
+                                                playlistType = PlaylistType.PLAYLIST,
+                                                continuation = null,
+                                            ),
+                                        )
+                                        loadMediaItemFromTrack(item, PLAYLIST_CLICK)
+                                    } else {
+                                        mediaPlayerHandler.loadMoreCatalog(arrayListOf(item))
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    makeToast("Spotify queue loaded!")
+                } else {
+                    makeToast("Could not load playlist tracks")
+                }
+            } else {
+                makeToast("Detecting Spotify track...")
+                val query = SpotifyHelper.getSearchQueryFromSpotifyUrl(spotifyUrl)
+                if (!query.isNullOrBlank()) {
+                    makeToast("Playing: $query")
+                    searchRepository.getSearchDataSong(query).collectLatest { res ->
+                        if (res is Resource.Success) {
+                            val firstTrack = res.data?.firstOrNull()?.toTrack()
+                            if (firstTrack != null) {
+                                mediaPlayerHandler.setQueueData(
+                                    QueueData.Data(
+                                        listTracks = arrayListOf(firstTrack),
+                                        firstPlayedTrack = firstTrack,
+                                        playlistId = "SPOTIFY_TRACK_${firstTrack.videoId}",
+                                        playlistName = "Spotify Track",
+                                        playlistType = PlaylistType.PLAYLIST,
+                                        continuation = null,
+                                    ),
+                                )
+                                loadMediaItemFromTrack(firstTrack, PLAYLIST_CLICK)
+                            } else {
+                                makeToast("No matching track found")
+                            }
+                        } else if (res is Resource.Error) {
+                            makeToast("Search error: ${res.message}")
+                        }
+                    }
+                } else {
+                    makeToast("Could not load Spotify metadata")
+                }
+            }
+        }
+    }
+
     fun completeLastfmLogin(token: String) {
         if (token.isEmpty()) return
         viewModelScope.launch {
@@ -584,12 +599,7 @@ class SharedViewModel(
         duration: Int,
     ) {
         Logger.w(tag, "Start getCanvas: $videoId $duration")
-//        canvasJob?.cancel()
         viewModelScope.launch {
-            // Both sources fill the same slot, so they are tried in order rather than raced:
-            // animated artwork first, and a Spotify canvas only if that found nothing AND the user
-            // has that switch on too. Neither switch touches the other — a track with no animated
-            // artwork still gets its canvas, and turning Spotify off still means no canvas at all.
             val sources =
                 buildList {
                     if (dataStoreManager.amAnimatedArtwork.first() == TRUE) {
@@ -618,9 +628,7 @@ class SharedViewModel(
                                     ),
                             )
                         }
-                        // Save canvas video url
                         if (data.isVideo) lyricsCanvasRepository.updateCanvasUrl(videoId, data.canvasUrl)
-                        // Save canvas thumb url
                         data.canvasThumbUrl?.let { lyricsCanvasRepository.updateCanvasThumbUrl(videoId, it) }
                     } else {
                         log("Get canvas miss from a source: ${response.message}", LogLevel.WARN)
@@ -687,7 +695,7 @@ class SharedViewModel(
                                     !downloadedCacheKeys.containsAll(
                                         tracks,
                                     )
-                                )
+                                    )
                             ) {
                                 albumRepository.updateAlbumDownloadState(
                                     data.browseId,
@@ -703,7 +711,7 @@ class SharedViewModel(
                                     !downloadedCacheKeys.containsAll(
                                         tracks,
                                     )
-                                )
+                                    )
                             ) {
                                 playlistRepository.updatePlaylistDownloadState(
                                     data.id,
@@ -719,7 +727,7 @@ class SharedViewModel(
                                     !downloadedCacheKeys.containsAll(
                                         tracks,
                                     )
-                                )
+                                    )
                             ) {
                                 localPlaylistRepository.updateLocalPlaylistDownloadState(
                                     DownloadState.STATE_NOT_DOWNLOADED,
@@ -781,18 +789,20 @@ class SharedViewModel(
                 streamRepository.getFullMetadata(videoId).collectLatest { response ->
                     val track = response.data
                     when (response) {
-                        is Resource.Success if (track != null) -> {
-                            mediaPlayerHandler.setQueueData(
-                                QueueData.Data(
-                                    listTracks = arrayListOf(track),
-                                    firstPlayedTrack = track,
-                                    playlistId = "RDAMVM$videoId",
-                                    playlistName = getString(Res.string.shared),
-                                    playlistType = PlaylistType.RADIO,
-                                    continuation = null,
-                                ),
-                            )
-                            loadMediaItemFromTrack(track, SONG_CLICK)
+                        is Resource.Success -> {
+                            if (track != null) {
+                                mediaPlayerHandler.setQueueData(
+                                    QueueData.Data(
+                                        listTracks = arrayListOf(track),
+                                        firstPlayedTrack = track,
+                                        playlistId = "RDAMVM$videoId",
+                                        playlistName = getString(Res.string.shared),
+                                        playlistType = PlaylistType.RADIO,
+                                        continuation = null,
+                                    ),
+                                )
+                                loadMediaItemFromTrack(track, SONG_CLICK)
+                            }
                         }
 
                         else -> {
@@ -848,20 +858,16 @@ class SharedViewModel(
 
                 PLAYLIST_CLICK -> {
                     if (index == null) {
-//                                        fetchSourceFromQueue(downloaded = downloaded ?: 0)
                         loadPlaylistOrAlbum(index = 0)
                     } else {
-//                                        fetchSourceFromQueue(index!!, downloaded = downloaded ?: 0)
                         loadPlaylistOrAlbum(index = index)
                     }
                 }
 
                 ALBUM_CLICK -> {
                     if (index == null) {
-//                                        fetchSourceFromQueue(downloaded = downloaded ?: 0)
                         loadPlaylistOrAlbum(index = 0)
                     } else {
-//                                        fetchSourceFromQueue(index!!, downloaded = downloaded ?: 0)
                         loadPlaylistOrAlbum(index = index)
                     }
                 }
@@ -873,9 +879,7 @@ class SharedViewModel(
         viewModelScope.launch {
             when (uiEvent) {
                 UIEvent.Backward -> {
-                    mediaPlayerHandler.onPlayerEvent(
-                        PlayerEvent.Backward,
-                    )
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Backward)
                 }
 
                 UIEvent.Forward -> {
@@ -883,9 +887,7 @@ class SharedViewModel(
                 }
 
                 UIEvent.PlayPause -> {
-                    mediaPlayerHandler.onPlayerEvent(
-                        PlayerEvent.PlayPause,
-                    )
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.PlayPause)
                 }
 
                 UIEvent.Next -> {
@@ -893,15 +895,11 @@ class SharedViewModel(
                 }
 
                 UIEvent.Previous -> {
-                    mediaPlayerHandler.onPlayerEvent(
-                        PlayerEvent.Previous,
-                    )
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.Previous)
                 }
 
                 UIEvent.SkipToPrevious -> {
-                    mediaPlayerHandler.onPlayerEvent(
-                        PlayerEvent.SkipToPrevious,
-                    )
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.SkipToPrevious)
                 }
 
                 UIEvent.Stop -> {
@@ -909,11 +907,7 @@ class SharedViewModel(
                 }
 
                 is UIEvent.UpdateProgress -> {
-                    mediaPlayerHandler.onPlayerEvent(
-                        PlayerEvent.UpdateProgress(
-                            uiEvent.newProgress,
-                        ),
-                    )
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.UpdateProgress(uiEvent.newProgress))
                 }
 
                 UIEvent.Repeat -> {
@@ -931,8 +925,6 @@ class SharedViewModel(
 
                 is UIEvent.UpdateVolume -> {
                     val newVolume = uiEvent.newVolume
-                    // Apply to the player first: persisting to DataStore is a suspending disk write
-                    // and must not sit between the user's gesture and the audible change.
                     mediaPlayerHandler.onPlayerEvent(PlayerEvent.UpdateVolume(newVolume))
                     dataStoreManager.setPlayerVolume(newVolume)
                 }
@@ -984,18 +976,12 @@ class SharedViewModel(
         viewModelScope.launch {
             songRepository.getDownloadingSongs().collect { songs ->
                 songs?.forEach { song ->
-                    songRepository.updateDownloadState(
-                        song.videoId,
-                        DownloadState.STATE_NOT_DOWNLOADED,
-                    )
+                    songRepository.updateDownloadState(song.videoId, DownloadState.STATE_NOT_DOWNLOADED)
                 }
             }
             songRepository.getPreparingSongs().collect { songs ->
                 songs.forEach { song ->
-                    songRepository.updateDownloadState(
-                        song.videoId,
-                        DownloadState.STATE_NOT_DOWNLOADED,
-                    )
+                    songRepository.updateDownloadState(song.videoId, DownloadState.STATE_NOT_DOWNLOADED)
                 }
             }
         }
@@ -1015,8 +1001,6 @@ class SharedViewModel(
                         } else {
                             _format.emit(null)
                         }
-                        // Re-read on every emission: the first one usually lands before the
-                        // extractor has finished, so the source is only known on a later pass.
                         _extractSource.value = streamRepository.getExtractSource(mediaId)
                     }
                 }
@@ -1056,9 +1040,11 @@ class SharedViewModel(
                 updateRepository.checkForGithubReleaseUpdate().collectLatest { response ->
                     val data = response.data
                     when (response) {
-                        is Resource.Success if (data != null) -> {
-                            _updateResponse.value = data
-                            showedUpdateDialog = true
+                        is Resource.Success -> {
+                            if (data != null) {
+                                _updateResponse.value = data
+                                showedUpdateDialog = true
+                            }
                         }
 
                         else -> {
@@ -1071,9 +1057,11 @@ class SharedViewModel(
                 updateRepository.checkForFdroidUpdate().collectLatest { response ->
                     val data = response.data
                     when (response) {
-                        is Resource.Success if (data != null) -> {
-                            _updateResponse.value = data
-                            showedUpdateDialog = true
+                        is Resource.Success -> {
+                            if (data != null) {
+                                _updateResponse.value = data
+                                showedUpdateDialog = true
+                            }
                         }
 
                         else -> {
@@ -1099,7 +1087,7 @@ class SharedViewModel(
 
     private fun updateLyrics(
         videoId: String,
-        duration: Int, // 0 if translated lyrics
+        duration: Int,
         inputLyrics: Lyrics?,
         isTranslatedLyrics: Boolean,
         lyricsProvider: LyricsProvider = LyricsProvider.SIMPMUSIC,
@@ -1124,7 +1112,6 @@ class SharedViewModel(
             )
 
         if (isTranslatedLyrics && lyricsProvider != LyricsProvider.AI) {
-            // Skip sync validation for AI translations — timestamps are copied programmatically
             val originalLyrics = _nowPlayingScreenData.value.lyricsData?.lyrics
             val originalLines = originalLyrics?.lines
             val lyricsLines = lyrics.lines
@@ -1133,7 +1120,6 @@ class SharedViewModel(
                 val totalLines = originalLines.size
 
                 if (originalLines.size == lyricsLines.size) {
-                    // Line counts match: compare by index (1:1 mapping)
                     originalLines.forEachIndexed { index, originalLine ->
                         val originalTime = originalLine.startTimeMs.toLongOrNull() ?: 0L
                         val translatedLine = lyricsLines[index]
@@ -1145,7 +1131,6 @@ class SharedViewModel(
                         }
                     }
                 } else {
-                    // Line count mismatch: use timestamp-based matching with used-line tracking
                     val usedIndices = mutableSetOf<Int>()
                     originalLines.forEach { originalLine ->
                         val originalTime = originalLine.startTimeMs.toLongOrNull() ?: 0L
@@ -1171,7 +1156,6 @@ class SharedViewModel(
                     }
                 }
 
-                // Use percentage-based threshold: reject if >25% of lines are out of sync
                 val syncErrorRatio = if (totalLines > 0) timeSyncErrorCount.toFloat() / totalLines else 0f
                 if (syncErrorRatio > 0.25f || (totalLines > 0 && timeSyncErrorCount > totalLines / 2)) {
                     Logger.w(
@@ -1193,7 +1177,6 @@ class SharedViewModel(
                             videoId,
                             dataStoreManager.translationLanguage.first(),
                         )
-                        log("Removed out-of-sync translated lyrics for $videoId")
                         val simpMusicLyricsId = lyrics.simpMusicLyrics?.id
                         if (lyricsProvider == LyricsProvider.SIMPMUSIC && !simpMusicLyricsId.isNullOrEmpty()) {
                             viewModelScope.launch {
@@ -1201,15 +1184,10 @@ class SharedViewModel(
                                     .voteSimpMusicTranslatedLyrics(
                                         translatedLyricsId = simpMusicLyricsId,
                                         false,
-                                    ).collectLatest {
-                                        when (it) {
-                                            is Resource.Error -> {
-                                                Logger.w(tag, "Vote SimpMusic Translated Lyrics Error ${it.message}")
-                                            }
-
-                                            is Resource.Success -> {
-                                                Logger.d(tag, "Vote SimpMusic Translated Lyrics Success")
-                                            }
+                                    ).collectLatest { voteResult ->
+                                        when (voteResult) {
+                                            is Resource.Error -> Logger.w(tag, "Vote SimpMusic Translated Lyrics Error ${voteResult.message}")
+                                            is Resource.Success -> Logger.d(tag, "Vote SimpMusic Translated Lyrics Success")
                                         }
                                     }
                             }
@@ -1261,13 +1239,8 @@ class SharedViewModel(
                                     dataStoreManager.translationLanguage.first(),
                                 ).collect {
                                     when (it) {
-                                        is Resource.Error -> {
-                                            log("Insert SimpMusic Translated Lyrics Error ${it.message}")
-                                        }
-
-                                        is Resource.Success -> {
-                                            log("Insert SimpMusic Translated Lyrics Success")
-                                        }
+                                        is Resource.Error -> log("Insert SimpMusic Translated Lyrics Error ${it.message}")
+                                        is Resource.Success -> log("Insert SimpMusic Translated Lyrics Success")
                                     }
                                 }
                         }
@@ -1292,7 +1265,6 @@ class SharedViewModel(
                                 ),
                         )
                     }
-                    // Save lyrics to database
                     viewModelScope.launch {
                         lyricsCanvasRepository.insertLyrics(
                             LyricsEntity(
@@ -1313,13 +1285,8 @@ class SharedViewModel(
                                     lyrics,
                                 ).collect {
                                     when (it) {
-                                        is Resource.Error -> {
-                                            Logger.w(tag, "Insert SimpMusic Lyrics Error ${it.message}")
-                                        }
-
-                                        is Resource.Success -> {
-                                            Logger.d(tag, "Insert SimpMusic Lyrics Success")
-                                        }
+                                        is Resource.Error -> Logger.w(tag, "Insert SimpMusic Lyrics Error ${it.message}")
+                                        is Resource.Success -> Logger.d(tag, "Insert SimpMusic Lyrics Success")
                                     }
                                 }
                         }
@@ -1336,7 +1303,6 @@ class SharedViewModel(
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
-            log("Get Lyrics From Format for $videoId", LogLevel.WARN)
             val artistName = song.artistName
             val artist =
                 if (artistName?.firstOrNull() != null &&
@@ -1399,10 +1365,8 @@ class SharedViewModel(
         duration: Int,
     ) {
         lyricsCanvasRepository.getSimpMusicLyrics(videoId).collectLatest {
-            Logger.w(tag, "Get SimpMusic Lyrics for $videoId: $it")
             val data = it.data
             if (it is Resource.Success && data != null) {
-                Logger.d(tag, "Get SimpMusic Lyrics Success")
                 updateLyrics(
                     videoId,
                     duration,
@@ -1445,30 +1409,32 @@ class SharedViewModel(
             .collect { response ->
                 val data = response.data
                 when (response) {
-                    is Resource.Success if (data != null) -> {
-                        val lyrics = data.first
-                        val translatedLyrics = data.second
-                        insertLyrics(lyrics.toLyricsEntity(videoId))
-                        updateLyrics(
-                            videoId,
-                            duration,
-                            lyrics,
-                            false,
-                            LyricsProvider.YOUTUBE,
-                        )
-                        if (translatedLyrics != null) {
+                    is Resource.Success -> {
+                        if (data != null) {
+                            val lyrics = data.first
+                            val translatedLyrics = data.second
+                            insertLyrics(lyrics.toLyricsEntity(videoId))
                             updateLyrics(
                                 videoId,
                                 duration,
-                                translatedLyrics,
-                                true,
+                                lyrics,
+                                false,
                                 LyricsProvider.YOUTUBE,
                             )
-                        } else {
-                            getAITranslationLyrics(
-                                videoId,
-                                lyrics,
-                            )
+                            if (translatedLyrics != null) {
+                                updateLyrics(
+                                    videoId,
+                                    duration,
+                                    translatedLyrics,
+                                    true,
+                                    LyricsProvider.YOUTUBE,
+                                )
+                            } else {
+                                getAITranslationLyrics(
+                                    videoId,
+                                    lyrics,
+                                )
+                            }
                         }
                     }
 
@@ -1498,24 +1464,25 @@ class SharedViewModel(
                 ).collectLatest { res ->
                     val data = res.data
                     when (res) {
-                        is Resource.Success if (data != null) -> {
-                            Logger.d(tag, "Get Lyrics Data Success")
-                            updateLyrics(
-                                song.videoId,
-                                duration,
-                                res.data,
-                                false,
-                                LyricsProvider.LRCLIB,
-                            )
-                            insertLyrics(
-                                res.data?.toLyricsEntity(
+                        is Resource.Success -> {
+                            if (data != null) {
+                                updateLyrics(
                                     song.videoId,
-                                ) ?: return@collectLatest,
-                            )
-                            getAITranslationLyrics(
-                                song.videoId,
-                                data,
-                            )
+                                    duration,
+                                    res.data,
+                                    false,
+                                    LyricsProvider.LRCLIB,
+                                )
+                                insertLyrics(
+                                    res.data?.toLyricsEntity(
+                                        song.videoId,
+                                    ) ?: return@collectLatest,
+                                )
+                                getAITranslationLyrics(
+                                    song.videoId,
+                                    data,
+                                )
+                            }
                         }
 
                         else -> {
@@ -1544,28 +1511,28 @@ class SharedViewModel(
                 ).collectLatest { res ->
                     val data = res.data
                     when (res) {
-                        is Resource.Success if (data != null) -> {
-                            Logger.d(tag, "Get BetterLyrics Success")
-                            updateLyrics(
-                                song.videoId,
-                                duration,
-                                data,
-                                false,
-                                LyricsProvider.BETTER_LYRICS,
-                            )
-                            insertLyrics(
-                                data.toLyricsEntity(
+                        is Resource.Success -> {
+                            if (data != null) {
+                                updateLyrics(
                                     song.videoId,
-                                ),
-                            )
-                            getAITranslationLyrics(
-                                song.videoId,
-                                data,
-                            )
+                                    duration,
+                                    data,
+                                    false,
+                                    LyricsProvider.BETTER_LYRICS,
+                                )
+                                insertLyrics(
+                                    data.toLyricsEntity(
+                                        song.videoId,
+                                    ),
+                                )
+                                getAITranslationLyrics(
+                                    song.videoId,
+                                    data,
+                                )
+                            }
                         }
 
                         else -> {
-                            log("Get BetterLyrics Error: ${res.message}")
                             getSimpMusicLyrics(
                                 song.videoId,
                                 song,
@@ -1582,45 +1549,40 @@ class SharedViewModel(
         videoId: String,
         lyrics: Lyrics,
     ) {
-        val translationLanguage =
-            dataStoreManager.translationLanguage.first()
+        val translationLanguage = dataStoreManager.translationLanguage.first()
         lyricsCanvasRepository.getSimpMusicTranslatedLyrics(videoId, translationLanguage).collectLatest { response ->
             val data = response.data
             when (response) {
-                is Resource.Success if (data != null) -> {
-                    // If SimpMusic translated lyrics are RICH_SYNCED (word-by-word),
-                    // convert to LINE_SYNCED, downvote, and fallback to AI translation
-                    if (data.syncType == "RICH_SYNCED") {
-                        Logger.w(tag, "SimpMusic translated lyrics are RICH_SYNCED, downvoting and falling back to AI")
-                        val simpMusicLyricsId = data.simpMusicLyrics?.id
-                        if (!simpMusicLyricsId.isNullOrEmpty()) {
-                            viewModelScope.launch {
-                                lyricsCanvasRepository
-                                    .voteSimpMusicTranslatedLyrics(simpMusicLyricsId, false)
-                                    .collectLatest { voteResult ->
-                                        when (voteResult) {
-                                            is Resource.Error -> Logger.w(tag, "Downvote RICH_SYNCED translated lyrics error: ${voteResult.message}")
-                                            is Resource.Success -> Logger.d(tag, "Downvote RICH_SYNCED translated lyrics success")
+                is Resource.Success -> {
+                    if (data != null) {
+                        if (data.syncType == "RICH_SYNCED") {
+                            val simpMusicLyricsId = data.simpMusicLyrics?.id
+                            if (!simpMusicLyricsId.isNullOrEmpty()) {
+                                viewModelScope.launch {
+                                    lyricsCanvasRepository
+                                        .voteSimpMusicTranslatedLyrics(simpMusicLyricsId, false)
+                                        .collectLatest { voteResult ->
+                                            when (voteResult) {
+                                                is Resource.Error -> Logger.w(tag, "Downvote RICH_SYNCED translated lyrics error: ${voteResult.message}")
+                                                is Resource.Success -> Logger.d(tag, "Downvote RICH_SYNCED translated lyrics success")
+                                            }
                                         }
-                                    }
+                                }
                             }
+                            getAITranslationLyrics(videoId, lyrics)
+                        } else {
+                            updateLyrics(
+                                videoId,
+                                0,
+                                data,
+                                true,
+                                LyricsProvider.SIMPMUSIC,
+                            )
                         }
-                        // Fallback to AI translation
-                        getAITranslationLyrics(videoId, lyrics)
-                    } else {
-                        Logger.d(tag, "Get SimpMusic Translated Lyrics Success")
-                        updateLyrics(
-                            videoId,
-                            0,
-                            data,
-                            true,
-                            LyricsProvider.SIMPMUSIC,
-                        )
                     }
                 }
 
                 else -> {
-                    Logger.w(tag, "Get SimpMusic Translated Lyrics Error: ${response.message}")
                     getAITranslationLyrics(
                         videoId,
                         lyrics,
@@ -1634,7 +1596,6 @@ class SharedViewModel(
         videoId: String,
         lyrics: Lyrics,
     ) {
-        Logger.d(tag, "Get AI Translation Lyrics for $videoId")
         if (dataStoreManager.useAITranslation.first() == TRUE &&
             dataStoreManager.aiApiKey.first().isNotEmpty() &&
             dataStoreManager.enableTranslateLyric.first() == FALSE
@@ -1646,7 +1607,6 @@ class SharedViewModel(
                         dataStoreManager.translationLanguage.first(),
                     ).firstOrNull()
             if (savedTranslatedLyrics != null) {
-                Logger.d(tag, "Get Saved Translated Lyrics")
                 updateLyrics(
                     videoId,
                     0,
@@ -1655,8 +1615,6 @@ class SharedViewModel(
                     LyricsProvider.AI,
                 )
             } else {
-                // Convert RICH_SYNCED to LINE_SYNCED before sending to AI
-                // AI should only work with line-level or plain lyrics
                 val lyricsForAi =
                     if (lyrics.syncType == "RICH_SYNCED") {
                         lyrics.toSyncedLyrics()
@@ -1671,24 +1629,25 @@ class SharedViewModel(
                     .collectLatest {
                         val data = it.data
                         when (it) {
-                            is Resource.Success if (data != null) -> {
-                                Logger.d(tag, "Get AI Translate Lyrics Success")
-                                lyricsCanvasRepository.insertTranslatedLyrics(
-                                    TranslatedLyricsEntity(
-                                        videoId = videoId,
-                                        language = dataStoreManager.translationLanguage.first(),
-                                        error = false,
-                                        lines = data.lines,
-                                        syncType = data.syncType,
-                                    ),
-                                )
-                                updateLyrics(
-                                    videoId,
-                                    0,
-                                    data,
-                                    true,
-                                    LyricsProvider.AI,
-                                )
+                            is Resource.Success -> {
+                                if (data != null) {
+                                    lyricsCanvasRepository.insertTranslatedLyrics(
+                                        TranslatedLyricsEntity(
+                                            videoId = videoId,
+                                            language = dataStoreManager.translationLanguage.first(),
+                                            error = false,
+                                            lines = data.lines,
+                                            syncType = data.syncType,
+                                        ),
+                                    )
+                                    updateLyrics(
+                                        videoId,
+                                        0,
+                                        data,
+                                        true,
+                                        LyricsProvider.AI,
+                                    )
+                                }
                             }
 
                             else -> {
@@ -1706,9 +1665,7 @@ class SharedViewModel(
         duration: Int? = null,
     ) {
         viewModelScope.launch {
-            Logger.d("Check SpotifyLyrics", "SpotifyLyrics $query")
             lyricsCanvasRepository.getSpotifyLyrics(dataStoreManager, query, duration).cancellable().collect { response ->
-                Logger.d("Check SpotifyLyrics", response.toString())
                 val data = response.data
                 when (response) {
                     is Resource.Success -> {
@@ -1815,7 +1772,6 @@ class SharedViewModel(
 
     fun getLocalTrackingEnabled() = dataStoreManager.localTrackingEnabled
 
-    // Drives the Mix for you tab: YouTube hands an anonymous session no mixes at all.
     fun getYouTubeLoggedIn() = dataStoreManager.loggedIn
 
     fun getThemeMode() = dataStoreManager.themeMode
@@ -1862,9 +1818,6 @@ class SharedViewModel(
 
     fun setRomanizationLanguages(languages: Set<RomanizationLanguage>) {
         viewModelScope.launch {
-            // Sorted by name so the stored string is stable: an unsorted Set writes a different
-            // value for the same selection depending on iteration order, which makes the DataStore
-            // flow emit on a change that did not happen.
             dataStoreManager.setRomanizationLanguages(languages.map { it.name }.sorted().joinToString(","))
         }
     }
@@ -1890,8 +1843,7 @@ class SharedViewModel(
             "${nowPlayingScreenData.value.nowPlayingTitle} - ${nowPlayingScreenData.value.artistName}"
                 .replace(Regex("""[|\\?*<":>]"""), "")
                 .replace(" ", "_")
-        val path =
-            "${getDownloadFolderPath()}/$fileName"
+        val path = "${getDownloadFolderPath()}/$fileName"
         viewModelScope.launch {
             nowPlayingState.value?.track?.let { track ->
                 val bytesArray = bitmap.toByteArray()
@@ -1899,7 +1851,6 @@ class SharedViewModel(
                     val fileOutputStream = FileOutputStream("$path.jpg")
                     fileOutputStream.write(bytesArray)
                     fileOutputStream.close()
-                    Logger.d(tag, "Thumbnail saved to $path.jpg")
                 } catch (e: Exception) {
                     throw RuntimeException(e)
                 }
@@ -1933,9 +1884,7 @@ class SharedViewModel(
     fun onDoneRequestingShareLyrics(contributor: Pair<String, String>? = null) {
         viewModelScope.launch {
             dataStoreManager.setHelpBuildLyricsDatabase(true)
-            dataStoreManager.setContributorLyricsDatabase(
-                contributor,
-            )
+            dataStoreManager.setContributorLyricsDatabase(contributor)
         }
     }
 
@@ -1945,33 +1894,24 @@ class SharedViewModel(
         }
     }
 
-    // Vote state for translated lyrics
     private val _translatedVoteState = MutableStateFlow<VoteData?>(null)
     val translatedVoteState: StateFlow<VoteData?> = _translatedVoteState.asStateFlow()
 
-    // Vote state for original lyrics
     private val _lyricsVoteState = MutableStateFlow<VoteData?>(null)
     val lyricsVoteState: StateFlow<VoteData?> = _lyricsVoteState.asStateFlow()
 
-    /**
-     * Vote for SimpMusic original lyrics (upvote or downvote)
-     * @param upvote true for upvote, false for downvote
-     */
     fun voteLyrics(upvote: Boolean) {
         val lyricsData = _nowPlayingScreenData.value.lyricsData
         val lyricsProvider = lyricsData?.lyricsProvider
         val simpMusicLyricsId = lyricsData?.lyrics?.simpMusicLyrics?.id ?: return
 
         if (lyricsProvider != LyricsProvider.SIMPMUSIC || simpMusicLyricsId.isEmpty()) {
-            Logger.w(tag, "Cannot vote: not a SimpMusic lyrics or missing ID")
             return
         }
 
         viewModelScope.launch {
             _lyricsVoteState.update {
-                it?.copy(
-                    state = VoteState.Loading,
-                )
+                it?.copy(state = VoteState.Loading)
             }
             lyricsCanvasRepository
                 .voteSimpMusicLyrics(
@@ -1980,16 +1920,12 @@ class SharedViewModel(
                 ).collectLatest { result ->
                     when (result) {
                         is Resource.Error -> {
-                            Logger.w(tag, "Vote SimpMusic Lyrics Error ${result.message}")
                             _lyricsVoteState.update {
-                                it?.copy(
-                                    state = VoteState.Error(result.message ?: "Unknown error"),
-                                )
+                                it?.copy(state = VoteState.Error(result.message ?: "Unknown error"))
                             }
                         }
 
                         is Resource.Success -> {
-                            Logger.d(tag, "Vote SimpMusic Lyrics Success")
                             _lyricsVoteState.update {
                                 it?.copy(
                                     state = VoteState.Success(upvote),
@@ -2008,25 +1944,18 @@ class SharedViewModel(
         _translatedVoteState.value = null
     }
 
-    /**
-     * Vote for SimpMusic translated lyrics (upvote or downvote)
-     * @param upvote true for upvote, false for downvote
-     */
     fun voteTranslatedLyrics(upvote: Boolean) {
         val translatedLyrics = _nowPlayingScreenData.value.lyricsData?.translatedLyrics
         val lyricsProvider = translatedLyrics?.second
         val simpMusicLyricsId = translatedLyrics?.first?.simpMusicLyrics?.id ?: return
 
         if (lyricsProvider != LyricsProvider.SIMPMUSIC || simpMusicLyricsId.isEmpty()) {
-            Logger.w(tag, "Cannot vote: not a SimpMusic translated lyrics or missing ID")
             return
         }
 
         viewModelScope.launch {
             _translatedVoteState.update {
-                it?.copy(
-                    state = VoteState.Loading,
-                )
+                it?.copy(state = VoteState.Loading)
             }
             lyricsCanvasRepository
                 .voteSimpMusicTranslatedLyrics(
@@ -2035,16 +1964,12 @@ class SharedViewModel(
                 ).collectLatest { result ->
                     when (result) {
                         is Resource.Error -> {
-                            Logger.w(tag, "Vote SimpMusic Translated Lyrics Error ${result.message}")
                             _translatedVoteState.update {
-                                it?.copy(
-                                    state = VoteState.Error(result.message ?: "Unknown error"),
-                                )
+                                it?.copy(state = VoteState.Error(result.message ?: "Unknown error"))
                             }
                         }
 
                         is Resource.Success -> {
-                            Logger.d(tag, "Vote SimpMusic Translated Lyrics Success")
                             _translatedVoteState.update {
                                 it?.copy(
                                     state = VoteState.Success(upvote),
@@ -2062,8 +1987,6 @@ class SharedViewModel(
 
     fun isUserLoggedIn(): Boolean = runBlocking { dataStoreManager.cookie.first().isNotEmpty() }
 
-    // Flow-based variant of [isUserLoggedIn] so composables can collect login state once
-    // instead of calling runBlocking inside composition (used by NowPlayingScreenContent).
     fun isUserLoggedInFlow(): Flow<Boolean> = dataStoreManager.cookie.map { it.isNotEmpty() }
 
     fun isCombineFavoriteAndYTLiked(): Boolean = runBlocking { dataStoreManager.combineLocalAndYouTubeLiked.first() == TRUE }
@@ -2071,36 +1994,16 @@ class SharedViewModel(
 
 sealed class UIEvent {
     data object PlayPause : UIEvent()
-
     data object Backward : UIEvent()
-
     data object Forward : UIEvent()
-
     data object Next : UIEvent()
-
     data object Previous : UIEvent()
-
-    /**
-     * Always advances to the previous track — bypasses the 3-second
-     * "seek to start of current track" rule used by [Previous]. Used by the
-     * NowPlaying artwork pager swipe.
-     */
     data object SkipToPrevious : UIEvent()
-
     data object Stop : UIEvent()
-
     data object Shuffle : UIEvent()
-
     data object Repeat : UIEvent()
-
-    data class UpdateProgress(
-        val newProgress: Float,
-    ) : UIEvent()
-
-    data class UpdateVolume(
-        val newVolume: Float,
-    ) : UIEvent()
-
+    data class UpdateProgress(val newProgress: Float) : UIEvent()
+    data class UpdateVolume(val newVolume: Float) : UIEvent()
     data object ToggleLike : UIEvent()
 }
 
@@ -2160,25 +2063,9 @@ data class VoteData(
 
 sealed class VoteState {
     data object Idle : VoteState()
-
     data object Loading : VoteState()
-
-    data class Success(
-        val upvote: Boolean,
-    ) : VoteState()
-
-    data class Error(
-        val message: String,
-    ) : VoteState()
+    data class Success(val upvote: Boolean) : VoteState()
+    data class Error(val message: String) : VoteState()
 }
 
-/**
- * Whether a stored canvas url points at something a player should open rather than an image.
- *
- * The column holds whatever the active source wrote: a Spotify canvas is an `.mp4`, while AM
- * animated artwork is an HLS `.m3u8` master playlist. Testing only for `.mp4` — as this did before
- * AM existed — sends every AM artwork down the still-image branch, and because the branch that
- * reads this is the one that restores a *cached* url, the failure only appears from the second play
- * of a track onwards.
- */
 private fun String.isCanvasVideoUrl(): Boolean = contains(".mp4") || contains(".m3u8")
