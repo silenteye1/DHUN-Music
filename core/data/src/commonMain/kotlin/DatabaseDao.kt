@@ -1008,7 +1008,7 @@ interface DatabaseDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertPlaybackEvent(playbackEventEntity: PlaybackEventEntity): Long
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.Companion.IGNORE)
     suspend fun insertEventArtist(eventArtist: EventArtistEntity)
 
     @Transaction
