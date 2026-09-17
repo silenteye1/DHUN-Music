@@ -493,9 +493,11 @@ fun NowPlayingContentSpotify(
                                                 ImageRequest
                                                     .Builder(LocalPlatformContext.current)
                                                     .data(artworkUrl)
+                                                    .size(1080, 1080)
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
                                                     .diskCachePolicy(CachePolicy.ENABLED)
                                                     .diskCacheKey(artworkUrl + "BIGGER")
-                                                    .crossfade(550)
+                                                    .crossfade(300)
                                                     .build(),
                                             contentDescription = "",
                                             onSuccess = {
@@ -805,6 +807,8 @@ fun NowPlayingContentSpotify(
                                                 ImageRequest
                                                     .Builder(LocalPlatformContext.current)
                                                     .data(staticThumb)
+                                                    .size(1080, 1080)
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
                                                     .diskCachePolicy(CachePolicy.ENABLED)
                                                     .diskCacheKey(staticThumb)
                                                     .crossfade(300)

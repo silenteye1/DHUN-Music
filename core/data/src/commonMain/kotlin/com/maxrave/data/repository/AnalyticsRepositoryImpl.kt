@@ -12,13 +12,14 @@ import com.maxrave.domain.data.model.analytics.ListeningFingerprint
 import com.maxrave.domain.repository.AnalyticsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.LocalDateTime
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlin.math.ln
 import kotlin.math.sqrt
 import kotlin.time.ExperimentalTime
@@ -175,10 +176,6 @@ internal class AnalyticsRepositoryImpl(
             val samples = analyticsDatasource.getPlaybackSamplesInRange(startTimestamp, endTimestamp)
             if (samples.isEmpty()) return@withContext AnalyticsPeriodStats()
 
-            // No timezone arithmetic here on purpose. PlaybackSample.timestamp is a LocalDateTime,
-            // so Room's converter has already handed back the wall clock the listener saw, and the
-            // hour and the date read straight off it. Decoding the raw column by hand is what put
-            // this screen's busiest hour at 03:00 on a UTC+7 machine.
             val hours = IntArray(24)
             val perDay = mutableMapOf<LocalDate, Int>()
             var listened = 0L
@@ -189,45 +186,49 @@ internal class AnalyticsRepositoryImpl(
             }
             val busiest = perDay.maxByOrNull { it.value }
 
-            val distinctTracks = analyticsDatasource.getDistinctTrackCountInRange(startTimestamp, endTimestamp)
-            val distinctAlbums = analyticsDatasource.getDistinctAlbumCountInRange(startTimestamp, endTimestamp)
-            val distinctArtists = analyticsDatasource.getDistinctArtistCountInRange(startTimestamp, endTimestamp)
-            val newArtists = analyticsDatasource.getNewArtistCountInRange(startTimestamp, endTimestamp)
-            val artistPlays = analyticsDatasource.getArtistPlayCountsInRange(startTimestamp, endTimestamp)
-            val decades = analyticsDatasource.getDecadeCountsInRange(startTimestamp, endTimestamp)
-            val datedPlays = analyticsDatasource.getDatedPlayCountInRange(startTimestamp, endTimestamp)
+            coroutineScope {
+                val distinctTracksDeferred = async { analyticsDatasource.getDistinctTrackCountInRange(startTimestamp, endTimestamp) }
+                val distinctAlbumsDeferred = async { analyticsDatasource.getDistinctAlbumCountInRange(startTimestamp, endTimestamp) }
+                val distinctArtistsDeferred = async { analyticsDatasource.getDistinctArtistCountInRange(startTimestamp, endTimestamp) }
+                val newArtistsDeferred = async { analyticsDatasource.getNewArtistCountInRange(startTimestamp, endTimestamp) }
+                val artistPlaysDeferred = async { analyticsDatasource.getArtistPlayCountsInRange(startTimestamp, endTimestamp) }
+                val decadesDeferred = async { analyticsDatasource.getDecadeCountsInRange(startTimestamp, endTimestamp) }
+                val datedPlaysDeferred = async { analyticsDatasource.getDatedPlayCountInRange(startTimestamp, endTimestamp) }
 
-            AnalyticsPeriodStats(
-                plays = samples.size.toLong(),
-                listenedSeconds = listened,
-                distinctTracks = distinctTracks,
-                distinctAlbums = distinctAlbums,
-                distinctArtists = distinctArtists,
-                newArtists = newArtists,
-                activeDays = perDay.size,
-                busiestDay = busiest?.key,
-                busiestDayPlays = busiest?.value ?: 0,
-                playsByHour = hours.toList(),
-                decades = decades.map { DecadePlays(it.decade, it.playCount) },
-                datedPlays = datedPlays,
-                fingerprint =
-                    fingerprintOf(
-                        dailyCounts = perDay.values.toList(),
-                        artistPlays = artistPlays.map { it.playCount },
-                        newArtists = newArtists,
-                        distinctArtists = distinctArtists,
-                        distinctTracks = distinctTracks,
-                        plays = samples.size,
-                    ),
-            )
+                val distinctTracks = distinctTracksDeferred.await()
+                val distinctAlbums = distinctAlbumsDeferred.await()
+                val distinctArtists = distinctArtistsDeferred.await()
+                val newArtists = newArtistsDeferred.await()
+                val artistPlays = artistPlaysDeferred.await()
+                val decades = decadesDeferred.await()
+                val datedPlays = datedPlaysDeferred.await()
+
+                AnalyticsPeriodStats(
+                    plays = samples.size.toLong(),
+                    listenedSeconds = listened,
+                    distinctTracks = distinctTracks,
+                    distinctAlbums = distinctAlbums,
+                    distinctArtists = distinctArtists,
+                    newArtists = newArtists,
+                    activeDays = perDay.size,
+                    busiestDay = busiest?.key,
+                    busiestDayPlays = busiest?.value ?: 0,
+                    playsByHour = hours.toList(),
+                    decades = decades.map { DecadePlays(it.decade, it.playCount) },
+                    datedPlays = datedPlays,
+                    fingerprint =
+                        fingerprintOf(
+                            dailyCounts = perDay.values.toList(),
+                            artistPlays = artistPlays.map { it.playCount },
+                            newArtists = newArtists,
+                            distinctArtists = distinctArtists,
+                            distinctTracks = distinctTracks,
+                            plays = samples.size,
+                        ),
+                )
+            }
         }
 
-    /**
-     * The five behaviour axes, each bounded 0..1 by construction so no external scale is needed.
-     *
-     * Every one of them divides by something that can be zero on a thin period, so each guards its
-     * own denominator rather than relying on the caller to have enough data.
-     */
     private fun fingerprintOf(
         dailyCounts: List<Int>,
         artistPlays: List<Int>,
@@ -236,8 +237,6 @@ internal class AnalyticsRepositoryImpl(
         distinctTracks: Int,
         plays: Int,
     ): ListeningFingerprint {
-        // Relative spread of the daily counts, inverted: listening a little every day scores high,
-        // one big binge and six silent days scores low.
         val consistency =
             if (dailyCounts.size < 2) {
                 0f
@@ -252,9 +251,6 @@ internal class AnalyticsRepositoryImpl(
             }
 
         val artistTotal = artistPlays.sum()
-        // Normalised Shannon entropy. ln(n) is the entropy of a perfectly even spread over the same
-        // number of artists, so dividing by it asks "how even is this, for its size" rather than
-        // "how many artists" — otherwise a bigger library would always look more diverse.
         val diversity =
             if (artistTotal <= 0 || artistPlays.size < 2) {
                 0f

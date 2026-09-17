@@ -243,29 +243,20 @@ class SharedViewModel(
                 launch {
                     nowPlayingState
                         .filterNotNull()
-                        .flatMapLatest { nowPlayingState ->
-                            timeline.map { timeLine ->
-                                Pair(timeLine, nowPlayingState)
+                        .distinctUntilChangedBy { it.songEntity?.videoId }
+                        .collectLatest { nowPlaying ->
+                            val song = nowPlaying.songEntity ?: return@collectLatest
+                            val durationSec = song.durationSeconds.takeIf { it > 0 }
+                                ?: (mediaPlayerHandler.getPlayerDuration() / 1000).toInt()
+
+                            if (nowPlaying.mediaItem.isSong() && nowPlayingScreenData.value.canvasData == null) {
+                                Logger.w(tag, "Duration is $durationSec")
+                                Logger.w(tag, "MediaId is ${nowPlaying.mediaItem.mediaId}")
+                                getCanvas(nowPlaying.mediaItem.mediaId, durationSec)
                             }
-                        }.distinctUntilChanged { old, new ->
-                            (old.first.total.toString() + old.second.songEntity?.videoId).hashCode() ==
-                                (new.first.total.toString() + new.second.songEntity?.videoId).hashCode()
-                        }.collectLatest {
-                            log("Timeline job ${(it.first.total.toString() + it.second.songEntity?.videoId).hashCode()}")
-                            val nowPlaying = it.second
-                            val timeline = it.first
-                            if (timeline.total > 0 && nowPlaying.songEntity != null) {
-                                if (nowPlaying.mediaItem.isSong() && nowPlayingScreenData.value.canvasData == null) {
-                                    Logger.w(tag, "Duration is ${timeline.total}")
-                                    Logger.w(tag, "MediaId is ${nowPlaying.mediaItem.mediaId}")
-                                    getCanvas(nowPlaying.mediaItem.mediaId, (timeline.total / 1000).toInt())
-                                }
-                                nowPlaying.songEntity?.let { song ->
-                                    if (nowPlayingScreenData.value.lyricsData == null) {
-                                        Logger.w(tag, "Get lyrics from format")
-                                        getLyricsFromFormat(nowPlaying.mediaItem.isVideo(), song, (timeline.total / 1000).toInt())
-                                    }
-                                }
+                            if (nowPlayingScreenData.value.lyricsData == null) {
+                                Logger.w(tag, "Get lyrics from format")
+                                getLyricsFromFormat(nowPlaying.mediaItem.isVideo(), song, durationSec)
                             }
                         }
                 }

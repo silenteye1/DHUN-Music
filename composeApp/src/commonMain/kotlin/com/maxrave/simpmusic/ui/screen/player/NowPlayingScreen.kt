@@ -219,14 +219,6 @@ fun NowPlayingScreenContent(
     }
 
     // ① Player → Pager: animate to new track when player advances.
-    //
-    // Keyed on the track ALONE. It used to be keyed on the queue SIZE as well, and a changing key
-    // cancels the running effect — including the animateScrollToPage in flight. A cancelled scroll
-    // simply stops where it is; nothing snaps it to a page afterwards, because snapping belongs to
-    // the gesture path, not to a programmatic scroll. Turning on the radio appends to the queue
-    // repeatedly, so the size changed again and again and cut the animation short each time,
-    // leaving the pager parked between two pages. The size is still read below — just as a value,
-    // not as a trigger; ③ handles the case where the queue shrinks under the current page.
     LaunchedEffect(currentOrderIndex) {
         val target = currentOrderIndex
         if (!isUserDraggingActive &&
@@ -244,22 +236,6 @@ fun NowPlayingScreenContent(
     }
 
     // ② Pager → Player: seek when user settles on a different page.
-    // Adjacent (±1) → Next/Previous (preserves crossfade flow on Android).
-    // Far skip → playMediaItemInMediaSource (handles unshuffling internally).
-    //
-    // Keyed on artworkPagerState ALONE — deliberately NOT on currentOrderIndex/queue size, which
-    // are read through rememberUpdatedState instead. This effect exists to catch a user SWIPE, and
-    // the only thing that moves settledPage is the pager. Re-keying it on the track built a NEW
-    // snapshotFlow on every track change, and a new flow's FIRST emission is whatever settledPage
-    // happens to hold — distinctUntilChanged has no previous value to suppress it against — so a
-    // STALE page was dispatched as though the user had just swiped to it.
-    //
-    // That is what broke the Apple Music queue: its pager lives inside MAIN, so while QUEUE is on
-    // screen the pager is not composed at all and settledPage still points at the previous track.
-    // Tapping a row seeked correctly, the track changed, this effect was rebuilt, and it
-    // immediately read the stale page — computeSeekAction(previous, current) == Previous — which
-    // sent the player straight back to the song that had just been playing.
-    // AppleMusicQueueView already uses rememberUpdatedState for exactly this hazard (its offset).
     val latestOrderIndex by rememberUpdatedState(currentOrderIndex)
     val latestQueueSize by rememberUpdatedState(artworkQueue.size)
     LaunchedEffect(artworkPagerState) {
@@ -267,10 +243,6 @@ fun NowPlayingScreenContent(
             .distinctUntilChanged()
             .collect { settled ->
                 if (isAnimatingFromPlayer) return@collect
-                // The seek is a response to a SWIPE, so there must have been one. This is what
-                // stops the Apple Music queue from being overruled: tapping a row seeks correctly,
-                // the track changes, and then this effect would otherwise notice the pager sitting
-                // on the old page and "correct" it right back.
                 if (!pendingUserSwipe) return@collect
                 pendingUserSwipe = false
                 val queueSize = latestQueueSize
@@ -284,9 +256,6 @@ fun NowPlayingScreenContent(
                         ArtworkSeekAction.Next -> {
                             sharedViewModel.onUIEvent(UIEvent.Next)
                         }
-                        // Use SkipToPrevious so a swipe always goes to the previous track —
-                        // UIEvent.Previous would seek to 0 of the current track once the
-                        // playhead has passed the 3-second mark.
                         ArtworkSeekAction.Previous -> {
                             sharedViewModel.onUIEvent(UIEvent.SkipToPrevious)
                         }
@@ -303,8 +272,7 @@ fun NowPlayingScreenContent(
             }
     }
 
-    // ③ Queue mutation guard — when queue shrinks below currentPage, scroll to last index
-    // to avoid IndexOutOfBoundsException during recomposition.
+    // ③ Queue mutation guard
     LaunchedEffect(artworkQueue.size) {
         if (artworkQueue.isNotEmpty() && artworkPagerState.currentPage >= artworkQueue.size) {
             runCatching { artworkPagerState.scrollToPage(artworkQueue.lastIndex) }
@@ -373,12 +341,6 @@ fun NowPlayingScreenContent(
         showHideMiddleLayout = screenDataState.canvasData == null
     }
 
-    // Palette generation lives in its own NEVER-restarting effect. Keyed on screenDataState it
-    // was cancelled mid-generate every time ANOTHER field of the data class arrived (canvasData,
-    // lyrics, songInfo), and kmpalette parks on Loading when generate() is cancelled — palette
-    // stays null, startColor stays black, and the M3E style falls back to the app seed (the
-    // "canvas songs are always cyan" bug). Canvas songs hit this deterministically because the
-    // canvas fetch always lands after the artwork bitmap.
     LaunchedEffect(Unit) {
         snapshotFlow { screenDataState.bitmap }
             .filterNotNull()
@@ -394,8 +356,6 @@ fun NowPlayingScreenContent(
             .collectLatest {
                 spotShadowColor = it.getColorFromPalette()
                 startColor.animateTo(it.getColorFromPalette())
-                // Lands on the same backdrop colour the fade and the area below the gradient
-                // use, so the palette ramp resolves into the surface instead of a black patch.
                 endColor.animateTo(PlayerBackdropColor)
             }
     }
@@ -404,22 +364,24 @@ fun NowPlayingScreenContent(
         Logger.d(TAG, "spotShadowColor: $spotShadowColor")
     }
 
+    // Optimized Progress Calculation: prevents whole tree recompositions on 100ms ticks
     var isSliding by rememberSaveable {
         mutableStateOf(false)
     }
-    var sliderValue by rememberSaveable {
+    var userSliderValue by rememberSaveable {
         mutableFloatStateOf(0f)
     }
-    LaunchedEffect(key1 = timelineState, key2 = isSliding) {
-        if (!isSliding) {
-            sliderValue =
-                if (timelineState.total > 0L) {
-                    timelineState.current.toFloat() * 100 / timelineState.total.toFloat()
-                } else {
-                    0f
-                }
+
+    val computedProgress by remember(timelineState.current, timelineState.total) {
+        derivedStateOf {
+            if (timelineState.total > 0L) {
+                (timelineState.current.toFloat() * 100f / timelineState.total.toFloat()).coerceIn(0f, 100f)
+            } else {
+                0f
+            }
         }
     }
+    val sliderValue = if (isSliding) userSliderValue else computedProgress
 
     // Crossfade: RGB rainbow color cycling when transitioning between tracks
     val infiniteTransition = rememberInfiniteTransition(label = "crossfadeRainbow")
@@ -512,11 +474,6 @@ fun NowPlayingScreenContent(
             return@LaunchedEffect
         }
         val lines = lyrics.lines ?: return@LaunchedEffect
-        val translatedLines =
-            screenDataState.lyricsData
-                ?.translatedLyrics
-                ?.first
-                ?.lines
         if (timelineState.current > 0L) {
             lines.indices.forEach { i ->
                 val startTimeMs = lines[i].startTimeMs.toLongOrNull() ?: 0L
@@ -549,7 +506,7 @@ fun NowPlayingScreenContent(
             onNavigateToOtherScreen = {
                 onDismiss()
             },
-            song = null, // Auto set now playing
+            song = null,
             setSleepTimerEnable = true,
             changeMainLyricsProviderEnable = true,
         )
@@ -558,7 +515,7 @@ fun NowPlayingScreenContent(
     if (showFullscreenLyrics) {
         FullscreenLyricsSheet(
             sharedViewModel = sharedViewModel,
-            navController = navController, // <-- ADD THIS LINE
+            navController = navController,
             color = startColor.value,
         ) {
             showFullscreenLyrics = false
@@ -588,7 +545,7 @@ fun NowPlayingScreenContent(
 
         LaunchedEffect(Unit) {
             viewModel.resetPlaylists()
-            viewModel.setSongEntity(null) // Uses current playing song
+            viewModel.setSongEntity(null)
         }
 
         AddToPlaylistModalBottomSheet(
@@ -670,10 +627,6 @@ fun NowPlayingScreenContent(
             mainScrollState = mainScrollState,
             isExpanded = isExpanded,
             dismissIcon = dismissIcon,
-            // codecs, NOT mimeType. StreamRepositoryImpl splits YouTube's
-            // `audio/webm; codecs="opus"` with a regex and stores the two halves in SEPARATE
-            // columns: mimeType keeps "audio/webm", codecs keeps "opus". Asking mimeType for the
-            // codec therefore never matched anything and the badge never rendered, on any track.
             audioCodecLabel = formatState?.codecs.toAudioCodecLabel(),
         )
     val actions =
@@ -685,12 +638,12 @@ fun NowPlayingScreenContent(
             onArtworkBitmap = { sharedViewModel.setBitmap(it) },
             onSliderChange = { newValue ->
                 isSliding = true
-                sliderValue = newValue
+                userSliderValue = newValue
             },
             onSliderChangeFinished = {
                 isSliding = false
                 sharedViewModel.onUIEvent(
-                    UIEvent.UpdateProgress(sliderValue),
+                    UIEvent.UpdateProgress(userSliderValue),
                 )
             },
             onToggleControls = {
@@ -702,14 +655,14 @@ fun NowPlayingScreenContent(
                 (
                     song?.artistId?.firstOrNull()?.takeIf { it.isNotEmpty() }
                         ?: screenDataState.songInfoData?.authorId
-                )?.let { channelId ->
-                    onDismiss()
-                    navController.navigate(
-                        ArtistDestination(
-                            channelId = channelId,
-                        ),
-                    )
-                }
+                    )?.let { channelId ->
+                        onDismiss()
+                        navController.navigate(
+                            ArtistDestination(
+                                channelId = channelId,
+                            ),
+                        )
+                    }
             },
             onAddToYouTubeLiked = { sharedViewModel.addToYouTubeLiked() },
             onShowMoreSheet = { showSheet = true },
