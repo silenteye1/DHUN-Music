@@ -813,8 +813,14 @@ internal class MediaServiceHandlerImpl(
     override suspend fun onPlayerEvent(playerEvent: PlayerEvent) {
         when (playerEvent) {
             is PlayerEvent.UpdateVolume -> {}
-            PlayerEvent.Backward -> player.seekBack()
-            PlayerEvent.Forward -> player.seekForward()
+            PlayerEvent.Backward -> {
+                val newPos = (player.currentPosition - 10_000L).coerceAtLeast(0L)
+                player.seekTo(newPos)
+            }
+            PlayerEvent.Forward -> {
+                val newPos = (player.currentPosition + 10_000L).coerceAtMost(player.duration)
+                player.seekTo(newPos)
+            }
             PlayerEvent.PlayPause -> {
                 if (player.isPlaying) {
                     player.pause()

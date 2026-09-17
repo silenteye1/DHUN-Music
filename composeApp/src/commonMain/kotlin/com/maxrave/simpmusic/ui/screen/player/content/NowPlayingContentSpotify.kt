@@ -24,6 +24,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,6 +92,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -440,6 +442,24 @@ fun NowPlayingContentSpotify(
                                         .height(middleLayoutPaddingDp.dp)
                                         .fillMaxWidth(),
                             )
+
+                            var showSeekBackwardBadge by remember { mutableStateOf(false) }
+                            var showSeekForwardBadge by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(showSeekBackwardBadge) {
+                                if (showSeekBackwardBadge) {
+                                    delay(650)
+                                    showSeekBackwardBadge = false
+                                }
+                            }
+
+                            LaunchedEffect(showSeekForwardBadge) {
+                                if (showSeekForwardBadge) {
+                                    delay(650)
+                                    showSeekForwardBadge = false
+                                }
+                            }
+
                             Box(
                                 modifier =
                                     Modifier
@@ -504,6 +524,111 @@ fun NowPlayingContentSpotify(
                                                         if (!state.screenData.isVideo || !state.shouldShowVideo) 1f else 0f,
                                                     ),
                                         )
+
+                                        // Double-Tap Gesture Layer
+                                        Row(
+                                            modifier =
+                                                Modifier
+                                                    .matchParentSize()
+                                                    .padding(3.dp)
+                                                    .clip(RoundedCornerShape(8.dp)),
+                                        ) {
+                                            // Left Half: Seek -10s
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxHeight()
+                                                        .weight(1f)
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onDoubleTap = {
+                                                                    actions.onUIEvent(UIEvent.Backward)
+                                                                    showSeekBackwardBadge = true
+                                                                },
+                                                            )
+                                                        },
+                                            ) {
+                                                androidx.compose.animation.AnimatedVisibility(
+                                                    visible = showSeekBackwardBadge,
+                                                    enter = fadeIn(tween(150)),
+                                                    exit = fadeOut(tween(250)),
+                                                ) {
+                                                    Box(
+                                                        contentAlignment = Alignment.Center,
+                                                        modifier =
+                                                            Modifier
+                                                                .size(72.dp)
+                                                                .background(
+                                                                    Color.Black.copy(alpha = 0.65f),
+                                                                    CircleShape,
+                                                                ),
+                                                    ) {
+                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.Replay5,
+                                                                contentDescription = "Rewind",
+                                                                tint = Color.White,
+                                                                modifier = Modifier.size(28.dp),
+                                                            )
+                                                            Text(
+                                                                text = "10s",
+                                                                style = typo().labelSmall,
+                                                                color = Color.White,
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Right Half: Seek +10s
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxHeight()
+                                                        .weight(1f)
+                                                        .pointerInput(Unit) {
+                                                            detectTapGestures(
+                                                                onDoubleTap = {
+                                                                    actions.onUIEvent(UIEvent.Forward)
+                                                                    showSeekForwardBadge = true
+                                                                },
+                                                            )
+                                                        },
+                                            ) {
+                                                androidx.compose.animation.AnimatedVisibility(
+                                                    visible = showSeekForwardBadge,
+                                                    enter = fadeIn(tween(150)),
+                                                    exit = fadeOut(tween(250)),
+                                                ) {
+                                                    Box(
+                                                        contentAlignment = Alignment.Center,
+                                                        modifier =
+                                                            Modifier
+                                                                .size(72.dp)
+                                                                .background(
+                                                                    Color.Black.copy(alpha = 0.65f),
+                                                                    CircleShape,
+                                                                ),
+                                                    ) {
+                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.Forward5,
+                                                                contentDescription = "Forward",
+                                                                tint = Color.White,
+                                                                modifier = Modifier.size(28.dp),
+                                                            )
+                                                            Text(
+                                                                text = "10s",
+                                                                style = typo().labelSmall,
+                                                                color = Color.White,
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
 
                                     androidx.compose.animation.AnimatedVisibility(
@@ -1824,8 +1949,9 @@ private fun NowPlayingTrackInfoRow(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .wrapContentHeight(align = Alignment.CenterVertically)
-                                .basicMarquee(
+                                .wrapContentHeight(
+                                    align = Alignment.CenterVertically,
+                                ).basicMarquee(
                                     iterations = Int.MAX_VALUE,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable()
