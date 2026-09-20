@@ -12,3 +12,8 @@ package com.maxrave.simpmusic.expect.ui
  * mostly-transparent list, which is not the design.
  */
 expect fun isLyricsBlurSupported(): Boolean
+
+expect fun openAppLinkingSettings(context: Any?)
+
+expect fun getDownloadedUpdateApkSize(context: Any?): Long
+expect fun clearDownloadedUpdateApks(context: Any?): Boolean

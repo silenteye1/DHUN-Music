@@ -115,9 +115,12 @@ import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.ui.clearDownloadedUpdateApks
 import com.maxrave.simpmusic.expect.ui.fileSaverResult
+import com.maxrave.simpmusic.expect.ui.getDownloadedUpdateApkSize
 import com.maxrave.simpmusic.expect.ui.isLyricsBlurSupported
 import com.maxrave.simpmusic.expect.ui.isWallpaperDynamicColorSupported
+import com.maxrave.simpmusic.expect.ui.openAppLinkingSettings
 import com.maxrave.simpmusic.extension.bytesToMB
 import com.maxrave.simpmusic.extension.displayString
 import com.maxrave.simpmusic.extension.isTwoLetterCode
@@ -453,6 +456,9 @@ fun SettingScreen(
     // Initial state null taaki starting me sabhi cards collapsed (band) rahein
     var expandedSection by rememberSaveable { mutableStateOf<SettingSection?>(null) }
 
+    // Downloaded APK file ka size track karne ke liye state
+    var updateApkSize by remember { mutableStateOf(getDownloadedUpdateApkSize(platformContext)) }
+
     val formatter =
         LocalDateTime.Format {
             byUnicodePattern("yyyyMMddHHmmss")
@@ -613,6 +619,7 @@ fun SettingScreen(
         viewModel.getAllGoogleAccount()
         viewModel.getData()
         viewModel.getThumbCacheSize(platformContext)
+        updateApkSize = getDownloadedUpdateApkSize(platformContext)
     }
 
     val settingListState = rememberLazyListState()
@@ -1767,6 +1774,33 @@ fun SettingScreen(
                     subtitle = "silenteye1/DHUN-Music",
                     onClick = { uriHandler.openUri("https://github.com/silenteye1/DHUN-Music") },
                 )
+                if (getPlatform() == Platform.Android) {
+                    SettingItem(
+                        title = "Supported Links",
+                        subtitle = "App linking settings",
+                        onClick = {
+                            openAppLinkingSettings(platformContext)
+                        },
+                    )
+                    SettingItem(
+                        title = "Clear Downloaded Update",
+                        subtitle = if (updateApkSize > 0L) "${updateApkSize.bytesToMB()} MB (Tap to clear)" else "No downloaded APK found",
+                        isEnable = updateApkSize > 0L,
+                        onClick = {
+                            viewModel.setBasicAlertData(
+                                SettingBasicAlertState(
+                                    title = "Clear Downloaded Update",
+                                    message = "Are you sure you want to delete the downloaded APK file?",
+                                    confirm = "Clear" to {
+                                        clearDownloadedUpdateApks(platformContext)
+                                        updateApkSize = getDownloadedUpdateApkSize(platformContext)
+                                    },
+                                    dismiss = "Cancel",
+                                ),
+                            )
+                        },
+                    )
+                }
                 SettingItem(
                     title = stringResource(Res.string.third_party_libraries),
                     subtitle = stringResource(Res.string.description_and_licenses),

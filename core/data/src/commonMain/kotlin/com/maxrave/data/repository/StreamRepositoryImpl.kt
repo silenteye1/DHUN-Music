@@ -20,12 +20,15 @@ import com.maxrave.kotlinytmusicscraper.YouTube
 import com.maxrave.kotlinytmusicscraper.models.MediaType
 import com.maxrave.kotlinytmusicscraper.models.response.PlayerResponse
 import com.maxrave.logger.Logger
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal class StreamRepositoryImpl(
@@ -111,29 +114,24 @@ internal class StreamRepositoryImpl(
                 } else {
                     ITAG.MUXED_360P
                 }
-            youTube
-                .player(videoId, noLogIn = muxed)
+
+            // Retry mechanism: Retries up to 2 times on transient network drops/timeouts
+            var playerResult = youTube.player(videoId, noLogIn = muxed)
+            if (playerResult.isFailure) {
+                Logger.w("Stream", "First attempt failed, retrying player extraction for $videoId...")
+                delay(400)
+                playerResult = youTube.player(videoId, noLogIn = muxed)
+            }
+
+            playerResult
                 .onSuccess { data ->
                     val response = data.second
                     if (data.third == MediaType.Song) {
-                        Logger.w(
-                            "Stream",
-                            "response: is SONG",
-                        )
+                        Logger.w("Stream", "response: is SONG")
                     } else {
                         Logger.w("Stream", "response: is VIDEO")
                     }
-                    Logger.w(
-                        "Stream",
-                        response.streamingData
-                            ?.formats
-                            ?.map { it.itag }
-                            .toString() + " " +
-                            response.streamingData
-                                ?.adaptiveFormats
-                                ?.map { it.itag }
-                                .toString(),
-                    )
+
                     val formatList = mutableListOf<PlayerResponse.StreamingData.Format>()
                     formatList.addAll(
                         response.streamingData?.formats?.filter { it.url.isNullOrEmpty().not() } ?: emptyList(),
@@ -143,6 +141,7 @@ internal class StreamRepositoryImpl(
                             ?: emptyList(),
                     )
                     Logger.w("Stream", "Get stream for video $isVideo")
+
                     val videoFormat =
                         formatList.find { it.itag == videoItag }
                             ?: formatList.find { it.itag == ITAG.VIDEO_720P }
@@ -171,15 +170,10 @@ internal class StreamRepositoryImpl(
                                 url != null && youTube.isManifestUrl(url)
                             }.maxByOrNull { it.width ?: 0 } ?: formatList.find { it.itag == videoItag }
                     }
-                    Logger.w("Stream", "Selected hls ${response.streamingData?.hlsManifestUrl}")
-                    Logger.w("Stream", "format: $format")
-                    Logger.d("Stream", "expireInSeconds ${response.streamingData?.expiresInSeconds}")
-                    Logger.w("Stream", "expired at ${now().plusSeconds(response.streamingData?.expiresInSeconds?.toLong() ?: 0L)}")
+
                     val durationSecond = response.videoDetails?.lengthSeconds?.toIntOrNull()
-                    // AutoMix metadata from Tidal official API
-                    var tidalBpm: Int? = null
-                    var tidalMusicKey: String? = null
-                    var tidalKeyScale: String? = null
+
+                    // Async background fetch for Tidal metadata so it never blocks audio stream initialization
                     if (!isVideo && durationSecond != null && data.third == MediaType.Song) {
                         val title = response.videoDetails?.title ?: ""
                         val author = response.videoDetails?.author ?: ""
@@ -195,18 +189,23 @@ internal class StreamRepositoryImpl(
                                 .replace(Regex("([()])"), "")
                                 .replace(".", " ")
                                 .replace("  ", " ")
-                        Logger.d("Stream", "Search Tidal metadata for: $q")
-                        youTube
-                            .searchTidalMetadata(q, durationSecond)
-                            .onSuccess { metadata ->
-                                Logger.w("Stream", "Tidal metadata: $metadata")
-                                tidalBpm = metadata.bpm
-                                tidalMusicKey = metadata.musicKey
-                                tidalKeyScale = metadata.keyScale
-                            }.onFailure {
-                                Logger.e("Stream", "Tidal metadata error: ${it.message}", it)
-                            }
+
+                        CoroutineScope(Dispatchers.IO).launch {
+                            youTube.searchTidalMetadata(q, durationSecond)
+                                .onSuccess { metadata ->
+                                    localDataSource.getNewFormat(videoId)?.let { existing ->
+                                        localDataSource.updateNewFormat(
+                                            existing.copy(
+                                                bpm = metadata.bpm,
+                                                musicKey = metadata.musicKey,
+                                                keyScale = metadata.keyScale,
+                                            ),
+                                        )
+                                    }
+                                }
+                        }
                     }
+
                     insertNewFormat(
                         NewFormatEntity(
                             videoId = if (VIDEO_QUALITY.itags.contains(format?.itag)) "${MERGING_DATA_TYPE.VIDEO}$videoId" else videoId,
@@ -251,43 +250,31 @@ internal class StreamRepositoryImpl(
                             expiredTime = now().plusSeconds(response.streamingData?.expiresInSeconds?.toLong() ?: 0L),
                             audioUrl = if (muxed) response.streamingData?.hlsManifestUrl else format?.url,
                             videoUrl = if (muxed) response.streamingData?.hlsManifestUrl else videoFormat?.url,
-                            bpm = tidalBpm,
-                            musicKey = tidalMusicKey,
-                            keyScale = tidalKeyScale,
+                            bpm = null,
+                            musicKey = null,
+                            keyScale = null,
                         ),
                     )
-                    if (data.first != null) {
-                        emit(
-                            if (muxed) {
-                                response.streamingData?.hlsManifestUrl
-                            } else {
-                                format?.url?.let { url ->
-                                    if (youTube.isManifestUrl(url)) {
-                                        url.plus("&cpn=${data.first}")
-                                    } else {
-                                        url.plus("&cpn=${data.first}&range=0-${format.contentLength ?: 10000000}")
-                                    }
-                                }
-                            },
-                        )
+
+                    // Data-Saver & Performance Fix:
+                    // Removed forced "&range=0-10000000". ExoPlayer will buffer dynamic byte chunks
+                    // as playback progresses instead of immediately buffering 10MB on skipped tracks.
+                    val selectedUrl = if (muxed) {
+                        response.streamingData?.hlsManifestUrl
                     } else {
-                        emit(
-                            if (muxed) {
-                                response.streamingData?.hlsManifestUrl
+                        format?.url?.let { url ->
+                            if (data.first != null && !url.contains("&cpn=")) {
+                                url.plus("&cpn=${data.first}")
                             } else {
-                                format?.url?.let { url ->
-                                    if (youTube.isManifestUrl(url)) {
-                                        url
-                                    } else {
-                                        url.plus("&range=0-${format.contentLength ?: 10000000}")
-                                    }
-                                }
-                            },
-                        )
+                                url
+                            }
+                        }
                     }
+
+                    emit(selectedUrl)
                 }.onFailure {
                     it.printStackTrace()
-                    Logger.e("Stream", "Error: ${it.message}")
+                    Logger.e("Stream", "Error getting stream for $videoId: ${it.message}")
                     emit(null)
                 }
         }.flowOn(Dispatchers.IO)
