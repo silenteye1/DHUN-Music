@@ -110,9 +110,9 @@ fun NowPlayingScreen(
         onDismissRequest = {
             onDismiss()
         },
-        containerColor = Color.Black,
+        containerColor = Color.Transparent,
         dragHandle = {},
-        scrimColor = Color.Black.copy(alpha = .5f),
+        scrimColor = Color.Black.copy(alpha = .6f),
         sheetState = sheetState,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         shape = RectangleShape,
@@ -147,7 +147,6 @@ fun NowPlayingScreenContent(
     val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
     val likeStatus by sharedViewModel.likeStatus.collectAsStateWithLifecycle()
     val castState by sharedViewModel.castState.collectAsStateWithLifecycle()
-    // Apple Music style's progress-bar codec badge — see NowPlayingContentState.toAudioCodecLabel.
     val formatState by sharedViewModel.format.collectAsStateWithLifecycle(initialValue = null)
 
     val shouldShowVideo by sharedViewModel.getVideo.collectAsStateWithLifecycle()
@@ -157,26 +156,16 @@ fun NowPlayingScreenContent(
         .isUserLoggedInFlow()
         .collectAsStateWithLifecycle(initialValue = false)
 
-    // Which Now Playing style renders the content layer (Settings → Now Playing style).
     val nowPlayingStyle by sharedViewModel
         .getNowPlayingStyle()
         .collectAsStateWithLifecycle(initialValue = DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY)
 
-    // Artwork Pager state — Spotify-style horizontal swipe between queue tracks.
-    // The pager wraps the Canvas + Thumbnail layers. Controller layout below stays fixed.
     val nowPlayingState by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
     val queueDataState by sharedViewModel.getQueueDataState().collectAsStateWithLifecycle()
     val artworkQueue by remember {
         derivedStateOf { queueDataState?.data?.listTracks ?: emptyList() }
     }
-    // ⚠️ Use track.videoId (already prefix-stripped at MediaServiceHandlerImpl.kt:386).
-    // Do NOT use mediaItem.mediaId — it carries the "Video" prefix for video items.
     val nowPlayingVideoId: String? = nowPlayingState?.track?.videoId
-    // currentOrderIndex() is a plain getter over the player, NOT Compose state, so it is read
-    // inside this remember block — whose keys (the queue, and the track now playing) are exactly
-    // the two things that can move the player's position. nowPlayingState is published FROM the
-    // player's own transition callback, so by the time nowPlayingVideoId changes here the player
-    // index has already moved; reading it any earlier would sample the outgoing track.
     val currentOrderIndex by remember(artworkQueue, nowPlayingVideoId) {
         derivedStateOf {
             deriveOrderIndex(
@@ -186,9 +175,6 @@ fun NowPlayingScreenContent(
             )
         }
     }
-    // Single PagerState — the unified ArtworkPager renders BOTH the fullscreen canvas
-    // background and the centered square thumbnail in each page, so we don't need two
-    // pagers + state mirroring.
     val artworkPagerState =
         rememberPagerState(
             initialPage = currentOrderIndex.coerceAtLeast(0),
@@ -196,29 +182,17 @@ fun NowPlayingScreenContent(
         )
     var isAnimatingFromPlayer by remember { mutableStateOf(false) }
     var isUserDraggingActive by remember { mutableStateOf(false) }
-    // Whether a real finger-drag is waiting to be turned into a seek. See the latch below.
     var pendingUserSwipe by remember { mutableStateOf(false) }
 
-    // Drag detection — `isScrollInProgress` is `true` for both user drags (forwarded
-    // by the outer Modifier.scrollable on the Column) and programmatic
-    // `animateScrollToPage`. We disambiguate via `isAnimatingFromPlayer`, which we
-    // set explicitly around the player → pager animation (try/finally).
     LaunchedEffect(artworkPagerState) {
         snapshotFlow {
             artworkPagerState.isScrollInProgress to isAnimatingFromPlayer
         }.collect { (scrolling, animating) ->
             isUserDraggingActive = scrolling && !animating
-            // Latched, and cleared only once a seek has been dispatched for it. settledPage can
-            // move for reasons that are NOT a swipe — the pager being composed for the first time,
-            // or re-composed after the Apple Music style spent a while on its Queue/Lyrics tab,
-            // where the pager does not exist at all and its settledPage stays frozen on the track
-            // that was playing when the user left MAIN. Without this latch, coming back from that
-            // tab replays a stale page as though it had just been swiped to.
             if (isUserDraggingActive) pendingUserSwipe = true
         }
     }
 
-    // ① Player → Pager: animate to new track when player advances.
     LaunchedEffect(currentOrderIndex) {
         val target = currentOrderIndex
         if (!isUserDraggingActive &&
@@ -235,7 +209,6 @@ fun NowPlayingScreenContent(
         }
     }
 
-    // ② Pager → Player: seek when user settles on a different page.
     val latestOrderIndex by rememberUpdatedState(currentOrderIndex)
     val latestQueueSize by rememberUpdatedState(artworkQueue.size)
     LaunchedEffect(artworkPagerState) {
@@ -272,16 +245,13 @@ fun NowPlayingScreenContent(
             }
     }
 
-    // ③ Queue mutation guard
     LaunchedEffect(artworkQueue.size) {
         if (artworkQueue.isNotEmpty() && artworkPagerState.currentPage >= artworkQueue.size) {
             runCatching { artworkPagerState.scrollToPage(artworkQueue.lastIndex) }
         }
     }
 
-    // State
     val isInPipMode = rememberIsInPipMode()
-
     val mainScrollState = rememberScrollState()
 
     var showHideMiddleLayout by rememberSaveable {
@@ -308,7 +278,6 @@ fun NowPlayingScreenContent(
         mutableStateOf(false)
     }
 
-    // NEW: Add to Playlist state
     var showAddToPlaylistDirectly by rememberSaveable {
         mutableStateOf(false)
     }
@@ -317,12 +286,11 @@ fun NowPlayingScreenContent(
         mutableStateOf(false)
     }
 
-    // Palette state
     val paletteState = rememberPaletteState()
 
     val startColor =
         remember {
-            Animatable(Color.Black)
+            Animatable(Color(0xFF1E1E1E))
         }
     val endColor =
         remember {
@@ -354,17 +322,13 @@ fun NowPlayingScreenContent(
         snapshotFlow { paletteState.palette }
             .distinctUntilChanged()
             .collectLatest {
-                spotShadowColor = it.getColorFromPalette()
-                startColor.animateTo(it.getColorFromPalette())
-                endColor.animateTo(PlayerBackdropColor)
+                val dominant = it.getColorFromPalette()
+                spotShadowColor = dominant
+                startColor.animateTo(dominant, animationSpec = tween(600))
+                endColor.animateTo(PlayerBackdropColor, animationSpec = tween(600))
             }
     }
 
-    LaunchedEffect(spotShadowColor) {
-        Logger.d(TAG, "spotShadowColor: $spotShadowColor")
-    }
-
-    // Optimized Progress Calculation: prevents whole tree recompositions on 100ms ticks
     var isSliding by rememberSaveable {
         mutableStateOf(false)
     }
@@ -383,7 +347,6 @@ fun NowPlayingScreenContent(
     }
     val sliderValue = if (isSliding) userSliderValue else computedProgress
 
-    // Crossfade: RGB rainbow color cycling when transitioning between tracks
     val infiniteTransition = rememberInfiniteTransition(label = "crossfadeRainbow")
     val rainbowHue by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -402,7 +365,6 @@ fun NowPlayingScreenContent(
         label = "sliderCrossfadeColor",
     )
 
-    // Show ControlLayout Or Show Artist Badge
     var showHideControlLayout by rememberSaveable {
         mutableStateOf(true)
     }
@@ -466,7 +428,6 @@ fun NowPlayingScreenContent(
         mutableIntStateOf(-1)
     }
 
-    // Canvas subtitle sync
     LaunchedEffect(timelineState, screenDataState.lyricsData?.lyrics) {
         val lyrics = screenDataState.lyricsData?.lyrics
         if (lyrics == null || lyrics.syncType == "UNSYNCED" || lyrics.syncType == null) {
@@ -538,7 +499,6 @@ fun NowPlayingScreenContent(
         )
     }
 
-    // NEW: Add to Playlist Bottom Sheet
     if (showAddToPlaylistDirectly) {
         val viewModel: NowPlayingBottomSheetViewModel = koinViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -565,7 +525,6 @@ fun NowPlayingScreenContent(
         )
     }
 
-    // Vote Dialog
     if (showVoteDialog) {
         val canVoteLyrics =
             screenDataState.lyricsData?.lyricsProvider == LyricsProvider.SIMPMUSIC &&

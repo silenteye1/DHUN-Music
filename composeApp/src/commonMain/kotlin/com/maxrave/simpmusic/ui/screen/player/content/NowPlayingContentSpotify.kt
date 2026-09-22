@@ -22,6 +22,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -102,6 +103,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
@@ -178,11 +180,6 @@ import simpmusic.composeapp.generated.resources.spotify_lyrics_provider
 import simpmusic.composeapp.generated.resources.unsynced
 import simpmusic.composeapp.generated.resources.view_count
 
-/**
- * The original Spotify-inspired Now Playing UI, moved verbatim out of
- * [com.maxrave.simpmusic.ui.screen.player.NowPlayingScreenContent]. Reads only
- * [NowPlayingContentState] and calls back only through [NowPlayingContentActions].
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingContentSpotify(
@@ -190,32 +187,18 @@ fun NowPlayingContentSpotify(
     actions: NowPlayingContentActions,
 ) {
     val screenInfo = getScreenSizeInfo()
-
     val localDensity = LocalDensity.current
     val uriHandler = LocalUriHandler.current
 
     val isRepeatOne = state.controllerState.repeatState is RepeatState.One
-
     var showShareLyricsSheet by rememberSaveable { mutableStateOf(false) }
 
-    // Height
-    var topAppBarHeightDp by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-    var middleLayoutHeightDp by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-    var infoLayoutHeightDp by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-    var middleLayoutPaddingDp by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-    val minimumPaddingDp by rememberSaveable {
-        mutableIntStateOf(
-            30,
-        )
-    }
+    var topAppBarHeightDp by rememberSaveable { mutableIntStateOf(0) }
+    var middleLayoutHeightDp by rememberSaveable { mutableIntStateOf(0) }
+    var infoLayoutHeightDp by rememberSaveable { mutableIntStateOf(0) }
+    var middleLayoutPaddingDp by rememberSaveable { mutableIntStateOf(0) }
+    val minimumPaddingDp by rememberSaveable { mutableIntStateOf(20) }
+
     LaunchedEffect(
         topAppBarHeightDp,
         screenInfo,
@@ -224,19 +207,11 @@ fun NowPlayingContentSpotify(
     ) {
         if (topAppBarHeightDp > 0 && middleLayoutHeightDp > 0 && infoLayoutHeightDp > 0 && screenInfo.hDP > 0) {
             val result = (screenInfo.hDP - topAppBarHeightDp - middleLayoutHeightDp - infoLayoutHeightDp - minimumPaddingDp) / 2
-            middleLayoutPaddingDp =
-                if (result > minimumPaddingDp) {
-                    result
-                } else {
-                    minimumPaddingDp
-                }
+            middleLayoutPaddingDp = if (result > minimumPaddingDp) result else minimumPaddingDp
         }
     }
 
-    // Fullscreen overlay
-    var showHideFullscreenOverlay by rememberSaveable {
-        mutableStateOf(false)
-    }
+    var showHideFullscreenOverlay by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(key1 = showHideFullscreenOverlay) {
         if (showHideFullscreenOverlay) {
@@ -261,14 +236,14 @@ fun NowPlayingContentSpotify(
                                 val area = Size(size.width, gradientHeight)
                                 drawRect(
                                     brush =
-                                        Brush.linearGradient(
+                                        Brush.radialGradient(
                                             colors =
                                                 listOf(
-                                                    state.startColor.value,
-                                                    state.endColor.value,
+                                                    state.startColor.value.copy(alpha = 0.85f),
+                                                    state.endColor.value.copy(alpha = 0.95f),
+                                                    PlayerBackdropColor,
                                                 ),
-                                            start = state.gradientOffset.start,
-                                            end = state.gradientOffset.end,
+                                            radius = gradientHeight * 0.85f,
                                         ),
                                     size = area,
                                 )
@@ -335,10 +310,7 @@ fun NowPlayingContentSpotify(
                                         }
                                     },
                                     indication = null,
-                                    interactionSource =
-                                        remember {
-                                            MutableInteractionSource()
-                                        },
+                                    interactionSource = remember { MutableInteractionSource() },
                                 ),
                     ) {
                         if (!isCurrentArtworkPage && pageTrack != null) {
@@ -464,7 +436,7 @@ fun NowPlayingContentSpotify(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp)
+                                        .padding(horizontal = 24.dp)
                                         .alpha(if (pageHasCanvas) 0f else 1f)
                                         .aspectRatio(1f),
                             ) {
@@ -479,13 +451,10 @@ fun NowPlayingContentSpotify(
                                                 .align(Alignment.Center)
                                                 .background(Color.Transparent)
                                                 .shadow(
-                                                    elevation = 3.dp,
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    spotColor =
-                                                        state.spotShadowColor.copy(
-                                                            alpha = 0.6f,
-                                                        ),
-                                                    ambientColor = Color.Transparent,
+                                                    elevation = 16.dp,
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    spotColor = state.spotShadowColor.copy(alpha = 0.65f),
+                                                    ambientColor = Color.Black.copy(alpha = 0.45f),
                                                 ),
                                     ) {
                                         AsyncImage(
@@ -515,27 +484,22 @@ fun NowPlayingContentSpotify(
                                             modifier =
                                                 Modifier
                                                     .align(Alignment.Center)
-                                                    .padding(3.dp)
                                                     .fillMaxWidth()
-                                                    .background(Color.Transparent)
                                                     .aspectRatio(
                                                         if (!state.screenData.isVideo) 1f else 16f / 9,
                                                     ).clip(
-                                                        RoundedCornerShape(8.dp),
+                                                        RoundedCornerShape(16.dp),
                                                     ).alpha(
                                                         if (!state.screenData.isVideo || !state.shouldShowVideo) 1f else 0f,
                                                     ),
                                         )
 
-                                        // Double-Tap Gesture Layer
                                         Row(
                                             modifier =
                                                 Modifier
                                                     .matchParentSize()
-                                                    .padding(3.dp)
-                                                    .clip(RoundedCornerShape(8.dp)),
+                                                    .clip(RoundedCornerShape(16.dp)),
                                         ) {
-                                            // Left Half: Seek -10s
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier =
@@ -583,7 +547,6 @@ fun NowPlayingContentSpotify(
                                                 }
                                             }
 
-                                            // Right Half: Seek +10s
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier =
@@ -633,9 +596,9 @@ fun NowPlayingContentSpotify(
                                         }
                                     }
 
+                                    // Resolved line 599: explicit top-level visibility call to prevent ColumnScope clash
                                     androidx.compose.animation.AnimatedVisibility(
                                         visible = state.screenData.isVideo && state.shouldShowVideo,
-                                        modifier = Modifier.align(Alignment.Center),
                                     ) {
                                         var internalShowSubtitle by rememberSaveable {
                                             mutableStateOf(true)
@@ -645,7 +608,7 @@ fun NowPlayingContentSpotify(
                                                 Modifier
                                                     .fillMaxWidth()
                                                     .aspectRatio(16f / 9)
-                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .clip(RoundedCornerShape(16.dp))
                                                     .background(Color.Black),
                                         ) {
                                             Box(Modifier.fillMaxSize()) {
@@ -670,10 +633,7 @@ fun NowPlayingContentSpotify(
                                                         .clickable(
                                                             onClick = { showHideFullscreenOverlay = !showHideFullscreenOverlay },
                                                             indication = null,
-                                                            interactionSource =
-                                                                remember {
-                                                                    MutableInteractionSource()
-                                                                },
+                                                            interactionSource = remember { MutableInteractionSource() },
                                                         ),
                                             ) {
                                                 Crossfade(targetState = showHideFullscreenOverlay) {
@@ -796,9 +756,9 @@ fun NowPlayingContentSpotify(
                                                 .align(Alignment.Center)
                                                 .background(Color.Transparent)
                                                 .shadow(
-                                                    elevation = 3.dp,
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    spotColor = Color.Black.copy(alpha = 0.4f),
+                                                    elevation = 12.dp,
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    spotColor = Color.Black.copy(alpha = 0.5f),
                                                     ambientColor = Color.Transparent,
                                                 ),
                                     ) {
@@ -827,10 +787,9 @@ fun NowPlayingContentSpotify(
                                             modifier =
                                                 Modifier
                                                     .align(Alignment.Center)
-                                                    .padding(3.dp)
                                                     .fillMaxWidth()
                                                     .aspectRatio(1f)
-                                                    .clip(RoundedCornerShape(8.dp)),
+                                                    .clip(RoundedCornerShape(16.dp)),
                                         )
                                     }
                                 }
@@ -868,12 +827,12 @@ fun NowPlayingContentSpotify(
                         ) {
                             Text(
                                 text = stringResource(Res.string.now_playing_upper),
-                                style = typo().bodyMedium,
-                                color = Color.White,
+                                style = typo().labelSmall.copy(fontSize = 11.sp, letterSpacing = 1.2.sp),
+                                color = Color.White.copy(alpha = 0.7f),
                             )
                             Text(
                                 text = state.screenData.playlistName,
-                                style = typo().labelMedium,
+                                style = typo().titleSmall.copy(fontSize = 14.sp),
                                 color = Color.White,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
@@ -911,32 +870,24 @@ fun NowPlayingContentSpotify(
                         }
                     },
                 )
+
                 Column {
-                    Spacer(
-                        modifier =
-                            Modifier.height(
-                                topAppBarHeightDp.dp,
-                            ),
-                    )
+                    Spacer(modifier = Modifier.height(topAppBarHeightDp.dp))
                     Box {
-                        Column(
-                            Modifier
-                                .fillMaxWidth(),
-                        ) {
+                        Column(Modifier.fillMaxWidth()) {
                             Spacer(
                                 modifier =
                                     Modifier
                                         .animateContentSize()
-                                        .height(
-                                            middleLayoutPaddingDp.dp,
-                                        ).fillMaxWidth(),
+                                        .height(middleLayoutPaddingDp.dp)
+                                        .fillMaxWidth(),
                             )
 
                             Spacer(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp)
+                                        .padding(horizontal = 24.dp)
                                         .onGloballyPositioned { coords ->
                                             middleLayoutHeightDp =
                                                 with(localDensity) {
@@ -948,14 +899,15 @@ fun NowPlayingContentSpotify(
                                         }.aspectRatio(1f),
                             )
 
+                            // iOS Glass Lyrics Preview Pill
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
                                     Modifier
                                         .animateContentSize()
-                                        .height(
-                                            middleLayoutPaddingDp.dp,
-                                        ).fillMaxWidth(),
+                                        .height(middleLayoutPaddingDp.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp),
                             ) {
                                 val inlineLyrics = state.screenData.lyricsData?.lyrics
                                 val hasSyncedLyrics =
@@ -977,29 +929,49 @@ fun NowPlayingContentSpotify(
                                             ?.stripRichSyncTimestamps()
                                             .orEmpty()
                                     }
+
                                 Crossfade(
                                     targetState = currentLyricLineText,
                                     animationSpec = tween(durationMillis = 300),
                                     label = "inlineLyricLine",
                                 ) { lineText ->
-                                    Text(
-                                        text = lineText,
-                                        style = typo().labelSmall,
-                                        color = Color.White,
-                                        maxLines = 1,
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 20.dp)
-                                                .basicMarquee(
-                                                    iterations = Int.MAX_VALUE,
-                                                    animationMode = MarqueeAnimationMode.Immediately,
-                                                ).focusable(),
-                                    )
+                                    if (lineText.isNotBlank()) {
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .clip(RoundedCornerShape(50))
+                                                    .background(Color.White.copy(alpha = 0.08f))
+                                                    .border(
+                                                        width = 1.dp,
+                                                        brush =
+                                                            Brush.verticalGradient(
+                                                                listOf(
+                                                                    Color.White.copy(alpha = 0.28f),
+                                                                    Color.White.copy(alpha = 0.04f),
+                                                                ),
+                                                            ),
+                                                        shape = RoundedCornerShape(50),
+                                                    )
+                                                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                                        ) {
+                                            Text(
+                                                text = lineText,
+                                                style = typo().labelSmall.copy(fontSize = 12.sp),
+                                                color = Color.White.copy(alpha = 0.95f),
+                                                maxLines = 1,
+                                                modifier =
+                                                    Modifier
+                                                        .basicMarquee(
+                                                            iterations = Int.MAX_VALUE,
+                                                            animationMode = MarqueeAnimationMode.Immediately,
+                                                        ).focusable(),
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
-                            // Info Layout
+                            // Info & Floating Frosted Glass Control Layout
                             Box {
                                 Column(
                                     Modifier
@@ -1018,228 +990,234 @@ fun NowPlayingContentSpotify(
                                         state = state,
                                         actions = actions,
                                     )
-                                    if (getPlatform() == Platform.Android) {
-                                        // Real Slider
-                                        Box(
-                                            Modifier
-                                                .padding(
-                                                    top = 15.dp,
-                                                ).padding(horizontal = 20.dp)
-                                                .isElementVisible {
-                                                    actions.onToolbarVisibilityChange(!it && state.isExpanded && state.mainScrollState.value > 0)
-                                                },
-                                        ) {
-                                            Box(
-                                                modifier =
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .height(24.dp),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Crossfade(state.timelineState.loading) {
-                                                    if (it) {
-                                                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                                            LinearProgressIndicator(
-                                                                modifier =
-                                                                    Modifier
-                                                                        .fillMaxWidth()
-                                                                        .height(4.dp)
-                                                                        .padding(
-                                                                            horizontal = 3.dp,
-                                                                        ).clip(
-                                                                            RoundedCornerShape(8.dp),
-                                                                        ),
-                                                                color = Color.Gray,
-                                                                trackColor = Color.DarkGray,
-                                                                strokeCap = StrokeCap.Round,
-                                                            )
-                                                        }
-                                                    } else {
-                                                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                                            LinearProgressIndicator(
-                                                                progress = { state.timelineState.bufferedPercent.toFloat() / 100 },
-                                                                modifier =
-                                                                    Modifier
-                                                                        .fillMaxWidth()
-                                                                        .height(4.dp)
-                                                                        .padding(
-                                                                            horizontal = 3.dp,
-                                                                        ).clip(
-                                                                            RoundedCornerShape(8.dp),
-                                                                        ),
-                                                                color = Color.Gray,
-                                                                trackColor =
-                                                                    Color.Gray.copy(
-                                                                        alpha = 0.6f,
-                                                                    ),
-                                                                strokeCap = StrokeCap.Round,
-                                                                drawStopIndicator = {},
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                                Slider(
-                                                    value = state.sliderValue / 100f,
-                                                    onValueChangeFinished = {
-                                                        actions.onSliderChangeFinished()
-                                                    },
-                                                    onValueChange = {
-                                                        actions.onSliderChange(it * 100f)
-                                                    },
-                                                    modifier =
-                                                        Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(top = 3.dp)
-                                                            .align(
-                                                                Alignment.TopCenter,
-                                                            ),
-                                                    track = { sliderState ->
-                                                        SliderDefaults.Track(
-                                                            modifier =
-                                                                Modifier
-                                                                    .height(5.dp),
-                                                            enabled = true,
-                                                            sliderState = sliderState,
-                                                            colors =
-                                                                SliderDefaults.colors().copy(
-                                                                    thumbColor = state.sliderTrackColor,
-                                                                    activeTrackColor = state.sliderTrackColor,
-                                                                    inactiveTrackColor = Color.Transparent,
-                                                                ),
-                                                            thumbTrackGapSize = 0.dp,
-                                                            drawTick = { _, _ -> },
-                                                            drawStopIndicator = null,
-                                                        )
-                                                    },
-                                                    thumb = {
-                                                        SliderDefaults.Thumb(
-                                                            modifier =
-                                                                Modifier
-                                                                    .height(18.dp)
-                                                                    .width(8.dp)
-                                                                    .padding(
-                                                                        vertical = 4.dp,
-                                                                    ),
-                                                            thumbSize = DpSize(8.dp, 8.dp),
-                                                            interactionSource =
-                                                                remember {
-                                                                    MutableInteractionSource()
-                                                                },
-                                                            colors =
-                                                                SliderDefaults.colors().copy(
-                                                                    thumbColor = state.sliderTrackColor,
-                                                                    activeTrackColor = state.sliderTrackColor,
-                                                                    inactiveTrackColor = Color.Transparent,
-                                                                ),
-                                                            enabled = true,
-                                                        )
-                                                    },
-                                                )
-                                            }
-                                        }
-                                        // Time Layout
-                                        Row(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 20.dp),
-                                        ) {
-                                            Text(
-                                                text = formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()),
-                                                style = typo().bodyMedium,
-                                                modifier = Modifier.weight(1f),
-                                                textAlign = TextAlign.Left,
-                                            )
-                                            val sweepTransition = rememberInfiniteTransition(label = "nowPlayingCrossfadeSweep")
-                                            val crossfadeSweep by sweepTransition.animateFloat(
-                                                initialValue = 0f,
-                                                targetValue = 1f,
-                                                animationSpec =
-                                                    infiniteRepeatable(
-                                                        animation = tween(3200, easing = LinearEasing),
-                                                        repeatMode = RepeatMode.Restart,
-                                                    ),
-                                                label = "nowPlayingSweepHead",
-                                            )
-                                            AnimatedVisibility(
-                                                enter = fadeIn(),
-                                                exit = fadeOut(),
-                                                visible = state.timelineState.isCrossfading,
-                                            ) {
-                                                val shimmerSpan = 140f
-                                                val shimmerHead = crossfadeSweep * (shimmerSpan * 3f) - shimmerSpan
-                                                val labelColor = typo().bodyMedium.color
-                                                Text(
-                                                    text = stringResource(Res.string.crossfading),
-                                                    style =
-                                                        typo().bodyMedium.copy(
-                                                            brush =
-                                                                Brush.horizontalGradient(
-                                                                    0f to labelColor.copy(alpha = 0.45f),
-                                                                    0.5f to Color.White,
-                                                                    1f to labelColor.copy(alpha = 0.45f),
-                                                                    startX = shimmerHead,
-                                                                    endX = shimmerHead + shimmerSpan,
-                                                                    tileMode = TileMode.Clamp,
-                                                                ),
-                                                        ),
-                                                    modifier = Modifier.weight(1f),
-                                                    textAlign = TextAlign.Center,
-                                                )
-                                            }
-                                            Text(
-                                                text = formatDuration(state.timelineState.total),
-                                                style = typo().bodyMedium,
-                                                modifier = Modifier.weight(1f),
-                                                textAlign = TextAlign.Right,
-                                            )
-                                        }
 
-                                        Spacer(
+                                    if (getPlatform() == Platform.Android) {
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        // Frosted Glass Pod for Playback Controls
+                                        val glassPodShape = RoundedCornerShape(26.dp)
+                                        Box(
                                             modifier =
                                                 Modifier
+                                                    .padding(horizontal = 16.dp)
                                                     .fillMaxWidth()
-                                                    .height(5.dp),
-                                        )
-                                        PlayerControlLayout(
-                                            state.controllerState,
+                                                    .clip(glassPodShape)
+                                                    .background(Color.White.copy(alpha = 0.06f))
+                                                    .border(
+                                                        width = 1.dp,
+                                                        brush =
+                                                            Brush.verticalGradient(
+                                                                listOf(
+                                                                    Color.White.copy(alpha = 0.25f),
+                                                                    Color.White.copy(alpha = 0.04f),
+                                                                ),
+                                                            ),
+                                                        shape = glassPodShape,
+                                                    )
+                                                    .padding(top = 10.dp, bottom = 12.dp),
                                         ) {
-                                            actions.onUIEvent(it)
+                                            Column {
+                                                // Slider
+                                                Box(
+                                                    Modifier
+                                                        .padding(horizontal = 16.dp)
+                                                        .isElementVisible {
+                                                            actions.onToolbarVisibilityChange(!it && state.isExpanded && state.mainScrollState.value > 0)
+                                                        },
+                                                ) {
+                                                    Box(
+                                                        modifier =
+                                                            Modifier
+                                                                .fillMaxWidth()
+                                                                .height(24.dp),
+                                                        contentAlignment = Alignment.Center,
+                                                    ) {
+                                                        Crossfade(state.timelineState.loading) {
+                                                            if (it) {
+                                                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                                                                    LinearProgressIndicator(
+                                                                        modifier =
+                                                                            Modifier
+                                                                                .fillMaxWidth()
+                                                                                .height(4.dp)
+                                                                                .clip(RoundedCornerShape(8.dp)),
+                                                                        color = Color.White.copy(alpha = 0.5f),
+                                                                        trackColor = Color.White.copy(alpha = 0.12f),
+                                                                        strokeCap = StrokeCap.Round,
+                                                                    )
+                                                                }
+                                                            } else {
+                                                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                                                                    LinearProgressIndicator(
+                                                                        progress = { state.timelineState.bufferedPercent.toFloat() / 100 },
+                                                                        modifier =
+                                                                            Modifier
+                                                                                .fillMaxWidth()
+                                                                                .height(4.dp)
+                                                                                .clip(RoundedCornerShape(8.dp)),
+                                                                        color = Color.White.copy(alpha = 0.45f),
+                                                                        trackColor = Color.White.copy(alpha = 0.12f),
+                                                                        strokeCap = StrokeCap.Round,
+                                                                        drawStopIndicator = {},
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                                                        Slider(
+                                                            value = state.sliderValue / 100f,
+                                                            onValueChangeFinished = { actions.onSliderChangeFinished() },
+                                                            onValueChange = { actions.onSliderChange(it * 100f) },
+                                                            modifier =
+                                                                Modifier
+                                                                    .fillMaxWidth()
+                                                                    .padding(top = 3.dp)
+                                                                    .align(Alignment.TopCenter),
+                                                            track = { sliderState ->
+                                                                SliderDefaults.Track(
+                                                                    modifier = Modifier.height(4.dp),
+                                                                    enabled = true,
+                                                                    sliderState = sliderState,
+                                                                    colors =
+                                                                        SliderDefaults.colors().copy(
+                                                                            thumbColor = state.sliderTrackColor,
+                                                                            activeTrackColor = state.sliderTrackColor,
+                                                                            inactiveTrackColor = Color.Transparent,
+                                                                        ),
+                                                                    thumbTrackGapSize = 0.dp,
+                                                                    drawTick = { _, _ -> },
+                                                                    drawStopIndicator = null,
+                                                                )
+                                                            },
+                                                            thumb = {
+                                                                SliderDefaults.Thumb(
+                                                                    modifier =
+                                                                        Modifier
+                                                                            .height(18.dp)
+                                                                            .width(8.dp)
+                                                                            .padding(vertical = 4.dp),
+                                                                    thumbSize = DpSize(8.dp, 8.dp),
+                                                                    interactionSource = remember { MutableInteractionSource() },
+                                                                    colors =
+                                                                        SliderDefaults.colors().copy(
+                                                                            thumbColor = state.sliderTrackColor,
+                                                                            activeTrackColor = state.sliderTrackColor,
+                                                                            inactiveTrackColor = Color.Transparent,
+                                                                        ),
+                                                                    enabled = true,
+                                                                )
+                                                            },
+                                                        )
+                                                    }
+                                                }
+
+                                                // Time Layout
+                                                Row(
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp),
+                                                ) {
+                                                    Text(
+                                                        text = formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()),
+                                                        style = typo().bodySmall.copy(fontSize = 11.sp),
+                                                        color = Color.White.copy(alpha = 0.7f),
+                                                        modifier = Modifier.weight(1f),
+                                                        textAlign = TextAlign.Left,
+                                                    )
+                                                    val sweepTransition = rememberInfiniteTransition(label = "nowPlayingCrossfadeSweep")
+                                                    val crossfadeSweep by sweepTransition.animateFloat(
+                                                        initialValue = 0f,
+                                                        targetValue = 1f,
+                                                        animationSpec =
+                                                            infiniteRepeatable(
+                                                                animation = tween(3200, easing = LinearEasing),
+                                                                repeatMode = RepeatMode.Restart,
+                                                            ),
+                                                        label = "nowPlayingSweepHead",
+                                                    )
+                                                    AnimatedVisibility(
+                                                        enter = fadeIn(),
+                                                        exit = fadeOut(),
+                                                        visible = state.timelineState.isCrossfading,
+                                                    ) {
+                                                        val shimmerSpan = 140f
+                                                        val shimmerHead = crossfadeSweep * (shimmerSpan * 3f) - shimmerSpan
+                                                        val labelColor = typo().bodyMedium.color
+                                                        Text(
+                                                            text = stringResource(Res.string.crossfading),
+                                                            style =
+                                                                typo().bodyMedium.copy(
+                                                                    brush =
+                                                                        Brush.horizontalGradient(
+                                                                            0f to labelColor.copy(alpha = 0.45f),
+                                                                            0.5f to Color.White,
+                                                                            1f to labelColor.copy(alpha = 0.45f),
+                                                                            startX = shimmerHead,
+                                                                            endX = shimmerHead + shimmerSpan,
+                                                                            tileMode = TileMode.Clamp,
+                                                                        ),
+                                                                ),
+                                                            modifier = Modifier.weight(1f),
+                                                            textAlign = TextAlign.Center,
+                                                        )
+                                                    }
+                                                    Text(
+                                                        text = formatDuration(state.timelineState.total),
+                                                        style = typo().bodySmall.copy(fontSize = 11.sp),
+                                                        color = Color.White.copy(alpha = 0.7f),
+                                                        modifier = Modifier.weight(1f),
+                                                        textAlign = TextAlign.Right,
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.height(2.dp))
+
+                                                PlayerControlLayout(
+                                                    state.controllerState,
+                                                ) {
+                                                    actions.onUIEvent(it)
+                                                }
+                                            }
                                         }
                                     } else {
                                         Spacer(Modifier.height(16.dp))
                                     }
-                                    // List Bottom Buttons
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // List Bottom Actions Row
                                     Row(
                                         modifier =
                                             Modifier
-                                                .height(32.dp)
+                                                .height(34.dp)
                                                 .fillMaxWidth()
-                                                .padding(horizontal = 20.dp),
+                                                .padding(horizontal = 24.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Row(
                                             modifier = Modifier.weight(1f, fill = false),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             IconButton(
                                                 modifier =
                                                     Modifier
-                                                        .size(24.dp)
+                                                        .size(26.dp)
                                                         .aspectRatio(1f)
                                                         .clip(CircleShape),
-                                                onClick = {
-                                                    actions.onShowInfo()
-                                                },
+                                                onClick = { actions.onShowInfo() },
                                             ) {
-                                                Icon(imageVector = SimpIcons.Info, tint = Color.White, contentDescription = "")
+                                                Icon(
+                                                    imageVector = SimpIcons.Info,
+                                                    tint = Color.White.copy(alpha = 0.85f),
+                                                    contentDescription = "",
+                                                )
                                             }
                                             PlatformCastButton(
-                                                modifier = Modifier.size(24.dp),
-                                                tint = if (state.castState.isRemote) Color.Cyan else Color.White,
+                                                modifier = Modifier.size(26.dp),
+                                                tint = if (state.castState.isRemote) Color.Cyan else Color.White.copy(alpha = 0.85f),
                                             )
                                             AnimatedVisibility(visible = state.castState.isRemote) {
                                                 Text(
@@ -1257,22 +1235,20 @@ fun NowPlayingContentSpotify(
                                         }
 
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             IconButton(
                                                 modifier =
                                                     Modifier
-                                                        .size(24.dp)
+                                                        .size(26.dp)
                                                         .aspectRatio(1f)
                                                         .clip(CircleShape),
-                                                onClick = {
-                                                    actions.onShowAddToPlaylist()
-                                                },
+                                                onClick = { actions.onShowAddToPlaylist() },
                                             ) {
                                                 Icon(
                                                     imageVector = SimpIcons.PlaylistAdd,
-                                                    tint = Color.White,
+                                                    tint = Color.White.copy(alpha = 0.85f),
                                                     contentDescription = "Add to Playlist",
                                                 )
                                             }
@@ -1280,22 +1256,21 @@ fun NowPlayingContentSpotify(
                                             IconButton(
                                                 modifier =
                                                     Modifier
-                                                        .size(24.dp)
+                                                        .size(26.dp)
                                                         .aspectRatio(1f)
                                                         .clip(CircleShape),
-                                                onClick = {
-                                                    actions.onShowQueue()
-                                                },
+                                                onClick = { actions.onShowQueue() },
                                             ) {
                                                 Icon(
                                                     imageVector = SimpIcons.QueueMusic,
-                                                    tint = Color.White,
+                                                    tint = Color.White.copy(alpha = 0.85f),
                                                     contentDescription = "",
                                                 )
                                             }
                                         }
                                     }
                                 }
+
                                 this@Column.AnimatedVisibility(
                                     visible = !state.showControlLayout,
                                     enter = fadeIn(),
@@ -1304,9 +1279,8 @@ fun NowPlayingContentSpotify(
                                     Box(
                                         modifier =
                                             Modifier
-                                                .height(
-                                                    infoLayoutHeightDp.dp,
-                                                ).fillMaxWidth()
+                                                .height(infoLayoutHeightDp.dp)
+                                                .fillMaxWidth()
                                                 .clickable(
                                                     onClick = {
                                                         if (state.mainScrollState.value == 0) {
@@ -1314,10 +1288,7 @@ fun NowPlayingContentSpotify(
                                                         }
                                                     },
                                                     indication = null,
-                                                    interactionSource =
-                                                        remember {
-                                                            MutableInteractionSource()
-                                                        },
+                                                    interactionSource = remember { MutableInteractionSource() },
                                                 ),
                                         contentAlignment = Alignment.BottomStart,
                                     ) {
@@ -1352,9 +1323,7 @@ fun NowPlayingContentSpotify(
                                                         ?.words
                                                         ?.stripRichSyncTimestamps()
                                                 if (!lineText.isNullOrBlank()) {
-                                                    Column(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                    ) {
+                                                    Column(modifier = Modifier.fillMaxWidth()) {
                                                         Text(
                                                             modifier =
                                                                 Modifier
@@ -1408,21 +1377,37 @@ fun NowPlayingContentSpotify(
                             }
                         }
                     }
+
+                    // Lower Section with Glass-styled Cards
                     Column(Modifier.padding(horizontal = 20.dp)) {
                         AnimatedVisibility(
                             visible = state.screenData.lyricsData != null,
-                            modifier = Modifier.padding(top = 10.dp),
+                            modifier = Modifier.padding(top = 16.dp),
                         ) {
+                            val lyricsCardShape = RoundedCornerShape(20.dp)
                             ElevatedCard(
                                 onClick = {},
-                                shape = RoundedCornerShape(8.dp),
+                                shape = lyricsCardShape,
                                 colors =
                                     CardDefaults.elevatedCardColors().copy(
-                                        containerColor = state.startColor.value,
+                                        containerColor = state.startColor.value.copy(alpha = 0.28f),
                                     ),
+                                modifier =
+                                    Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            brush =
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.25f),
+                                                        Color.White.copy(alpha = 0.04f),
+                                                    ),
+                                                ),
+                                            shape = lyricsCardShape,
+                                        ),
                             ) {
-                                Column(modifier = Modifier.padding(15.dp)) {
-                                    Spacer(modifier = Modifier.height(5.dp))
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = stringResource(Res.string.lyrics),
@@ -1437,9 +1422,7 @@ fun NowPlayingContentSpotify(
                                         if (state.screenData.lyricsData.canVote()) {
                                             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                                                 IconButton(
-                                                    onClick = {
-                                                        actions.onShowVoteDialog()
-                                                    },
+                                                    onClick = { actions.onShowVoteDialog() },
                                                 ) {
                                                     Icon(
                                                         imageVector = SimpIcons.ThumbsUpDown,
@@ -1466,9 +1449,7 @@ fun NowPlayingContentSpotify(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                                             TextButton(
-                                                onClick = {
-                                                    actions.onShowFullscreenLyrics()
-                                                },
+                                                onClick = { actions.onShowFullscreenLyrics() },
                                                 contentPadding = PaddingValues(0.dp),
                                                 modifier =
                                                     Modifier
@@ -1479,7 +1460,7 @@ fun NowPlayingContentSpotify(
                                             }
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(18.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
                                     Box(
                                         modifier =
                                             Modifier
@@ -1515,55 +1496,48 @@ fun NowPlayingContentSpotify(
                                         Text(
                                             text =
                                                 when (state.screenData.lyricsData?.lyricsProvider) {
-                                                    LyricsProvider.SIMPMUSIC -> {
-                                                        stringResource(Res.string.lyrics_provider_simpmusic)
-                                                    }
-
-                                                    LyricsProvider.LRCLIB -> {
-                                                        stringResource(Res.string.lyrics_provider_lrc)
-                                                    }
-
-                                                    LyricsProvider.YOUTUBE -> {
-                                                        stringResource(Res.string.lyrics_provider_youtube)
-                                                    }
-
-                                                    LyricsProvider.SPOTIFY -> {
-                                                        stringResource(Res.string.spotify_lyrics_provider)
-                                                    }
-
-                                                    LyricsProvider.OFFLINE -> {
-                                                        stringResource(Res.string.offline_mode)
-                                                    }
-
-                                                    LyricsProvider.BETTER_LYRICS -> {
-                                                        stringResource(Res.string.lyrics_provider_betterlyrics)
-                                                    }
-
-                                                    else -> {
-                                                        ""
-                                                    }
+                                                    LyricsProvider.SIMPMUSIC -> stringResource(Res.string.lyrics_provider_simpmusic)
+                                                    LyricsProvider.LRCLIB -> stringResource(Res.string.lyrics_provider_lrc)
+                                                    LyricsProvider.YOUTUBE -> stringResource(Res.string.lyrics_provider_youtube)
+                                                    LyricsProvider.SPOTIFY -> stringResource(Res.string.spotify_lyrics_provider)
+                                                    LyricsProvider.OFFLINE -> stringResource(Res.string.offline_mode)
+                                                    LyricsProvider.BETTER_LYRICS -> stringResource(Res.string.lyrics_provider_betterlyrics)
+                                                    else -> ""
                                                 },
                                             style = typo().bodySmall,
                                             textAlign = TextAlign.End,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth(),
                                         )
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Artist Card with Frosted Border
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
+                            val artistCardShape = RoundedCornerShape(20.dp)
                             ElevatedCard(
-                                onClick = {
-                                    actions.onNavigateToArtist()
-                                },
-                                shape = RoundedCornerShape(8.dp),
+                                onClick = { actions.onNavigateToArtist() },
+                                shape = artistCardShape,
                                 colors =
                                     CardDefaults.elevatedCardColors().copy(
-                                        containerColor = Color(0xFF212121),
+                                        containerColor = Color.White.copy(alpha = 0.05f),
                                     ),
+                                modifier =
+                                    Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            brush =
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.22f),
+                                                        Color.White.copy(alpha = 0.03f),
+                                                    ),
+                                                ),
+                                            shape = artistCardShape,
+                                        ),
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Box(
@@ -1631,26 +1605,43 @@ fun NowPlayingContentSpotify(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Metadata Card
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
+                            val metaCardShape = RoundedCornerShape(20.dp)
                             ElevatedCard(
                                 onClick = {},
-                                shape = RoundedCornerShape(8.dp),
+                                shape = metaCardShape,
                                 colors =
                                     CardDefaults.elevatedCardColors().copy(
-                                        containerColor = state.startColor.value,
+                                        containerColor = state.startColor.value.copy(alpha = 0.22f),
                                     ),
+                                modifier =
+                                    Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            brush =
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.22f),
+                                                        Color.White.copy(alpha = 0.03f),
+                                                    ),
+                                                ),
+                                            shape = metaCardShape,
+                                        ),
                             ) {
                                 Column(
                                     Modifier
-                                        .padding(15.dp)
+                                        .padding(18.dp)
                                         .fillMaxWidth(),
                                 ) {
-                                    Spacer(modifier = Modifier.height(5.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = stringResource(Res.string.published_at, state.screenData.songInfoData?.uploadDate ?: ""),
                                         style = typo().labelSmall,
-                                        color = Color.White,
+                                        color = Color.White.copy(alpha = 0.85f),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -1671,12 +1662,13 @@ fun NowPlayingContentSpotify(
                                                 state.screenData.songInfoData?.dislike ?: 0,
                                             ),
                                         style = typo().bodyMedium,
+                                        color = Color.White,
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = stringResource(Res.string.description),
                                         style = typo().labelSmall,
-                                        color = Color.White,
+                                        color = Color.White.copy(alpha = 0.85f),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     DescriptionView(
@@ -1692,15 +1684,14 @@ fun NowPlayingContentSpotify(
                                             }
                                         },
                                         onURLClicked = { url ->
-                                            uriHandler.openUri(
-                                                url,
-                                            )
+                                            uriHandler.openUri(url)
                                         },
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(5.dp))
                         }
+
                         Spacer(modifier = Modifier.height(10.dp))
                         Spacer(
                             modifier =
@@ -1712,29 +1703,34 @@ fun NowPlayingContentSpotify(
                 }
             }
         }
+
+        // Mini Sticky Toolbar with Translucent Glass Styling
         AnimatedVisibility(
             visible = state.shouldShowToolbar && state.isExpanded,
             enter = fadeIn() + slideInVertically(),
             exit = fadeOut() + slideOutVertically(),
         ) {
+            val toolbarShape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
             ElevatedCard(
-                elevation = CardDefaults.elevatedCardElevation(10.dp),
-                shape = RectangleShape,
+                elevation = CardDefaults.elevatedCardElevation(12.dp),
+                shape = toolbarShape,
                 colors =
                     CardDefaults.elevatedCardColors(
-                        containerColor =
-                            state.startColor.value
-                                .copy(
-                                    red = state.startColor.value.red - 0.05f,
-                                    green = state.startColor.value.green - 0.05f,
-                                    blue = state.startColor.value.blue - 0.05f,
-                                ),
+                        containerColor = state.startColor.value.copy(alpha = 0.82f),
                     ),
                 modifier =
                     Modifier
                         .clipToBounds()
                         .wrapContentHeight()
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .border(
+                            width = 1.dp,
+                            brush =
+                                Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
+                                ),
+                            shape = toolbarShape,
+                        ),
             ) {
                 Box(
                     modifier =
@@ -1753,10 +1749,7 @@ fun NowPlayingContentSpotify(
                     ) {
                         Spacer(modifier = Modifier.size(8.dp))
                         Box(modifier = Modifier.weight(1F)) {
-                            Column(
-                                Modifier
-                                    .wrapContentHeight(),
-                            ) {
+                            Column(Modifier.wrapContentHeight()) {
                                 Text(
                                     text = state.screenData.nowPlayingTitle,
                                     style = typo().bodyMedium,
@@ -1765,9 +1758,8 @@ fun NowPlayingContentSpotify(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
-                                            .wrapContentHeight(
-                                                align = Alignment.CenterVertically,
-                                            ).basicMarquee(
+                                            .wrapContentHeight(align = Alignment.CenterVertically)
+                                            .basicMarquee(
                                                 iterations = Int.MAX_VALUE,
                                                 animationMode = MarqueeAnimationMode.Immediately,
                                             ).focusable(),
@@ -1784,19 +1776,17 @@ fun NowPlayingContentSpotify(
                                             )
                                         }
                                     }
-                                    item(
-                                        key = state.screenData.artistName,
-                                    ) {
+                                    item(key = state.screenData.artistName) {
                                         Text(
                                             text = state.screenData.artistName,
                                             style = typo().bodySmall,
+                                            color = Color.White.copy(alpha = 0.8f),
                                             maxLines = 1,
                                             modifier =
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .wrapContentHeight(
-                                                        align = Alignment.CenterVertically,
-                                                    ).basicMarquee(
+                                                    .wrapContentHeight(align = Alignment.CenterVertically)
+                                                    .basicMarquee(
                                                         iterations = Int.MAX_VALUE,
                                                         animationMode = MarqueeAnimationMode.Immediately,
                                                     ).focusable(),
@@ -1806,7 +1796,6 @@ fun NowPlayingContentSpotify(
                             }
                         }
                         Spacer(modifier = Modifier.width(15.dp))
-                        // Mini-Toolbar Heart Button: Synced with YouTube Like
                         HeartCheckBox(
                             checked = if (state.isUserLoggedIn) state.likeStatus else state.controllerState.isLiked,
                             size = 30,
@@ -1845,7 +1834,7 @@ fun NowPlayingContentSpotify(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(1.dp)
+                                    .height(1.5.dp)
                                     .background(
                                         color = Color.Transparent,
                                         shape = RoundedCornerShape(4.dp),
@@ -1886,7 +1875,7 @@ private fun NowPlayingTrackInfoRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedVisibility(state.screenData.canvasData != null) {
@@ -1907,17 +1896,16 @@ private fun NowPlayingTrackInfoRow(
                     Modifier
                         .heightIn(0.dp, 55.dp)
                         .width(55.dp)
-                        .padding(end = 10.dp)
-                        .clip(
-                            RoundedCornerShape(4.dp),
-                        ).align(Alignment.CenterVertically),
+                        .padding(end = 12.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .align(Alignment.CenterVertically),
             )
         }
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = state.screenData.nowPlayingTitle,
-                style = typo().titleMedium,
+                style = typo().titleMedium.copy(fontSize = 18.sp),
                 maxLines = 1,
                 color = Color.White,
                 modifier =
@@ -1948,20 +1936,18 @@ private fun NowPlayingTrackInfoRow(
                 item(state.screenData.artistName) {
                     Text(
                         text = state.screenData.artistName,
-                        style = typo().bodyMedium,
+                        style = typo().bodyMedium.copy(fontSize = 14.sp),
+                        color = Color.White.copy(alpha = 0.75f),
                         maxLines = 1,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .wrapContentHeight(
-                                    align = Alignment.CenterVertically,
-                                ).basicMarquee(
+                                .wrapContentHeight(align = Alignment.CenterVertically)
+                                .basicMarquee(
                                     iterations = Int.MAX_VALUE,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable()
-                                .clickable {
-                                    actions.onNavigateToArtist()
-                                },
+                                .clickable { actions.onNavigateToArtist() },
                     )
                 }
             }
@@ -1969,7 +1955,6 @@ private fun NowPlayingTrackInfoRow(
 
         Spacer(modifier = Modifier.size(16.dp))
 
-        // Single Unified Heart Button: YouTube Like status se checked rahega aur direct YouTube par sync karega
         HeartCheckBox(
             checked = if (state.isUserLoggedIn) state.likeStatus else state.controllerState.isLiked,
             size = 32,

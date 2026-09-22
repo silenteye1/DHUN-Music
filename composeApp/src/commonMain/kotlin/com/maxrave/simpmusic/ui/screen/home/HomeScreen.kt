@@ -254,10 +254,31 @@ fun HomeScreen(
         } else {
             backgroundColor
         }
-    var topHeaderColor by remember {
+
+    val moodTargetColor =
+        remember(params, isLightTheme) {
+            when (params) {
+                HOME_PARAMS_RELAX -> if (isLightTheme) Color(0xFF80CBC4) else Color(0xFF004D40)
+                HOME_PARAMS_SLEEP -> if (isLightTheme) Color(0xFF9FA8DA) else Color(0xFF1A237E)
+                HOME_PARAMS_ENERGIZE -> if (isLightTheme) Color(0xFFFFCC80) else Color(0xFFE65100)
+                HOME_PARAMS_SAD -> if (isLightTheme) Color(0xFFB0BEC5) else Color(0xFF263238)
+                HOME_PARAMS_ROMANCE -> if (isLightTheme) Color(0xFFF48FB1) else Color(0xFF880E4F)
+                HOME_PARAMS_FEEL_GOOD -> if (isLightTheme) Color(0xFFFFF59D) else Color(0xFFF57F17)
+                HOME_PARAMS_WORKOUT -> if (isLightTheme) Color(0xFFFFAB91) else Color(0xFFBF360C)
+                HOME_PARAMS_PARTY -> if (isLightTheme) Color(0xFFCE93D8) else Color(0xFF4A148C)
+                HOME_PARAMS_COMMUTE -> if (isLightTheme) Color(0xFF80DEEA) else Color(0xFF006064)
+                HOME_PARAMS_FOCUS -> if (isLightTheme) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
+                else -> null
+            }
+        }
+
+    var baseThumbnailColor by remember {
         mutableStateOf(backgroundColor)
     }
-    val animatedColor by animateColorAsState(topHeaderColor, tween(500))
+
+    val finalHeaderTargetColor = moodTargetColor ?: baseThumbnailColor
+    val animatedColor by animateColorAsState(finalHeaderTargetColor, tween(750))
+
     val mainHomeThumbnail by viewModel.mainHomeThumbnail.collectAsStateWithLifecycle()
     val networkLoader = rememberNetworkLoader(HttpClient(CIO))
     val dominantColorState =
@@ -275,7 +296,7 @@ fun HomeScreen(
 
     LaunchedEffect(dominantColorState, isLightTheme) {
         snapshotFlow { dominantColorState.color }.collect {
-            topHeaderColor = if (isLightTheme) lerp(it, Color.White, 0.85f) else it.rgbFactor(0.3f)
+            baseThumbnailColor = if (isLightTheme) lerp(it, Color.White, 0.85f) else it.rgbFactor(0.35f)
         }
     }
 
@@ -480,7 +501,7 @@ fun HomeScreen(
                                             url = accountInfo?.second ?: "",
                                             isGlassEnabled = isLiquidGlassEnabled,
                                         )
-                                        Spacer(Modifier.height(12.dp))
+                                        Spacer(Modifier.height(14.dp))
                                     }
                                     if (item.title == stringResource(Res.string.quick_picks)) {
                                         AnimatedVisibility(
@@ -670,7 +691,7 @@ fun HomeScreen(
                     ),
         )
 
-        // Floating Header
+        // Floating Header with Dynamic Ambient Glow
         Box(
             modifier =
                 Modifier
@@ -695,8 +716,8 @@ fun HomeScreen(
                                     Brush.radialGradient(
                                         colors =
                                             listOf(
-                                                animatedColor.copy(alpha = 0.50f),
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                                animatedColor.copy(alpha = 0.55f),
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
                                                 Color.Transparent,
                                             ),
                                     ),
