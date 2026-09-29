@@ -54,7 +54,8 @@
 
     <application
         android:name=".SimpMusicApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:appCategory="audio"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
@@ -65,7 +66,7 @@
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
         android:enableOnBackInvokedCallback="true"
         android:requestLegacyExternalStorage="true"
-        tools:replace="android:name"
+        tools:replace="android:name,android:allowBackup"
         tools:targetApi="tiramisu">
 
         <activity

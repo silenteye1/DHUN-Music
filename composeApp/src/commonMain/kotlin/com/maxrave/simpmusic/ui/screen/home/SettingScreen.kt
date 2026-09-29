@@ -2301,21 +2301,6 @@ private fun ExpandableSettingGroupCard(
 }
 
 @Composable
-private fun EqualizerSection() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = stringResource(Res.string.equalizer_description),
-            style = typo().bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-        )
-    }
-}
-
-@Composable
 private fun DelaySection() {
     Box(
         modifier = Modifier
