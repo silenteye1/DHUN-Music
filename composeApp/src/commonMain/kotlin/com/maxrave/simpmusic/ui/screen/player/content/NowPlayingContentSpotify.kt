@@ -73,6 +73,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,11 +94,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -111,6 +114,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.kmpalette.rememberPaletteState
 import com.maxrave.common.Config.MAIN_PLAYER
+import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.RepeatState
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.MediaPlayerView
@@ -155,8 +159,10 @@ import kotlin.math.roundToLong
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.artists
 import simpmusic.composeapp.generated.resources.crossfading
@@ -185,6 +191,7 @@ import simpmusic.composeapp.generated.resources.view_count
 fun NowPlayingContentSpotify(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
+    dataStoreManager: DataStoreManager = koinInject(),
 ) {
     val screenInfo = getScreenSizeInfo()
     val localDensity = LocalDensity.current
@@ -198,6 +205,10 @@ fun NowPlayingContentSpotify(
     var infoLayoutHeightDp by rememberSaveable { mutableIntStateOf(0) }
     var middleLayoutPaddingDp by rememberSaveable { mutableIntStateOf(0) }
     val minimumPaddingDp by rememberSaveable { mutableIntStateOf(20) }
+
+    val speedScope = rememberCoroutineScope()
+    var is2xActive by remember { mutableStateOf(false) }
+    var normalSpeed by remember { mutableFloatStateOf(1f) }
 
     LaunchedEffect(
         topAppBarHeightDp,
@@ -271,7 +282,7 @@ fun NowPlayingContentSpotify(
                             .height(screenInfo.hDP.dp)
                             .fillMaxWidth(),
                     beyondViewportPageCount = 1,
-                    userScrollEnabled = !isRepeatOne && state.artworkQueue.isNotEmpty(),
+                    userScrollEnabled = !isRepeatOne && state.artworkQueue.isNotEmpty() && !is2xActive,
                     key = { idx ->
                         val vid = state.artworkQueue.getOrNull(idx)?.videoId.orEmpty()
                         "artwork_${vid}_$idx"
@@ -512,6 +523,25 @@ fun NowPlayingContentSpotify(
                                                                     actions.onUIEvent(UIEvent.Backward)
                                                                     showSeekBackwardBadge = true
                                                                 },
+                                                                onPress = {
+                                                                    var isLongPressHandled = false
+                                                                    val holdJob = speedScope.launch {
+                                                                        delay(320)
+                                                                        isLongPressHandled = true
+                                                                        normalSpeed = dataStoreManager.playbackSpeed.first()
+                                                                        dataStoreManager.setPlaybackSpeed(2.0f)
+                                                                        is2xActive = true
+                                                                    }
+                                                                    try {
+                                                                        tryAwaitRelease()
+                                                                    } finally {
+                                                                        holdJob.cancel()
+                                                                        if (isLongPressHandled) {
+                                                                            dataStoreManager.setPlaybackSpeed(normalSpeed)
+                                                                            is2xActive = false
+                                                                        }
+                                                                    }
+                                                                },
                                                             )
                                                         },
                                             ) {
@@ -559,6 +589,25 @@ fun NowPlayingContentSpotify(
                                                                     actions.onUIEvent(UIEvent.Forward)
                                                                     showSeekForwardBadge = true
                                                                 },
+                                                                onPress = {
+                                                                    var isLongPressHandled = false
+                                                                    val holdJob = speedScope.launch {
+                                                                        delay(320)
+                                                                        isLongPressHandled = true
+                                                                        normalSpeed = dataStoreManager.playbackSpeed.first()
+                                                                        dataStoreManager.setPlaybackSpeed(2.0f)
+                                                                        is2xActive = true
+                                                                    }
+                                                                    try {
+                                                                        tryAwaitRelease()
+                                                                    } finally {
+                                                                        holdJob.cancel()
+                                                                        if (isLongPressHandled) {
+                                                                            dataStoreManager.setPlaybackSpeed(normalSpeed)
+                                                                            is2xActive = false
+                                                                        }
+                                                                    }
+                                                                },
                                                             )
                                                         },
                                             ) {
@@ -594,9 +643,35 @@ fun NowPlayingContentSpotify(
                                                 }
                                             }
                                         }
+
+                                        androidx.compose.animation.AnimatedVisibility(
+                                            visible = is2xActive,
+                                            enter = fadeIn(tween(160)) + slideInVertically(initialOffsetY = { -it / 2 }),
+                                            exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { -it / 2 }),
+                                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
+                                        ) {
+                                            Box(
+                                                modifier =
+                                                    Modifier
+                                                        .clip(RoundedCornerShape(50))
+                                                        .background(Color.Black.copy(alpha = 0.72f))
+                                                        .border(
+                                                            width = 1.dp,
+                                                            color = Color.White.copy(alpha = 0.28f),
+                                                            shape = RoundedCornerShape(50),
+                                                        )
+                                                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                                            ) {
+                                                Text(
+                                                    text = "▶▶ 2X Speed",
+                                                    style = typo().labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                                                    color = Color.White,
+                                                    letterSpacing = 0.8.sp,
+                                                )
+                                            }
+                                        }
                                     }
 
-                                    // Resolved line 599: explicit top-level visibility call to prevent ColumnScope clash
                                     androidx.compose.animation.AnimatedVisibility(
                                         visible = state.screenData.isVideo && state.shouldShowVideo,
                                     ) {
@@ -769,7 +844,6 @@ fun NowPlayingContentSpotify(
                                                     .data(staticThumb)
                                                     .size(1080, 1080)
                                                     .memoryCachePolicy(CachePolicy.ENABLED)
-                                                    .diskCachePolicy(CachePolicy.ENABLED)
                                                     .diskCacheKey(staticThumb)
                                                     .crossfade(300)
                                                     .build(),
@@ -899,7 +973,6 @@ fun NowPlayingContentSpotify(
                                         }.aspectRatio(1f),
                             )
 
-                            // iOS Glass Lyrics Preview Pill
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
@@ -971,11 +1044,10 @@ fun NowPlayingContentSpotify(
                                 }
                             }
 
-                            // Info & Floating Frosted Glass Control Layout
                             Box {
                                 Column(
                                     Modifier
-                                        .alpha(state.controlLayoutAlpha)
+                                        .graphicsLayer { alpha = state.controlLayoutAlpha }
                                         .onGloballyPositioned {
                                             infoLayoutHeightDp =
                                                 with(localDensity) {
@@ -994,7 +1066,6 @@ fun NowPlayingContentSpotify(
                                     if (getPlatform() == Platform.Android) {
                                         Spacer(modifier = Modifier.height(10.dp))
 
-                                        // Frosted Glass Pod for Playback Controls
                                         val glassPodShape = RoundedCornerShape(26.dp)
                                         Box(
                                             modifier =
@@ -1017,7 +1088,6 @@ fun NowPlayingContentSpotify(
                                                     .padding(top = 10.dp, bottom = 12.dp),
                                         ) {
                                             Column {
-                                                // Slider
                                                 Box(
                                                     Modifier
                                                         .padding(horizontal = 16.dp)
@@ -1112,7 +1182,6 @@ fun NowPlayingContentSpotify(
                                                     }
                                                 }
 
-                                                // Time Layout
                                                 Row(
                                                     Modifier
                                                         .fillMaxWidth()
@@ -1186,7 +1255,6 @@ fun NowPlayingContentSpotify(
 
                                     Spacer(modifier = Modifier.height(10.dp))
 
-                                    // List Bottom Actions Row
                                     Row(
                                         modifier =
                                             Modifier
@@ -1378,7 +1446,6 @@ fun NowPlayingContentSpotify(
                         }
                     }
 
-                    // Lower Section with Glass-styled Cards
                     Column(Modifier.padding(horizontal = 20.dp)) {
                         AnimatedVisibility(
                             visible = state.screenData.lyricsData != null,
@@ -1515,7 +1582,6 @@ fun NowPlayingContentSpotify(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Artist Card with Frosted Border
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
                             val artistCardShape = RoundedCornerShape(20.dp)
                             ElevatedCard(
@@ -1608,7 +1674,6 @@ fun NowPlayingContentSpotify(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Metadata Card
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
                             val metaCardShape = RoundedCornerShape(20.dp)
                             ElevatedCard(
@@ -1704,7 +1769,6 @@ fun NowPlayingContentSpotify(
             }
         }
 
-        // Mini Sticky Toolbar with Translucent Glass Styling
         AnimatedVisibility(
             visible = state.shouldShowToolbar && state.isExpanded,
             enter = fadeIn() + slideInVertically(),
