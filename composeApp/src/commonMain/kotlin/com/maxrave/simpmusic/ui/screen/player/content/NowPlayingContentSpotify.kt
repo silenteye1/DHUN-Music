@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -1247,96 +1248,105 @@ fun NowPlayingContentSpotify(
                                                 ) {
                                                     actions.onUIEvent(it)
                                                 }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                // Actions Row inside Glass Pod
+                                                Row(
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 16.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.weight(1f, fill = false),
+                                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        IconButton(
+                                                            modifier =
+                                                                Modifier
+                                                                    .size(26.dp)
+                                                                    .aspectRatio(1f)
+                                                                    .clip(CircleShape),
+                                                            onClick = { actions.onShowInfo() },
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.Info,
+                                                                tint = Color.White.copy(alpha = 0.85f),
+                                                                contentDescription = "",
+                                                            )
+                                                        }
+                                                        PlatformCastButton(
+                                                            modifier = Modifier.size(26.dp),
+                                                            tint = if (state.castState.isRemote) Color.Cyan else Color.White.copy(alpha = 0.85f),
+                                                        )
+                                                        AnimatedVisibility(visible = state.castState.isRemote) {
+                                                            Text(
+                                                                text =
+                                                                    stringResource(
+                                                                        Res.string.playing_on_device,
+                                                                        state.castState.deviceName ?: "Cast",
+                                                                    ),
+                                                                style = typo().bodySmall,
+                                                                color = Color.Cyan,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        IconButton(
+                                                            modifier =
+                                                                Modifier
+                                                                    .size(26.dp)
+                                                                    .aspectRatio(1f)
+                                                                    .clip(CircleShape),
+                                                            onClick = { actions.onShowAddToPlaylist() },
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.PlaylistAdd,
+                                                                tint = Color.White.copy(alpha = 0.85f),
+                                                                contentDescription = "Add to Playlist",
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            modifier =
+                                                                Modifier
+                                                                    .size(26.dp)
+                                                                    .aspectRatio(1f)
+                                                                    .clip(CircleShape),
+                                                            onClick = { actions.onShowQueue() },
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = SimpIcons.QueueMusic,
+                                                                tint = Color.White.copy(alpha = 0.85f),
+                                                                contentDescription = "",
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     } else {
                                         Spacer(Modifier.height(16.dp))
                                     }
 
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Row(
-                                        modifier =
-                                            Modifier
-                                                .height(34.dp)
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 24.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.weight(1f, fill = false),
-                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            IconButton(
-                                                modifier =
-                                                    Modifier
-                                                        .size(26.dp)
-                                                        .aspectRatio(1f)
-                                                        .clip(CircleShape),
-                                                onClick = { actions.onShowInfo() },
-                                            ) {
-                                                Icon(
-                                                    imageVector = SimpIcons.Info,
-                                                    tint = Color.White.copy(alpha = 0.85f),
-                                                    contentDescription = "",
-                                                )
-                                            }
-                                            PlatformCastButton(
-                                                modifier = Modifier.size(26.dp),
-                                                tint = if (state.castState.isRemote) Color.Cyan else Color.White.copy(alpha = 0.85f),
-                                            )
-                                            AnimatedVisibility(visible = state.castState.isRemote) {
-                                                Text(
-                                                    text =
-                                                        stringResource(
-                                                            Res.string.playing_on_device,
-                                                            state.castState.deviceName ?: "Cast",
-                                                        ),
-                                                    style = typo().bodySmall,
-                                                    color = Color.Cyan,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            }
-                                        }
-
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            IconButton(
-                                                modifier =
-                                                    Modifier
-                                                        .size(26.dp)
-                                                        .aspectRatio(1f)
-                                                        .clip(CircleShape),
-                                                onClick = { actions.onShowAddToPlaylist() },
-                                            ) {
-                                                Icon(
-                                                    imageVector = SimpIcons.PlaylistAdd,
-                                                    tint = Color.White.copy(alpha = 0.85f),
-                                                    contentDescription = "Add to Playlist",
-                                                )
-                                            }
-
-                                            IconButton(
-                                                modifier =
-                                                    Modifier
-                                                        .size(26.dp)
-                                                        .aspectRatio(1f)
-                                                        .clip(CircleShape),
-                                                onClick = { actions.onShowQueue() },
-                                            ) {
-                                                Icon(
-                                                    imageVector = SimpIcons.QueueMusic,
-                                                    tint = Color.White.copy(alpha = 0.85f),
-                                                    contentDescription = "",
-                                                )
-                                            }
-                                        }
-                                    }
+                                    // Navigation bars safe bottom padding taaki buttons overlap na hon
+                                    Spacer(
+                                        modifier = Modifier.height(
+                                            with(localDensity) {
+                                                WindowInsets.navigationBars.getBottom(localDensity).toDp() + 8.dp
+                                            },
+                                        ),
+                                    )
                                 }
 
                                 this@Column.AnimatedVisibility(

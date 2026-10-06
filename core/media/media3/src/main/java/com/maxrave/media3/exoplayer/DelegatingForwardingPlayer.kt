@@ -259,16 +259,12 @@ internal class DelegatingForwardingPlayer(
 
         val builder = baseCommands.buildUpon()
 
-        // Always add seek-to-previous (allows seek to start of track even if no previous item)
+        // Seek-to-previous aur Seek-to-next ko hamesha enable rakhein taaki System UI notification
+        // buttons ko initial track transition ke dauran drop/hide na kare
         builder.add(Player.COMMAND_SEEK_TO_PREVIOUS)
-
-        if (nav.hasNextMediaItem()) {
-            builder.add(Player.COMMAND_SEEK_TO_NEXT)
-            builder.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-        }
-        if (nav.hasPreviousMediaItem()) {
-            builder.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-        }
+        builder.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        builder.add(Player.COMMAND_SEEK_TO_NEXT)
+        builder.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
 
         return builder.build()
     }
@@ -278,11 +274,9 @@ internal class DelegatingForwardingPlayer(
         if (nav != null) {
             when (command) {
                 Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ->
-                    return nav.hasNextMediaItem()
-                Player.COMMAND_SEEK_TO_PREVIOUS ->
-                    return true // Always allow seeking to start of current track
-                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ->
-                    return nav.hasPreviousMediaItem()
+                    return true // Always available for stable notification controls
+                Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ->
+                    return true // Always allow seeking
             }
         }
         return super.isCommandAvailable(command)
@@ -402,7 +396,7 @@ internal class DelegatingForwardingPlayer(
         //    never received setVideoSurfaceView/setVideoSurface/etc.
         reAttachVideoOutput()
 
-        // 6. Verify
+        // 7. Verify
         if (wrappedPlayer !== newDelegate) {
             Logger.e(TAG, "Delegate swap verification FAILED - wrappedPlayer is not the new delegate!")
         } else {
@@ -414,17 +408,6 @@ internal class DelegatingForwardingPlayer(
 
     /**
      * Manually notify all tracked listeners about a media item change.
-     *
-     * This is needed after [swapDelegate] because the new delegate may already have
-     * a MediaItem set and be playing — meaning listeners missed the initial
-     * [Player.Listener.onMediaItemTransition] and [Player.Listener.onMediaMetadataChanged] events.
-     *
-     * Also dispatches [Player.Listener.onAvailableCommandsChanged] so MediaSession
-     * re-evaluates which notification buttons to show (next/previous).
-     *
-     * Primary use case: crossfade transitions, where the secondary player is prepared
-     * (with MediaItem + prepare()) before the ForwardingPlayer is swapped to it.
-     * MediaSession uses these events to update the system notification metadata.
      */
     fun notifyMediaItemChanged() {
         val player = wrappedPlayer
@@ -432,7 +415,7 @@ internal class DelegatingForwardingPlayer(
         val metadata = player.mediaMetadata
         val commands = getAvailableCommands()
 
-        Logger.d(TAG, "Manually notifying ${trackedListeners.size} listeners about media item change: ${metadata.title}")
+        Logger.d(TAG, "Manually notifying ${trackedListeners.size} listeners about media item change:${metadata.title}")
 
         trackedListeners.forEach { listener ->
             try {
@@ -441,6 +424,20 @@ internal class DelegatingForwardingPlayer(
                 listener.onAvailableCommandsChanged(commands)
             } catch (e: Exception) {
                 Logger.w(TAG, "Error notifying listener about media item change: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Force-notifies MediaSession that available playback commands are updated.
+     */
+    fun notifyAvailableCommandsChanged() {
+        val commands = getAvailableCommands()
+        trackedListeners.forEach { listener ->
+            try {
+                listener.onAvailableCommandsChanged(commands)
+            } catch (e: Exception) {
+                Logger.w(TAG, "Error notifying available commands: ${e.message}")
             }
         }
     }
