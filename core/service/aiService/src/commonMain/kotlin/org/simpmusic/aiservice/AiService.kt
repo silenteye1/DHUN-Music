@@ -1,22 +1,23 @@
 package org.simpmusic.aiservice
 
-import com.aallam.openai.api.chat.ChatCompletion
-import com.aallam.openai.api.chat.ChatResponseFormat
-import com.aallam.openai.api.chat.JsonSchema
-import com.aallam.openai.api.chat.chatCompletionRequest
-import com.aallam.openai.api.model.ModelId
-import com.aallam.openai.client.OpenAI
-import com.aallam.openai.client.OpenAIConfig
-import com.aallam.openai.client.OpenAIHost
-import com.aallam.openai.client.OpenAIHost.Companion.Gemini
 import com.maxrave.domain.data.model.metadata.Line
 import com.maxrave.domain.data.model.metadata.Lyrics
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -34,38 +35,12 @@ class AiService(
             isLenient = true
             explicitNulls = false
         }
-    private val openAI: OpenAI by lazy {
-        when (aiHost) {
-            AIHost.GEMINI -> {
-                OpenAI(host = Gemini, token = apiKey)
-            }
 
-            AIHost.OPENAI -> {
-                OpenAI(token = apiKey)
-            }
-
-            AIHost.CUSTOM_OPENAI -> {
-                val baseUrl = customBaseUrl ?: "https://api.openai.com/v1/"
-                val config =
-                    OpenAIConfig(
-                        token = apiKey,
-                        host = OpenAIHost(baseUrl = baseUrl),
-                        headers = customHeaders ?: emptyMap(),
-                    )
-                OpenAI(config)
-            }
-        }
-    }
-
-    private val model by lazy {
-        if (!customModelId.isNullOrEmpty()) {
-            ModelId(customModelId)
-        } else {
-            when (aiHost) {
-                AIHost.GEMINI -> ModelId("gemini-2.0-flash")
-                AIHost.OPENAI -> ModelId("gpt-4o")
-                AIHost.CUSTOM_OPENAI -> ModelId("gpt-4o")
-            }
+    private val httpClient = HttpClient {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 60_000L
+            connectTimeoutMillis = 15_000L
+            socketTimeoutMillis = 60_000L
         }
     }
 
@@ -75,75 +50,93 @@ class AiService(
     ): Lyrics {
         val lines = inputLyrics.lines ?: throw IllegalStateException("No lyrics lines to translate")
 
-        // Build key-value map: index -> words (only non-empty lines)
-        val indexToWords = mutableMapOf<String, String>()
-        lines.forEachIndexed { index, line ->
+        // 1. Unique lines extract karo taaki payload 50-60% chhota ho jaye aur response super fast aaye
+        val uniqueTextToId = mutableMapOf<String, String>()
+        var idCounter = 0
+
+        lines.forEach { line ->
             val words = line.words.trim()
-            if (words.isNotEmpty() && words != "♫") {
-                indexToWords[index.toString()] = words
+            if (words.isNotEmpty() && words != "♫" && !uniqueTextToId.containsKey(words)) {
+                uniqueTextToId[words] = (idCounter++).toString()
             }
         }
 
-        if (indexToWords.isEmpty()) {
+        if (uniqueTextToId.isEmpty()) {
             throw IllegalStateException("No translatable lyrics lines found")
         }
 
-        val inputJson = json.encodeToString(MapSerializer(String.serializer(), String.serializer()), indexToWords)
+        // Key -> unique text
+        val idToUniqueText = uniqueTextToId.entries.associate { (k, v) -> v to k }
+        val inputJson = json.encodeToString(MapSerializer(String.serializer(), String.serializer()), idToUniqueText)
 
-        val request =
-            chatCompletionRequest {
-                this.model = this@AiService.model
-                responseFormat = ChatResponseFormat.jsonSchema(aiResponseJsonSchema)
-                messages {
-                    system {
-                        content =
-                            "You are a song lyrics translation assistant.\n" +
-                            "\n" +
-                            "TASK:\n" +
-                            "- You will receive a JSON object where keys are line indices and values are lyrics text.\n" +
-                            "- FIRST, detect the dominant language of the input lyrics.\n" +
-                            "- If the detected language is the SAME as the target language code, return an EMPTY \"translations\" object. Do NOT translate. Do NOT paraphrase.\n" +
-                            "- Otherwise, translate ONLY the values to the target language.\n" +
-                            "- When translating: keep ALL keys exactly the same, output MUST have the EXACT same number of entries as the input, do NOT merge/split/add/remove any entries, and preserve the song's meaning, tone, and emotion.\n" +
-                            "\n" +
-                            "OUTPUT:\n" +
-                            "- A JSON object with the \"translations\" field containing the same keys mapped to translated values (or an empty object when the input is already in the target language)."
-                    }
-                    user {
-                        content {
-                            text("Target language: $targetLanguage")
-                        }
-                        content {
-                            text("Input lyrics: $inputJson")
+        // 2. High-speed, compact prompt
+        val prompt = """
+            Song lyric processing:
+            - If lines are Urdu/Punjabi/Hindi/South-Asian: Transliterate ONLY into Romanized Hinglish (English letters). Do not change original words.
+            - If lines are English: Translate into natural Hindi lyrics.
+            - Keep all numeric IDs identical.
+            - Return JSON ONLY: {"translations": {"0": "text"}}
+            Input:
+            $inputJson
+        """.trimIndent()
+
+        val requestBody = buildJsonObject {
+            putJsonArray("contents") {
+                add(
+                    buildJsonObject {
+                        putJsonArray("parts") {
+                            add(
+                                buildJsonObject {
+                                    put("text", prompt)
+                                }
+                            )
                         }
                     }
-                }
+                )
             }
-        val completion: ChatCompletion = openAI.chatCompletion(request)
-        val jsonContent =
-            completion.choices
-                .firstOrNull()
-                ?.message
-                ?.content ?: throw IllegalStateException("No response from AI")
-        val jsonData =
-            Regex(
-                "```json\\s*([\\s\\S]*?)```",
-            ).find(jsonContent)
-                ?.groups
-                ?.firstOrNull()
-                ?.value ?: jsonContent
-        val cleanedJson = jsonData.replace("```json", "").replace("```", "")
-        val translationResponse = json.decodeFromString<TranslationResponse>(cleanedJson)
-        val translatedMap = translationResponse.translations
-        if (translatedMap.isEmpty()) {
-            throw IllegalStateException(
-                "Input lyrics are already in the target language ($targetLanguage). Translation aborted.",
-            )
+            putJsonObject("generationConfig") {
+                put("response_mime_type", "application/json")
+                put("temperature", 0.0) // 0.0 temperature fastest generation deta hai
+            }
         }
 
-        // Map translated text back to original lines, preserving all timestamps
-        val translatedLines = lines.mapIndexed { index, originalLine ->
-            val translatedWords = translatedMap[index.toString()]
+        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey"
+
+        val response = httpClient.post(endpointUrl) {
+            contentType(ContentType.Application.Json)
+            setBody(requestBody.toString())
+        }
+
+        val responseBody = response.bodyAsText()
+
+        val parsedResponse = json.parseToJsonElement(responseBody).jsonObject
+        val candidates = parsedResponse["candidates"]?.jsonArray
+        val candidate = candidates?.firstOrNull()?.jsonObject
+        val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray
+        val rawText = parts?.firstOrNull()?.jsonObject?.get("text")?.jsonPrimitive?.content
+            ?: throw IllegalStateException("API Error: $responseBody")
+
+        val cleanedJson = rawText
+            .replace("```json", "")
+            .replace("```", "")
+            .trim()
+
+        val translationResponse = json.decodeFromString<TranslationResponse>(cleanedJson)
+        val idToTranslated = translationResponse.translations
+
+        // 3. Translated text ko original unique words ke saath map karo
+        val wordToTranslatedMap = mutableMapOf<String, String>()
+        uniqueTextToId.forEach { (originalWord, id) ->
+            idToTranslated[id]?.let { translated ->
+                wordToTranslatedMap[originalWord] = translated
+            }
+        }
+
+        // 4. Sabhi lines me instant assign kar do
+        val translatedLines = lines.map { originalLine ->
+            val words = originalLine.words.trim()
+            val translatedWords = wordToTranslatedMap[words]
+
             if (translatedWords != null) {
                 Line(
                     startTimeMs = originalLine.startTimeMs,
@@ -152,13 +145,7 @@ class AiService(
                     syllables = null,
                 )
             } else {
-                // Non-translatable line (empty or ♫): keep original
-                Line(
-                    startTimeMs = originalLine.startTimeMs,
-                    endTimeMs = originalLine.endTimeMs,
-                    words = originalLine.words,
-                    syllables = originalLine.syllables,
-                )
+                originalLine
             }
         }
 
@@ -168,33 +155,9 @@ class AiService(
             syncType = inputLyrics.syncType,
         )
     }
-
-    companion object {
-        private val translationJsonSchema: JsonObject =
-            buildJsonObject {
-                put("type", "object")
-                putJsonObject("properties") {
-                    putJsonObject("translations") {
-                        put("type", "object")
-                        putJsonObject("additionalProperties") {
-                            put("type", "string")
-                        }
-                    }
-                }
-                putJsonArray("required") {
-                    add("translations")
-                }
-            }
-        private val aiResponseJsonSchema =
-            JsonSchema(
-                name = "ai_translation_schema",
-                schema = translationJsonSchema,
-                strict = false,
-            )
-    }
 }
 
-@kotlinx.serialization.Serializable
+@Serializable
 data class TranslationResponse(
     val translations: Map<String, String> = emptyMap(),
 )

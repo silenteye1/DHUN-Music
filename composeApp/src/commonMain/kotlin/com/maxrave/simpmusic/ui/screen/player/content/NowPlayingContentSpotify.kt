@@ -79,6 +79,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -974,6 +975,7 @@ fun NowPlayingContentSpotify(
                                         }.aspectRatio(1f),
                             )
 
+                            // --- LYRICS CAPSULE WITH TRANSLATED PRIORITY & FALLBACK ---
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
@@ -983,12 +985,15 @@ fun NowPlayingContentSpotify(
                                         .fillMaxWidth()
                                         .padding(horizontal = 24.dp),
                             ) {
-                                val inlineLyrics = state.screenData.lyricsData?.lyrics
+                                val originalLyrics = state.screenData.lyricsData?.lyrics
+                                val translatedLyrics = state.screenData.lyricsData?.translatedLyrics?.first
+
                                 val hasSyncedLyrics =
-                                    inlineLyrics != null &&
-                                        inlineLyrics.syncType != null &&
-                                        inlineLyrics.syncType != "UNSYNCED" &&
-                                        inlineLyrics.lines != null
+                                    originalLyrics != null &&
+                                        originalLyrics.syncType != null &&
+                                        originalLyrics.syncType != "UNSYNCED" &&
+                                        originalLyrics.lines != null
+
                                 val currentLyricLineText =
                                     if (!hasSyncedLyrics ||
                                         state.screenData.canvasData != null ||
@@ -996,12 +1001,27 @@ fun NowPlayingContentSpotify(
                                     ) {
                                         ""
                                     } else {
-                                        inlineLyrics
-                                            ?.lines
-                                            ?.getOrNull(state.currentLyricLineIndex)
-                                            ?.words
-                                            ?.stripRichSyncTimestamps()
-                                            .orEmpty()
+                                        // Priority 1: Translated Lyrics (Hinglish/Hindi)
+                                        val translatedLine =
+                                            translatedLyrics
+                                                ?.lines
+                                                ?.getOrNull(state.currentLyricLineIndex)
+                                                ?.words
+                                                ?.stripRichSyncTimestamps()
+
+                                        // Priority 2 (Fallback): Original Lyrics
+                                        val originalLine =
+                                            originalLyrics
+                                                ?.lines
+                                                ?.getOrNull(state.currentLyricLineIndex)
+                                                ?.words
+                                                ?.stripRichSyncTimestamps()
+
+                                        if (!translatedLine.isNullOrBlank()) {
+                                            translatedLine
+                                        } else {
+                                            originalLine.orEmpty()
+                                        }
                                     }
 
                                 Crossfade(
@@ -1339,7 +1359,7 @@ fun NowPlayingContentSpotify(
                                         Spacer(Modifier.height(16.dp))
                                     }
 
-                                    // Navigation bars safe bottom padding taaki buttons overlap na hon
+                                    // Navigation bars safe bottom padding
                                     Spacer(
                                         modifier = Modifier.height(
                                             with(localDensity) {
@@ -1863,7 +1883,8 @@ fun NowPlayingContentSpotify(
                                                     .basicMarquee(
                                                         iterations = Int.MAX_VALUE,
                                                         animationMode = MarqueeAnimationMode.Immediately,
-                                                    ).focusable(),
+                                                    ).focusable()
+                                                    .clickable { actions.onNavigateToArtist() },
                                         )
                                     }
                                 }

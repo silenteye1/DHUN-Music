@@ -488,7 +488,6 @@ class SharedViewModel(
                                 if (item != null) {
                                     if (!isFirstSongPlayed) {
                                         isFirstSongPlayed = true
-                                        // Play as PLAYLIST instead of RADIO so YouTube suggestions don't overwrite it
                                         mediaPlayerHandler.setQueueData(
                                             QueueData.Data(
                                                 listTracks = arrayListOf(item),
@@ -1587,66 +1586,57 @@ class SharedViewModel(
         videoId: String,
         lyrics: Lyrics,
     ) {
-        if (dataStoreManager.useAITranslation.first() == TRUE &&
-            dataStoreManager.aiApiKey.first().isNotEmpty() &&
-            dataStoreManager.enableTranslateLyric.first() == FALSE
-        ) {
-            val savedTranslatedLyrics =
-                lyricsCanvasRepository
-                    .getSavedTranslatedLyrics(
-                        videoId,
-                        dataStoreManager.translationLanguage.first(),
-                    ).firstOrNull()
-            if (savedTranslatedLyrics != null) {
-                updateLyrics(
-                    videoId,
-                    0,
-                    savedTranslatedLyrics.toLyrics(),
-                    true,
-                    LyricsProvider.AI,
-                )
-            } else {
-                val lyricsForAi =
-                    if (lyrics.syncType == "RICH_SYNCED") {
-                        lyrics.toSyncedLyrics()
-                    } else {
-                        lyrics
-                    }
-                lyricsCanvasRepository
-                    .getAITranslationLyrics(
-                        lyricsForAi,
-                        dataStoreManager.translationLanguage.first(),
-                    ).cancellable()
-                    .collectLatest {
-                        val data = it.data
-                        when (it) {
-                            is Resource.Success -> {
-                                if (data != null) {
-                                    lyricsCanvasRepository.insertTranslatedLyrics(
-                                        TranslatedLyricsEntity(
-                                            videoId = videoId,
-                                            language = dataStoreManager.translationLanguage.first(),
-                                            error = false,
-                                            lines = data.lines,
-                                            syncType = data.syncType,
-                                        ),
-                                    )
-                                    updateLyrics(
-                                        videoId,
-                                        0,
-                                        data,
-                                        true,
-                                        LyricsProvider.AI,
-                                    )
-                                }
-                            }
+        val useAi = dataStoreManager.useAITranslation.first() == TRUE
+        val apiKey = dataStoreManager.aiApiKey.first()
+        val targetLang = dataStoreManager.translationLanguage.first().ifEmpty { "hi" }
 
-                            else -> {
-                                Logger.w(tag, "Get AI Translate Lyrics Error: ${it.message}")
+        Logger.w(tag, "AI Translation Triggered -> useAi: $useAi, hasApiKey: ${apiKey.isNotEmpty()}, targetLang: $targetLang")
+
+        if (useAi && apiKey.isNotEmpty()) {
+            Logger.w(tag, "Requesting fresh translation from Gemini AI...")
+            val lyricsForAi =
+                if (lyrics.syncType == "RICH_SYNCED") {
+                    lyrics.toSyncedLyrics()
+                } else {
+                    lyrics
+                }
+            lyricsCanvasRepository
+                .getAITranslationLyrics(
+                    lyricsForAi,
+                    targetLang,
+                ).cancellable()
+                .collectLatest {
+                    val data = it.data
+                    when (it) {
+                        is Resource.Success -> {
+                            if (data != null) {
+                                Logger.d(tag, "AI Translation successfully loaded!")
+                                lyricsCanvasRepository.insertTranslatedLyrics(
+                                    TranslatedLyricsEntity(
+                                        videoId = videoId,
+                                        language = targetLang,
+                                        error = false,
+                                        lines = data.lines,
+                                        syncType = data.syncType,
+                                    ),
+                                )
+                                updateLyrics(
+                                    videoId,
+                                    0,
+                                    data,
+                                    true,
+                                    LyricsProvider.AI,
+                                )
                             }
                         }
+
+                        else -> {
+                            Logger.w(tag, "Get AI Translate Lyrics Error: ${it.message}")
+                        }
                     }
-            }
+                }
+        } else {
+            Logger.w(tag, "AI Translation skipped -> useAi: $useAi, keyLength: ${apiKey.length}")
         }
     }
 
@@ -1831,7 +1821,7 @@ class SharedViewModel(
 
     fun downloadFile(bitmap: ImageBitmap) {
         val fileName =
-            "${nowPlayingScreenData.value.nowPlayingTitle} - ${nowPlayingScreenData.value.artistName}"
+            "${nowPlayingScreenData.value.nowPlayingTitle} ${nowPlayingScreenData.value.artistName}"
                 .replace(Regex("""[|\\?*<":>]"""), "")
                 .replace(" ", "_")
         val path = "${getDownloadFolderPath()}/$fileName"

@@ -21,6 +21,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -102,7 +103,6 @@ import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
-import com.maxrave.simpmusic.extension.angledGradientBackground
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
@@ -439,6 +439,23 @@ fun HomeScreen(
             isRefreshing = isRefreshing,
             indicator = {},
         ) {
+            // Smooth Ambient Background Glow (Diffuses down cleanly without sharp patches)
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(650.dp)
+                        .background(
+                            brush =
+                                Brush.verticalGradient(
+                                    0.0f to animatedColor.copy(alpha = 0.85f),
+                                    0.35f to animatedColor.copy(alpha = 0.45f),
+                                    0.70f to animatedColor.copy(alpha = 0.15f),
+                                    1.0f to pageBackground,
+                                ),
+                        ),
+            )
+
             Crossfade(targetState = loading, label = "Home Shimmer") { loadingState ->
                 if (!loadingState) {
                     if (homeData.isEmpty()) {
@@ -456,95 +473,81 @@ fun HomeScreen(
                     }
                     LazyColumn(
                         state = scrollState,
-                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         itemsIndexed(homeData, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
-                            Box {
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .padding(horizontal = 16.dp),
+                            ) {
                                 if (index == 0) {
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .matchParentSize()
-                                                .angledGradientBackground(
-                                                    listOf(
-                                                        animatedColor.copy(alpha = 0.90f),
-                                                        pageBackground,
-                                                    ),
-                                                    35f,
-                                                ),
+                                    Spacer(
+                                        Modifier
+                                            .statusBarsPadding()
+                                            .height(
+                                                if (topAppBarHeightPx > 0) {
+                                                    with(LocalDensity.current) { topAppBarHeightPx.toDp() + 18.dp }
+                                                } else {
+                                                    170.dp
+                                                },
+                                            ),
                                     )
                                 }
-                                Column(
-                                    modifier =
-                                        Modifier
-                                            .padding(horizontal = 16.dp),
-                                ) {
-                                    if (index == 0) {
-                                        Spacer(
-                                            Modifier
-                                                .statusBarsPadding()
-                                                .height(
-                                                    if (topAppBarHeightPx > 0) {
-                                                        with(LocalDensity.current) { topAppBarHeightPx.toDp() + 18.dp }
-                                                    } else {
-                                                        170.dp
+                                Spacer(modifier = Modifier.height(6.dp))
+                                if (index == 0 && accountInfo != null && accountShow) {
+                                    AccountLayout(
+                                        accountName = accountInfo?.first ?: "",
+                                        url = accountInfo?.second ?: "",
+                                        isGlassEnabled = isLiquidGlassEnabled,
+                                    )
+                                    Spacer(Modifier.height(14.dp))
+                                }
+                                if (item.title == stringResource(Res.string.quick_picks)) {
+                                    AnimatedVisibility(
+                                        visible =
+                                            homeData.find {
+                                                it.title ==
+                                                    stringResource(
+                                                        Res.string.quick_picks,
+                                                    )
+                                            } != null,
+                                    ) {
+                                        QuickPicks(
+                                            homeItem =
+                                                (
+                                                    homeData.find {
+                                                        it.title ==
+                                                            stringResource(
+                                                                Res.string.quick_picks,
+                                                            )
+                                                    } ?: return@AnimatedVisibility
+                                                    ).let { content ->
+                                                        content.copy(
+                                                            contents =
+                                                                content.contents.mapNotNull { ct ->
+                                                                    ct?.copy(
+                                                                        artists =
+                                                                            ct.artists?.let { art ->
+                                                                                if (art.size > 1) {
+                                                                                    art.dropLast(1)
+                                                                                } else {
+                                                                                    art
+                                                                                }
+                                                                            },
+                                                                    )
+                                                                },
+                                                        )
                                                     },
-                                                ),
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    if (index == 0 && accountInfo != null && accountShow) {
-                                        AccountLayout(
-                                            accountName = accountInfo?.first ?: "",
-                                            url = accountInfo?.second ?: "",
+                                            navController = navController,
+                                            viewModel = viewModel,
                                             isGlassEnabled = isLiquidGlassEnabled,
                                         )
-                                        Spacer(Modifier.height(14.dp))
                                     }
-                                    if (item.title == stringResource(Res.string.quick_picks)) {
-                                        AnimatedVisibility(
-                                            visible =
-                                                homeData.find {
-                                                    it.title ==
-                                                        stringResource(
-                                                            Res.string.quick_picks,
-                                                        )
-                                                } != null,
-                                        ) {
-                                            QuickPicks(
-                                                homeItem =
-                                                    (
-                                                        homeData.find {
-                                                            it.title ==
-                                                                stringResource(
-                                                                    Res.string.quick_picks,
-                                                                )
-                                                        } ?: return@AnimatedVisibility
-                                                        ).let { content ->
-                                                            content.copy(
-                                                                contents =
-                                                                    content.contents.mapNotNull { ct ->
-                                                                        ct?.copy(
-                                                                            artists =
-                                                                                ct.artists?.let { art ->
-                                                                                    if (art.size > 1) {
-                                                                                        art.dropLast(1)
-                                                                                    } else {
-                                                                                        art
-                                                                                    }
-                                                                                },
-                                                                        )
-                                                                    },
-                                                            )
-                                                        },
-                                                navController = navController,
-                                                viewModel = viewModel,
-                                                isGlassEnabled = isLiquidGlassEnabled,
-                                            )
-                                        }
-                                    } else {
+                                } else {
+                                    HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
                                         HomeItem(
                                             navController = navController,
                                             data = item,
@@ -577,10 +580,12 @@ fun HomeScreen(
                                             Modifier
                                                 .padding(horizontal = 16.dp),
                                     ) {
-                                        HomeItem(
-                                            navController = navController,
-                                            data = it,
-                                        )
+                                        HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
+                                            HomeItem(
+                                                navController = navController,
+                                                data = it,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -594,63 +599,73 @@ fun HomeScreen(
                                                 .padding(horizontal = 16.dp),
                                     ) {
                                         moodMomentAndGenre?.let {
-                                            MoodMomentAndGenre(
-                                                mood = it,
-                                                navController = navController,
-                                            )
+                                            HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
+                                                MoodMomentAndGenre(
+                                                    mood = it,
+                                                    navController = navController,
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                             item {
-                                Column(
-                                    Modifier
-                                        .padding(vertical = 10.dp)
-                                        .padding(horizontal = 16.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween,
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .padding(horizontal = 16.dp),
                                 ) {
-                                    ChartTitle()
-                                    Spacer(modifier = Modifier.height(5.dp))
-                                    Crossfade(targetState = regionChart) {
-                                        Logger.w("HomeScreen", "regionChart: $it")
-                                        if (it != null) {
-                                            DropdownButton(
-                                                items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
-                                                defaultSelected =
-                                                    CHART_SUPPORTED_COUNTRY.itemsData.getOrNull(
-                                                        CHART_SUPPORTED_COUNTRY.items.indexOf(it),
+                                    HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
+                                        Column(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            ChartTitle()
+                                            Spacer(modifier = Modifier.height(5.dp))
+                                            Crossfade(targetState = regionChart) {
+                                                Logger.w("HomeScreen", "regionChart: $it")
+                                                if (it != null) {
+                                                    DropdownButton(
+                                                        items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
+                                                        defaultSelected =
+                                                            CHART_SUPPORTED_COUNTRY.itemsData.getOrNull(
+                                                                CHART_SUPPORTED_COUNTRY.items.indexOf(it),
+                                                            )
+                                                                ?: CHART_SUPPORTED_COUNTRY.itemsData[1],
+                                                    ) {
+                                                        viewModel.exploreChart(
+                                                            CHART_SUPPORTED_COUNTRY.items[
+                                                                CHART_SUPPORTED_COUNTRY.itemsData.indexOf(
+                                                                    it,
+                                                                ),
+                                                            ],
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(5.dp))
+                                            Crossfade(
+                                                targetState = chartLoading,
+                                                label = "Chart",
+                                            ) { loadingInProgress ->
+                                                if (!loadingInProgress) {
+                                                    chart?.let {
+                                                        ChartData(
+                                                            chart = it,
+                                                            navController = navController,
+                                                        )
+                                                    }
+                                                } else {
+                                                    CenterLoadingBox(
+                                                        modifier =
+                                                            Modifier
+                                                                .fillMaxWidth()
+                                                                .height(400.dp),
                                                     )
-                                                        ?: CHART_SUPPORTED_COUNTRY.itemsData[1],
-                                            ) {
-                                                viewModel.exploreChart(
-                                                    CHART_SUPPORTED_COUNTRY.items[
-                                                        CHART_SUPPORTED_COUNTRY.itemsData.indexOf(
-                                                            it,
-                                                        ),
-                                                    ],
-                                                )
+                                                }
                                             }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(5.dp))
-                                    Crossfade(
-                                        targetState = chartLoading,
-                                        label = "Chart",
-                                    ) { loadingInProgress ->
-                                        if (!loadingInProgress) {
-                                            chart?.let {
-                                                ChartData(
-                                                    chart = it,
-                                                    navController = navController,
-                                                )
-                                            }
-                                        } else {
-                                            CenterLoadingBox(
-                                                modifier =
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .height(400.dp),
-                                            )
                                         }
                                     }
                                 }
@@ -864,6 +879,58 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/**
+ * Reusable Frosted Glass Card for dynamic sections
+ */
+@Composable
+fun HomeSectionCard(
+    modifier: Modifier = Modifier,
+    isGlassEnabled: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val cardShape = RoundedCornerShape(24.dp)
+    val cardModifier =
+        if (isGlassEnabled) {
+            Modifier
+                .background(
+                    brush =
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.02f),
+                            ),
+                        ),
+                    shape = cardShape,
+                )
+                .border(
+                    width = 1.dp,
+                    brush =
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.18f),
+                                Color.White.copy(alpha = 0.03f),
+                            ),
+                        ),
+                    shape = cardShape,
+                )
+        } else {
+            Modifier.background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                shape = cardShape,
+            )
+        }
+
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .then(cardModifier)
+                .padding(vertical = 10.dp),
+        content = content,
+    )
 }
 
 /**
@@ -1101,29 +1168,44 @@ fun QuickPicks(
         )
     }
 
-    val glassCardShape = RoundedCornerShape(24.dp)
+    val cardShape = RoundedCornerShape(24.dp)
     val cardModifier =
         if (isGlassEnabled) {
             Modifier
-                .background(Color.White.copy(alpha = 0.03f))
+                .background(
+                    brush =
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.02f),
+                            ),
+                        ),
+                    shape = cardShape,
+                )
                 .border(
                     width = 1.dp,
                     brush =
                         Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.02f)),
+                            listOf(
+                                Color.White.copy(alpha = 0.18f),
+                                Color.White.copy(alpha = 0.03f),
+                            ),
                         ),
-                    shape = glassCardShape,
+                    shape = cardShape,
                 )
         } else {
-            Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+            Modifier.background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                shape = cardShape,
+            )
         }
 
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(glassCardShape)
+            .clip(cardShape)
             .then(cardModifier)
-            .padding(horizontal = 12.dp, vertical = 14.dp)
+            .padding(horizontal = 14.dp, vertical = 14.dp)
             .onGloballyPositioned { coordinates ->
                 with(density) {
                     widthDp = (coordinates.size.width).toDp()
@@ -1192,7 +1274,7 @@ fun MoodMomentAndGenre(
 ) {
     Column(
         Modifier
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 4.dp),
     ) {
         Text(
             text = stringResource(Res.string.let_s_pick_a_playlist_for_you),
