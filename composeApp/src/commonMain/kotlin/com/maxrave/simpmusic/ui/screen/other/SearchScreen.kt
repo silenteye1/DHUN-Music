@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.other
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -13,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -180,11 +182,31 @@ fun SearchScreen(
     var searchUIType by rememberSaveable { mutableStateOf(SearchUIType.EMPTY) }
     var searchText by rememberSaveable { mutableStateOf("") }
     var isSearchSubmitted by rememberSaveable { mutableStateOf(false) }
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
+    val inputInteractionSource = remember { MutableInteractionSource() }
+    val isInputFocused by inputInteractionSource.collectIsFocusedAsState()
 
-    var isFocused by rememberSaveable { mutableStateOf(false) }
+    // Jab bhi user input field par click ya tap karega, active mode on hoga
+    LaunchedEffect(isInputFocused) {
+        if (isInputFocused) {
+            isSearchActive = true
+            isSearchSubmitted = false
+        }
+    }
+
+    BackHandler(enabled = isSearchActive || isSearchSubmitted) {
+        if (isSearchActive) {
+            isSearchActive = false
+            focusManager.clearFocus()
+        } else if (isSearchSubmitted) {
+            isSearchSubmitted = false
+            searchText = ""
+            isSearchActive = false
+            focusManager.clearFocus()
+        }
+    }
 
     val screenInfo = getScreenSizeInfo()
     val isMobilePortrait = getPlatform() == Platform.Android && screenInfo.wDP < screenInfo.hDP
@@ -234,8 +256,8 @@ fun SearchScreen(
 
     var currentPlaceholderIndex by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(isFocused) {
-        while (!isFocused) {
+    LaunchedEffect(isSearchActive) {
+        while (!isSearchActive) {
             delay(3000)
             currentPlaceholderIndex = (currentPlaceholderIndex + 1) % placeholderTexts.size
         }
@@ -258,38 +280,20 @@ fun SearchScreen(
     }
 
     LaunchedEffect(searchText) {
-        if (isFocused) {
-            isSearchSubmitted = false
-            isExpanded = true
-        }
-        if (searchText.isNotEmpty() && isFocused) {
+        if (searchText.isNotEmpty() && isSearchActive) {
             searchViewModel.suggestQuery(searchText)
         }
     }
 
-    LaunchedEffect(isSearchSubmitted) {
-        if (isSearchSubmitted) {
-            isExpanded = false
+    // Explicit and reliable UI mode assignment
+    LaunchedEffect(isSearchActive, searchText, isSearchSubmitted) {
+        searchUIType = when {
+            isSearchSubmitted && searchText.isNotEmpty() -> SearchUIType.SEARCH_RESULTS
+            isSearchActive && searchText.isNotEmpty() -> SearchUIType.SEARCH_SUGGESTIONS
+            isSearchActive -> SearchUIType.SEARCH_HISTORY
+            searchText.isEmpty() -> SearchUIType.EMPTY
+            else -> SearchUIType.SEARCH_RESULTS
         }
-    }
-
-    LaunchedEffect(isFocused) {
-        if (isFocused) {
-            isExpanded = true
-        }
-    }
-
-    LaunchedEffect(isExpanded, searchText, isFocused) {
-        searchUIType =
-            if (searchText.isNotEmpty() && isExpanded) {
-                SearchUIType.SEARCH_SUGGESTIONS
-            } else if (isFocused && isExpanded) {
-                SearchUIType.SEARCH_HISTORY
-            } else if (searchText.isEmpty()) {
-                SearchUIType.EMPTY
-            } else {
-                SearchUIType.SEARCH_RESULTS
-            }
     }
 
     if (showSelectionSheet) {
@@ -412,6 +416,7 @@ fun SearchScreen(
                                             indication = ripple(),
                                             onClick = {
                                                 searchText = suggestion
+                                                isSearchActive = false
                                                 focusManager.clearFocus()
                                                 isSearchSubmitted = true
                                                 searchViewModel.insertSearchHistory(suggestion)
@@ -438,6 +443,7 @@ fun SearchScreen(
                                 IconButton(
                                     onClick = {
                                         searchText = suggestion
+                                        isSearchActive = true
                                         focusRequester.requestFocus()
                                     },
                                 ) {
@@ -498,6 +504,7 @@ fun SearchScreen(
                                             .fillMaxWidth()
                                             .clickable {
                                                 searchText = historyItem
+                                                isSearchActive = false
                                                 focusManager.clearFocus()
                                                 isSearchSubmitted = true
                                                 searchViewModel.insertSearchHistory(historyItem)
@@ -528,6 +535,7 @@ fun SearchScreen(
                                     IconButton(
                                         onClick = {
                                             searchText = historyItem
+                                            isSearchActive = true
                                             focusRequester.requestFocus()
                                         },
                                     ) {
@@ -634,6 +642,7 @@ fun SearchScreen(
                                 val query = searchText.trim()
                                 if (query.isNotEmpty()) {
                                     isSearchSubmitted = true
+                                    isSearchActive = false
                                     searchViewModel.insertSearchHistory(query)
                                     when (searchScreenState.searchType) {
                                         SearchType.ALL -> searchViewModel.searchAll(query)
@@ -658,7 +667,7 @@ fun SearchScreen(
                                             .padding(top = searchBarHeight),
                                     containerColor = PullToRefreshDefaults.indicatorContainerColor,
                                     color = PullToRefreshDefaults.indicatorColor,
-                                    maxDistance = PullToRefreshDefaults.PositionalThreshold - 5.dp,
+                                    maxDistance = PullToRefreshDefaults.PositionalThreshold * 5,
                                 )
                             },
                         ) {
@@ -949,14 +958,17 @@ fun SearchScreen(
                             query = searchText,
                             onQueryChange = { newText ->
                                 searchText = newText
+                                isSearchActive = true
                             },
                             onSearch = { query ->
                                 val deepLink = query.toAppDeepLinkOrNull()
                                 if (deepLink != null) {
+                                    isSearchActive = false
                                     focusManager.clearFocus()
                                     sharedViewModel.setIntent(GenericIntent(data = deepLink))
                                 } else if (query.isNotEmpty()) {
                                     isSearchSubmitted = true
+                                    isSearchActive = false
                                     focusManager.clearFocus()
                                     searchViewModel.insertSearchHistory(query)
                                     when (searchScreenState.searchType) {
@@ -974,6 +986,7 @@ fun SearchScreen(
                             expanded = false,
                             onExpandedChange = {},
                             enabled = true,
+                            interactionSource = inputInteractionSource,
                             placeholder = {
                                 AnimatedContent(
                                     targetState = currentPlaceholderIndex,
@@ -1007,6 +1020,8 @@ fun SearchScreen(
                                         onClick = {
                                             searchText = ""
                                             isSearchSubmitted = false
+                                            isSearchActive = true
+                                            focusRequester.requestFocus()
                                         },
                                     ) {
                                         Icon(
@@ -1025,8 +1040,15 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
                             .onFocusChanged {
-                                isFocused = it.isFocused
-                            }.padding(horizontal = 16.dp),
+                                if (it.isFocused) {
+                                    isSearchActive = true
+                                }
+                            }
+                            .clickable {
+                                isSearchActive = true
+                                focusRequester.requestFocus()
+                            }
+                            .padding(horizontal = 16.dp),
                     shape = RoundedCornerShape(8.dp),
                     windowInsets = WindowInsets(0),
                     content = {},
