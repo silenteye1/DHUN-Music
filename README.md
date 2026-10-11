@@ -25,8 +25,4 @@
 - [Coil3](https://coil-kt.github.io/coil/) (Image Loading)
 - [Ktor](https://ktor.io/) (Networking)
 
-## 🚀 How to Build & Run
-
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/silenteye1/DHUN-Music.git](https://github.com/silenteye1/DHUN-Music.git)
+)
