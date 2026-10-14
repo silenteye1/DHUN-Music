@@ -87,7 +87,6 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -111,7 +110,6 @@ import simpmusic.composeapp.generated.resources.shared
 import simpmusic.composeapp.generated.resources.updated
 import simpmusic.composeapp.generated.resources.vote_submitted
 import java.io.FileOutputStream
-import kotlin.math.abs
 import kotlin.reflect.KClass
 
 const val FOOTGUNS_STAR_KEY = "footguns_starred"
@@ -737,28 +735,6 @@ class SharedViewModel(
         }
     }
 
-    private fun getSavedLyrics(track: Track) {
-        viewModelScope.launch {
-            lyricsCanvasRepository.getSavedLyrics(track.videoId).cancellable().collectLatest { lyrics ->
-                if (lyrics != null) {
-                    val lyricsData = lyrics.toLyrics()
-                    Logger.d(tag, "Saved Lyrics $lyricsData")
-                    updateLyrics(
-                        track.videoId,
-                        track.durationSeconds ?: 0,
-                        lyricsData,
-                        false,
-                        LyricsProvider.OFFLINE,
-                    )
-                    getAITranslationLyrics(
-                        track.videoId,
-                        lyricsData,
-                    )
-                }
-            }
-        }
-    }
-
     fun loadSharedMediaItem(videoId: String) {
         viewModelScope.launch {
             val localSong = songRepository.getSongById(videoId).firstOrNull()
@@ -1101,99 +1077,6 @@ class SharedViewModel(
                     },
             )
 
-        if (isTranslatedLyrics && lyricsProvider != LyricsProvider.AI) {
-            val originalLyrics = _nowPlayingScreenData.value.lyricsData?.lyrics
-            val originalLines = originalLyrics?.lines
-            val lyricsLines = lyrics.lines
-            if (originalLyrics != null && originalLines != null && lyricsLines != null) {
-                var timeSyncErrorCount = 0
-                val totalLines = originalLines.size
-
-                if (originalLines.size == lyricsLines.size) {
-                    originalLines.forEachIndexed { index, originalLine ->
-                        val originalTime = originalLine.startTimeMs.toLongOrNull() ?: 0L
-                        val translatedLine = lyricsLines[index]
-                        val translatedTime = translatedLine.startTimeMs.toLongOrNull() ?: 0L
-                        val timeDiff = abs(originalTime - translatedTime)
-
-                        if (timeDiff > 1000L) {
-                            timeSyncErrorCount++
-                        }
-                    }
-                } else {
-                    val usedIndices = mutableSetOf<Int>()
-                    originalLines.forEach { originalLine ->
-                        val originalTime = originalLine.startTimeMs.toLongOrNull() ?: 0L
-                        var bestIndex = -1
-                        var bestDiff = Long.MAX_VALUE
-                        lyricsLines.forEachIndexed { index, line ->
-                            if (index !in usedIndices) {
-                                val diff = abs((line.startTimeMs.toLongOrNull() ?: 0L) - originalTime)
-                                if (diff < bestDiff) {
-                                    bestDiff = diff
-                                    bestIndex = index
-                                }
-                            }
-                        }
-                        if (bestIndex >= 0) {
-                            usedIndices.add(bestIndex)
-                            if (bestDiff > 1000L) {
-                                timeSyncErrorCount++
-                            }
-                        } else {
-                            timeSyncErrorCount++
-                        }
-                    }
-                }
-
-                val syncErrorRatio = if (totalLines > 0) timeSyncErrorCount.toFloat() / totalLines else 0f
-                if (syncErrorRatio > 0.25f || (totalLines > 0 && timeSyncErrorCount > totalLines / 2)) {
-                    Logger.w(
-                        tag,
-                        "Translated lyrics out of sync: $timeSyncErrorCount/$totalLines lines with time diff > 1s (${(syncErrorRatio * 100).toInt()}%)",
-                    )
-
-                    _nowPlayingScreenData.update {
-                        it.copy(
-                            lyricsData =
-                                it.lyricsData?.copy(
-                                    translatedLyrics = null,
-                                ),
-                        )
-                    }
-
-                    viewModelScope.launch {
-                        lyricsCanvasRepository.removeTranslatedLyrics(
-                            videoId,
-                            dataStoreManager.translationLanguage.first(),
-                        )
-                        val simpMusicLyricsId = lyrics.simpMusicLyrics?.id
-                        if (lyricsProvider == LyricsProvider.SIMPMUSIC && !simpMusicLyricsId.isNullOrEmpty()) {
-                            viewModelScope.launch {
-                                lyricsCanvasRepository
-                                    .voteSimpMusicTranslatedLyrics(
-                                        translatedLyricsId = simpMusicLyricsId,
-                                        false,
-                                    ).collectLatest { voteResult ->
-                                        when (voteResult) {
-                                            is Resource.Error -> Logger.w(tag, "Vote SimpMusic Translated Lyrics Error ${voteResult.message}")
-                                            is Resource.Success -> Logger.d(tag, "Vote SimpMusic Translated Lyrics Success")
-                                        }
-                                    }
-                            }
-                        }
-                        nowPlayingScreenData.value.lyricsData?.lyrics?.let {
-                            getAITranslationLyrics(
-                                videoId,
-                                it,
-                            )
-                        }
-                    }
-                    return
-                }
-            }
-        }
-
         val shouldSendLyricsToSimpMusic =
             runBlocking {
                 dataStoreManager.helpBuildLyricsDatabase.first() == TRUE
@@ -1309,229 +1192,152 @@ class SharedViewModel(
                         ?: ""
                 }
             resetLyricsVoteState()
-            val lyricsProvider = dataStoreManager.lyricsProvider.first()
-            when (lyricsProvider) {
-                DataStoreManager.SIMPMUSIC -> {
-                    getSimpMusicLyrics(
-                        videoId,
-                        song,
-                        (artist ?: ""),
-                        duration,
-                    )
-                }
 
-                DataStoreManager.LRCLIB -> {
-                    getLrclibLyrics(
-                        song,
-                        (artist ?: ""),
-                        duration,
-                    )
-                }
+            // Cascading Synced & Non-Synced Search Chain
+            fetchCascadingLyrics(song, (artist ?: "").toString(), duration)
+        }
+    }
 
-                DataStoreManager.YOUTUBE -> {
-                    getYouTubeCaption(
-                        videoId,
-                        song,
-                        (artist ?: ""),
-                        duration,
-                    )
-                }
+    private fun fetchCascadingLyrics(
+        song: SongEntity,
+        artist: String,
+        duration: Int,
+    ) {
+        viewModelScope.launch {
+            val videoId = song.videoId
 
-                DataStoreManager.BETTER_LYRICS -> {
-                    getBetterLyrics(
-                        song,
-                        (artist ?: "").toString(),
-                        duration,
-                    )
+            // Backup saved record fetch karein
+            val localLyrics = lyricsCanvasRepository.getSavedLyrics(videoId).firstOrNull()
+
+            // Step 1: Online BetterLyrics try karo (live BetterLyrics provider tag ke liye)
+            lyricsCanvasRepository.getBetterLyrics(artist, song.title, duration).collectLatest { res ->
+                val data = res.data
+                if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty() && data.syncType != "UNSYNCED") {
+                    Logger.d(tag, "Synced lyrics found via BetterLyrics for $videoId")
+                    updateLyrics(videoId, duration, data, false, LyricsProvider.BETTER_LYRICS)
+                    insertLyrics(data.toLyricsEntity(videoId))
+                    getAITranslationLyrics(videoId, data)
+                } else {
+                    // Step 2: Fallback to LRCLIB
+                    tryLrclibFallback(song, artist, duration, localLyrics)
                 }
             }
         }
     }
 
-    private suspend fun getSimpMusicLyrics(
-        videoId: String,
+    private fun tryLrclibFallback(
         song: SongEntity,
-        artist: String?,
+        artist: String,
         duration: Int,
+        savedFallbackLyrics: LyricsEntity?,
     ) {
-        lyricsCanvasRepository.getSimpMusicLyrics(videoId).collectLatest {
-            val data = it.data
-            if (it is Resource.Success && data != null) {
-                updateLyrics(
-                    videoId,
-                    duration,
-                    data,
-                    false,
-                    LyricsProvider.SIMPMUSIC,
-                )
-                insertLyrics(
-                    data.toLyricsEntity(videoId),
-                )
-                getSimpMusicTranslatedLyrics(
-                    videoId,
-                    data,
-                )
-            } else if (dataStoreManager.spotifyLyrics.first() == TRUE) {
-                getSpotifyLyrics(
-                    song.toTrack().copy(durationSeconds = duration),
-                    "${song.title} $artist",
-                    duration,
-                )
-            } else {
-                getLrclibLyrics(
-                    song,
-                    (artist ?: ""),
-                    duration,
-                )
+        viewModelScope.launch {
+            val videoId = song.videoId
+            lyricsCanvasRepository.getLrclibLyricsData(artist, song.title, duration).collectLatest { res ->
+                val data = res.data
+                // Accept any valid lines (synced or unsynced)
+                if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
+                    Logger.d(tag, "Lyrics found via LRCLIB for $videoId")
+                    updateLyrics(videoId, duration, data, false, LyricsProvider.LRCLIB)
+                    insertLyrics(data.toLyricsEntity(videoId))
+                    getAITranslationLyrics(videoId, data)
+                } else {
+                    // Step 3: Fallback to SimpMusic community lyrics
+                    trySimpMusicFallback(song, artist, duration, savedFallbackLyrics)
+                }
             }
         }
     }
 
-    private suspend fun getYouTubeCaption(
-        videoId: String,
+    private fun trySimpMusicFallback(
         song: SongEntity,
-        artist: String?,
+        artist: String,
         duration: Int,
+        savedFallbackLyrics: LyricsEntity?,
     ) {
-        lyricsCanvasRepository
-            .getYouTubeCaption(dataStoreManager.youtubeSubtitleLanguage.first(), videoId)
-            .cancellable()
-            .collect { response ->
+        viewModelScope.launch {
+            val videoId = song.videoId
+            lyricsCanvasRepository.getSimpMusicLyrics(videoId).collectLatest { res ->
+                val data = res.data
+                if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
+                    Logger.d(tag, "Lyrics found via SimpMusic for $videoId")
+                    updateLyrics(videoId, duration, data, false, LyricsProvider.SIMPMUSIC)
+                    insertLyrics(data.toLyricsEntity(videoId))
+                    getSimpMusicTranslatedLyrics(videoId, data)
+                } else if (dataStoreManager.spotifyLyrics.first() == TRUE) {
+                    // Step 4: Fallback to Spotify
+                    trySpotifyFallback(song, artist, duration, savedFallbackLyrics)
+                } else {
+                    // Step 5: Check Offline Local DB before raw YouTube captions
+                    tryLocalOfflineOrYouTube(song, artist, duration, savedFallbackLyrics)
+                }
+            }
+        }
+    }
+
+    private fun trySpotifyFallback(
+        song: SongEntity,
+        artist: String,
+        duration: Int,
+        savedFallbackLyrics: LyricsEntity?,
+    ) {
+        viewModelScope.launch {
+            val videoId = song.videoId
+            lyricsCanvasRepository.getSpotifyLyrics(dataStoreManager, "${song.title} $artist", duration).cancellable().collect { response ->
                 val data = response.data
-                when (response) {
-                    is Resource.Success -> {
-                        if (data != null) {
-                            val lyrics = data.first
-                            val translatedLyrics = data.second
-                            insertLyrics(lyrics.toLyricsEntity(videoId))
-                            updateLyrics(
-                                videoId,
-                                duration,
-                                lyrics,
-                                false,
-                                LyricsProvider.YOUTUBE,
-                            )
-                            if (translatedLyrics != null) {
-                                updateLyrics(
-                                    videoId,
-                                    duration,
-                                    translatedLyrics,
-                                    true,
-                                    LyricsProvider.YOUTUBE,
-                                )
-                            } else {
-                                getAITranslationLyrics(
-                                    videoId,
-                                    lyrics,
-                                )
-                            }
-                        }
-                    }
-
-                    else -> {
-                        getSimpMusicLyrics(
-                            videoId,
-                            song,
-                            (artist ?: ""),
-                            duration,
-                        )
-                    }
+                if (response is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
+                    Logger.d(tag, "Lyrics found via Spotify for $videoId")
+                    insertLyrics(data.toLyricsEntity(videoId))
+                    updateLyrics(videoId, duration, data, false, LyricsProvider.SPOTIFY)
+                    getAITranslationLyrics(videoId, data)
+                } else {
+                    tryLocalOfflineOrYouTube(song, artist, duration, savedFallbackLyrics)
                 }
             }
-    }
-
-    private fun getLrclibLyrics(
-        song: SongEntity,
-        artist: String,
-        duration: Int,
-    ) {
-        viewModelScope.launch {
-            lyricsCanvasRepository
-                .getLrclibLyricsData(
-                    artist,
-                    song.title,
-                    duration,
-                ).collectLatest { res ->
-                    val data = res.data
-                    when (res) {
-                        is Resource.Success -> {
-                            if (data != null) {
-                                updateLyrics(
-                                    song.videoId,
-                                    duration,
-                                    res.data,
-                                    false,
-                                    LyricsProvider.LRCLIB,
-                                )
-                                insertLyrics(
-                                    res.data?.toLyricsEntity(
-                                        song.videoId,
-                                    ) ?: return@collectLatest,
-                                )
-                                getAITranslationLyrics(
-                                    song.videoId,
-                                    data,
-                                )
-                            }
-                        }
-
-                        else -> {
-                            getSavedLyrics(
-                                song.toTrack().copy(
-                                    durationSeconds = duration,
-                                ),
-                            )
-                        }
-                    }
-                }
         }
     }
 
-    private fun getBetterLyrics(
+    private fun tryLocalOfflineOrYouTube(
         song: SongEntity,
         artist: String,
         duration: Int,
+        savedFallbackLyrics: LyricsEntity?,
     ) {
         viewModelScope.launch {
-            lyricsCanvasRepository
-                .getBetterLyrics(
-                    artist,
-                    song.title,
-                    duration,
-                ).collectLatest { res ->
-                    val data = res.data
-                    when (res) {
-                        is Resource.Success -> {
-                            if (data != null) {
-                                updateLyrics(
-                                    song.videoId,
-                                    duration,
-                                    data,
-                                    false,
-                                    LyricsProvider.BETTER_LYRICS,
-                                )
-                                insertLyrics(
-                                    data.toLyricsEntity(
-                                        song.videoId,
-                                    ),
-                                )
-                                getAITranslationLyrics(
-                                    song.videoId,
-                                    data,
-                                )
-                            }
-                        }
+            val videoId = song.videoId
 
-                        else -> {
-                            getSimpMusicLyrics(
-                                song.videoId,
-                                song,
-                                artist,
-                                duration,
-                            )
-                        }
+            // Agar online sources fail hue, sirf tab saved cache render hoga as OFFLINE
+            if (savedFallbackLyrics != null && !savedFallbackLyrics.lines.isNullOrEmpty()) {
+                Logger.d(tag, "Falling back to saved offline lyrics for $videoId")
+                val lyricsData = savedFallbackLyrics.toLyrics()
+                updateLyrics(videoId, duration, lyricsData, false, LyricsProvider.OFFLINE)
+                getAITranslationLyrics(videoId, lyricsData)
+                return@launch
+            }
+
+            // Agar local DB mein bhi kuch nahi hai, tab YouTube captions fallback
+            val subLang = dataStoreManager.youtubeSubtitleLanguage.first()
+            lyricsCanvasRepository.getYouTubeCaption(subLang, videoId).cancellable().collect { response ->
+                val data = response.data
+                if (response is Resource.Success && data != null && !data.first.lines.isNullOrEmpty()) {
+                    Logger.d(tag, "Unsynced Captions fallback loaded via YouTube for $videoId")
+                    val lyrics = data.first
+                    val translatedLyrics = data.second
+                    insertLyrics(lyrics.toLyricsEntity(videoId))
+                    updateLyrics(videoId, duration, lyrics, false, LyricsProvider.YOUTUBE)
+                    if (translatedLyrics != null) {
+                        updateLyrics(videoId, duration, translatedLyrics, true, LyricsProvider.YOUTUBE)
+                    } else {
+                        getAITranslationLyrics(videoId, lyrics)
                     }
+                } else {
+                    Logger.w(tag, "No lyrics found for $videoId across all sources")
+                    _nowPlayingScreenData.update {
+                        it.copy(lyricsData = null)
+                    }
+                    makeToast("Lyrics not found")
                 }
+            }
         }
     }
 
@@ -1545,30 +1351,18 @@ class SharedViewModel(
             when (response) {
                 is Resource.Success -> {
                     if (data != null) {
-                        if (data.syncType == "RICH_SYNCED") {
-                            val simpMusicLyricsId = data.simpMusicLyrics?.id
-                            if (!simpMusicLyricsId.isNullOrEmpty()) {
-                                viewModelScope.launch {
-                                    lyricsCanvasRepository
-                                        .voteSimpMusicTranslatedLyrics(simpMusicLyricsId, false)
-                                        .collectLatest { voteResult ->
-                                            when (voteResult) {
-                                                is Resource.Error -> Logger.w(tag, "Downvote RICH_SYNCED translated lyrics error: ${voteResult.message}")
-                                                is Resource.Success -> Logger.d(tag, "Downvote RICH_SYNCED translated lyrics success")
-                                            }
-                                        }
-                                }
-                            }
-                            getAITranslationLyrics(videoId, lyrics)
-                        } else {
-                            updateLyrics(
-                                videoId,
-                                0,
-                                data,
-                                true,
-                                LyricsProvider.SIMPMUSIC,
-                            )
-                        }
+                        updateLyrics(
+                            videoId,
+                            0,
+                            data,
+                            true,
+                            LyricsProvider.SIMPMUSIC,
+                        )
+                    } else {
+                        getAITranslationLyrics(
+                            videoId,
+                            lyrics,
+                        )
                     }
                 }
 
@@ -1586,9 +1380,27 @@ class SharedViewModel(
         videoId: String,
         lyrics: Lyrics,
     ) {
+        val targetLang = dataStoreManager.translationLanguage.first().ifEmpty { "hi" }
+
+        // Local Database Cache check
+        val savedTranslation = lyricsCanvasRepository.getSavedTranslatedLyrics(videoId, targetLang).firstOrNull()
+        if (savedTranslation != null && !savedTranslation.lines.isNullOrEmpty()) {
+            Logger.d(tag, "Loaded translated lyrics from local database for $videoId ($targetLang)")
+            updateLyrics(
+                videoId,
+                0,
+                Lyrics(
+                    lines = savedTranslation.lines,
+                    syncType = savedTranslation.syncType ?: lyrics.syncType,
+                ),
+                true,
+                LyricsProvider.OFFLINE,
+            )
+            return
+        }
+
         val useAi = dataStoreManager.useAITranslation.first() == TRUE
         val apiKey = dataStoreManager.aiApiKey.first()
-        val targetLang = dataStoreManager.translationLanguage.first().ifEmpty { "hi" }
 
         Logger.w(tag, "AI Translation Triggered -> useAi: $useAi, hasApiKey: ${apiKey.isNotEmpty()}, targetLang: $targetLang")
 
@@ -1637,48 +1449,6 @@ class SharedViewModel(
                 }
         } else {
             Logger.w(tag, "AI Translation skipped -> useAi: $useAi, keyLength: ${apiKey.length}")
-        }
-    }
-
-    private fun getSpotifyLyrics(
-        track: Track,
-        query: String,
-        duration: Int? = null,
-    ) {
-        viewModelScope.launch {
-            lyricsCanvasRepository.getSpotifyLyrics(dataStoreManager, query, duration).cancellable().collect { response ->
-                val data = response.data
-                when (response) {
-                    is Resource.Success -> {
-                        if (data != null) {
-                            insertLyrics(
-                                data.toLyricsEntity(
-                                    track.videoId,
-                                ),
-                            )
-                            updateLyrics(
-                                track.videoId,
-                                duration ?: 0,
-                                data,
-                                false,
-                                LyricsProvider.SPOTIFY,
-                            )
-                            getAITranslationLyrics(
-                                track.videoId,
-                                data,
-                            )
-                        }
-                    }
-
-                    else -> {
-                        getLrclibLyrics(
-                            track.toSongEntity(),
-                            track.artists.toListName().firstOrNull() ?: "",
-                            duration ?: 0,
-                        )
-                    }
-                }
-            }
         }
     }
 

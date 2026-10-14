@@ -60,7 +60,8 @@ internal class LyricsCanvasRepositoryImpl(
     private val amArtworkInFlight = mutableSetOf<String>()
     private val amArtworkLock = Mutex()
 
-    override fun getSavedLyrics(videoId: String): Flow<LyricsEntity?> = flow { emit(localDataSource.getSavedLyrics(videoId)) }.flowOn(Dispatchers.IO)
+    override fun getSavedLyrics(videoId: String): Flow<LyricsEntity?> =
+        flow { emit(localDataSource.getSavedLyrics(videoId)) }.flowOn(Dispatchers.IO)
 
     override suspend fun insertLyrics(lyricsEntity: LyricsEntity) =
         withContext(Dispatchers.IO) {
@@ -75,7 +76,8 @@ internal class LyricsCanvasRepositoryImpl(
     override fun getSavedTranslatedLyrics(
         videoId: String,
         language: String,
-    ): Flow<TranslatedLyricsEntity?> = flow { emit(localDataSource.getTranslatedLyrics(videoId, language)) }.flowOn(Dispatchers.IO)
+    ): Flow<TranslatedLyricsEntity?> =
+        flow { emit(localDataSource.getTranslatedLyrics(videoId, language)) }.flowOn(Dispatchers.IO)
 
     override suspend fun removeTranslatedLyrics(
         videoId: String,
@@ -118,12 +120,7 @@ internal class LyricsCanvasRepositoryImpl(
                             .cleanTrackForLyrics()
                     var spotifyPersonalToken = ""
                     var spotifyClientToken = ""
-                    Logger.w("Lyrics", "getSpotifyLyrics: ${dataStoreManager.spotifyPersonalTokenExpires.first()}")
-                    Logger.w("Lyrics", "getSpotifyLyrics ${dataStoreManager.spotifyClientTokenExpires.first()}")
-                    Logger.w("Lyrics", "getSpotifyLyrics now: ${now()}")
-                    if (dataStoreManager.spotifyPersonalToken
-                            .first()
-                            .isNotEmpty() &&
+                    if (dataStoreManager.spotifyPersonalToken.first().isNotEmpty() &&
                         dataStoreManager.spotifyClientToken.first().isNotEmpty() &&
                         dataStoreManager.spotifyPersonalTokenExpires.first() > Clock.System.now().toEpochMilliseconds() &&
                         dataStoreManager.spotifyPersonalTokenExpires.first() != 0L &&
@@ -132,20 +129,16 @@ internal class LyricsCanvasRepositoryImpl(
                     ) {
                         spotifyPersonalToken = dataStoreManager.spotifyPersonalToken.first()
                         spotifyClientToken = dataStoreManager.spotifyClientToken.first()
-                        Logger.d("Canvas", "spotifyPersonalToken: $spotifyPersonalToken")
-                        Logger.d("Canvas", "spotifyClientToken: $spotifyClientToken")
                     } else if (dataStoreManager.spdc.first().isNotEmpty()) {
                         spotify
                             .getClientToken()
                             .onSuccess {
-                                Logger.d("Canvas", "Request clientToken: ${it.grantedToken.token}")
                                 dataStoreManager.setSpotifyClientTokenExpires(
                                     (it.grantedToken.expiresAfterSeconds * 1000L) + Clock.System.now().toEpochMilliseconds(),
                                 )
                                 dataStoreManager.setSpotifyClientToken(it.grantedToken.token)
                                 spotifyClientToken = it.grantedToken.token
                             }.onFailure {
-                                it.printStackTrace()
                                 emit(Resource.Error<CanvasResult>(it.message ?: "Not found"))
                             }
                         spotify
@@ -156,9 +149,7 @@ internal class LyricsCanvasRepositoryImpl(
                                 dataStoreManager.setSpotifyPersonalTokenExpires(
                                     it.accessTokenExpirationTimestampMs,
                                 )
-                                Logger.d("Canvas", "Request spotifyPersonalToken: $spotifyPersonalToken")
                             }.onFailure {
-                                it.printStackTrace()
                                 emit(Resource.Error<CanvasResult>(it.message ?: "Not found"))
                             }
                     }
@@ -167,59 +158,35 @@ internal class LyricsCanvasRepositoryImpl(
                         spotify
                             .searchSpotifyTrack(q, authToken, spotifyClientToken)
                             .onSuccess { searchResponse ->
-                                Logger.w("Canvas", "searchSpotifyResponse: $searchResponse")
                                 val track =
                                     if (duration != 0) {
                                         searchResponse.data?.searchV2?.tracksV2?.items?.find {
                                             abs(
-                                                (
-                                                    (
-                                                        (
-                                                            it.item
-                                                                ?.data
-                                                                ?.duration
-                                                                ?.totalMilliseconds ?: (0 / 1000)
-                                                            ) - duration
-                                                        )
-                                                    ),
-                                            ) < 1
-                                        }
-                                            ?: searchResponse.data
-                                                ?.searchV2
-                                                ?.tracksV2
-                                                ?.items
-                                                ?.firstOrNull()
+                                                (((it.item?.data?.duration?.totalMilliseconds ?: 0) / 1000) - duration)
+                                            ) < 2
+                                        } ?: searchResponse.data?.searchV2?.tracksV2?.items?.firstOrNull()
                                     } else {
-                                        searchResponse.data
-                                            ?.searchV2
-                                            ?.tracksV2
-                                            ?.items
-                                            ?.firstOrNull()
+                                        searchResponse.data?.searchV2?.tracksV2?.items?.firstOrNull()
                                     }
                                 if (track != null) {
-                                    Logger.w("Canvas", "track: $track")
                                     spotify
                                         .getSpotifyCanvas(
                                             track.item?.data?.id ?: "",
                                             spotifyPersonalToken,
                                             spotifyClientToken,
                                         ).onSuccess {
-                                            Logger.w("Canvas", "canvas: $it")
-                                            it.toCanvasResult()?.let {
-                                                emit(Resource.Success(it))
+                                            it.toCanvasResult()?.let { res ->
+                                                emit(Resource.Success(res))
                                             } ?: run {
                                                 emit(Resource.Error<CanvasResult>("Not found"))
                                             }
                                         }.onFailure {
-                                            Logger.e("Canvas", "Error: ${it.message}")
-                                            it.printStackTrace()
                                             emit(Resource.Error<CanvasResult>(it.message ?: "Not found"))
                                         }
                                 } else {
                                     emit(Resource.Error<CanvasResult>("Not found"))
                                 }
                             }.onFailure { throwable ->
-                                throwable.printStackTrace()
                                 emit(Resource.Error<CanvasResult>(throwable.message ?: "Not found"))
                             }
                     } else {
@@ -233,13 +200,11 @@ internal class LyricsCanvasRepositoryImpl(
         flow {
             val song = localDataSource.getSong(videoId)
             if (song == null) {
-                Logger.e(AM_ARTWORK_TAG, "Not found $videoId")
                 emit(Resource.Error<CanvasResult>("Song not found"))
                 return@flow
             }
             val cached = song.canvasUrl?.takeIf { it.contains(".m3u8") }
             if (cached != null) {
-                Logger.d(AM_ARTWORK_TAG, "cache hit for $videoId (${song.title}) --> $cached")
                 emit(
                     Resource.Success(
                         CanvasResult(
@@ -259,14 +224,12 @@ internal class LyricsCanvasRepositoryImpl(
 
             val artist = song.artistName?.firstOrNull().orEmpty()
             val albumName = song.albumName?.takeIf { it.isNotBlank() && it != PLACEHOLDER_ALBUM_NAME }
-            Logger.d(AM_ARTWORK_TAG, "resolving $videoId — album=$albumName title=${song.title} artist=$artist")
 
             try {
                 val byAlbum =
                     albumName?.let { name ->
                         simpMusicLyrics
                             .searchAMAlbum("$name $artist".cleanForSearch(), limit = AM_SEARCH_LIMIT)
-                            .onFailure { Logger.e(AM_ARTWORK_TAG, "album search failed: ${it.message}") }
                             .getOrNull()
                             ?.pickAlbumMatch(name, artist)
                     }
@@ -274,7 +237,6 @@ internal class LyricsCanvasRepositoryImpl(
                 val album =
                     byAlbum ?: simpMusicLyrics
                         .searchAMSongsWithAlbums("${song.title} $artist".cleanForSearch(), limit = AM_SEARCH_LIMIT)
-                        .onFailure { Logger.e(AM_ARTWORK_TAG, "song search failed: ${it.message}") }
                         .getOrNull()
                         ?.pickSongMatch(
                             title = song.title,
@@ -290,7 +252,6 @@ internal class LyricsCanvasRepositoryImpl(
                         ?.editorialVideo
                         ?.preferredRendition()
                         ?.video
-                Logger.d(AM_ARTWORK_TAG, "Matched ${album?.attributes?.name} for $videoId --> $master")
                 if (master == null) {
                     emit(Resource.Error<CanvasResult>("No animated artwork"))
                     return@flow
@@ -300,7 +261,6 @@ internal class LyricsCanvasRepositoryImpl(
                         .selectAMRendition(master, AM_MIN_RENDITION_WIDTH)
                         .getOrNull()
                         ?: master
-                Logger.d(AM_ARTWORK_TAG, "Rendition for $videoId --> $url")
                 val previewFrame =
                     album.attributes
                         ?.editorialVideo
@@ -351,13 +311,9 @@ internal class LyricsCanvasRepositoryImpl(
         flow {
             runCatching {
                 val q = query.cleanTrackForLyrics()
-                Logger.d("Lyrics", "query: $q")
                 var spotifyPersonalToken = ""
                 var spotifyClientToken = ""
-                Logger.w("Lyrics", "getSpotifyLyrics: ${dataStoreManager.spotifyPersonalTokenExpires.first()}")
-                if (dataStoreManager.spotifyPersonalToken
-                        .first()
-                        .isNotEmpty() &&
+                if (dataStoreManager.spotifyPersonalToken.first().isNotEmpty() &&
                     dataStoreManager.spotifyPersonalTokenExpires.first() > Clock.System.now().toEpochMilliseconds() &&
                     dataStoreManager.spotifyPersonalTokenExpires.first() != 0L &&
                     dataStoreManager.spotifyClientTokenExpires.first() > Clock.System.now().toEpochMilliseconds() &&
@@ -365,22 +321,16 @@ internal class LyricsCanvasRepositoryImpl(
                 ) {
                     spotifyPersonalToken = dataStoreManager.spotifyPersonalToken.first()
                     spotifyClientToken = dataStoreManager.spotifyClientToken.first()
-                    Logger.d("Lyrics", "spotifyPersonalToken: $spotifyPersonalToken")
-                    Logger.d("Lyrics", "spotifyClientToken: $spotifyClientToken")
                 } else if (dataStoreManager.spdc.first().isNotEmpty()) {
                     runBlocking {
                         spotify
                             .getClientToken()
                             .onSuccess {
-                                Logger.d("Canvas", "Request clientToken: ${it.grantedToken.token}")
                                 dataStoreManager.setSpotifyClientTokenExpires(
                                     (it.grantedToken.expiresAfterSeconds * 1000L) + Clock.System.now().toEpochMilliseconds(),
                                 )
                                 dataStoreManager.setSpotifyClientToken(it.grantedToken.token)
                                 spotifyClientToken = it.grantedToken.token
-                            }.onFailure {
-                                it.printStackTrace()
-                                emit(Resource.Error<Lyrics>("Not found"))
                             }
                     }
                     runBlocking {
@@ -392,67 +342,38 @@ internal class LyricsCanvasRepositoryImpl(
                                 dataStoreManager.setSpotifyPersonalTokenExpires(
                                     it.accessTokenExpirationTimestampMs,
                                 )
-                                Logger.d("Lyrics", "REQUEST spotifyPersonalToken: $spotifyPersonalToken")
-                            }.onFailure {
-                                it.printStackTrace()
-                                emit(Resource.Error<Lyrics>("Not found"))
                             }
                     }
                 }
                 if (spotifyPersonalToken.isNotEmpty() && spotifyClientToken.isNotEmpty()) {
-                    val authToken = spotifyPersonalToken
-                    Logger.d("Lyrics", "authToken: $authToken")
                     spotify
-                        .searchSpotifyTrack(q, authToken, spotifyClientToken)
+                        .searchSpotifyTrack(q, spotifyPersonalToken, spotifyClientToken)
                         .onSuccess { searchResponse ->
                             val track =
                                 if (duration != 0 && duration != null) {
                                     searchResponse.data?.searchV2?.tracksV2?.items?.find {
-                                        abs(
-                                            (
-                                                (
-                                                    (
-                                                        it.item
-                                                            ?.data
-                                                            ?.duration
-                                                            ?.totalMilliseconds ?: (0 / 1000)
-                                                        ) - duration
-                                                    )
-                                                ),
-                                        ) < 1
-                                    }
-                                        ?: searchResponse.data
-                                            ?.searchV2
-                                            ?.tracksV2
-                                            ?.items
-                                            ?.firstOrNull()
+                                        abs((((it.item?.data?.duration?.totalMilliseconds ?: 0) / 1000) - duration)) < 2
+                                    } ?: searchResponse.data?.searchV2?.tracksV2?.items?.firstOrNull()
                                 } else {
-                                    searchResponse.data
-                                        ?.searchV2
-                                        ?.tracksV2
-                                        ?.items
-                                        ?.firstOrNull()
+                                    searchResponse.data?.searchV2?.tracksV2?.items?.firstOrNull()
                                 }
-                            Logger.d("Lyrics", "track: $track")
                             if (track != null) {
                                 spotify
                                     .getSpotifyLyrics(track.item?.data?.id ?: "", spotifyPersonalToken, spotifyClientToken)
                                     .onSuccess {
                                         emit(Resource.Success<Lyrics>(it.toLyrics()))
                                     }.onFailure {
-                                        it.printStackTrace()
                                         emit(Resource.Error<Lyrics>("Not found"))
                                     }
                             } else {
                                 emit(Resource.Error<Lyrics>("Not found"))
                             }
-                        }.onFailure { throwable ->
-                            throwable.printStackTrace()
+                        }.onFailure {
                             emit(Resource.Error<Lyrics>("Not found"))
                         }
                 }
             }
-        }
+        }.flowOn(Dispatchers.IO)
 
     override fun getLrclibLyricsData(
         sartist: String,
@@ -462,15 +383,20 @@ internal class LyricsCanvasRepositoryImpl(
         flow {
             val qartist = sartist.cleanArtistForLyrics()
             val qtrack = strack.cleanTrackForLyrics()
-            Logger.w("Lyrics", "getLrclibLyricsData: '$qartist' - '$qtrack' ($duration s)")
+            Logger.w("Lyrics", "getLrclibLyricsData -> Artist: '$qartist' | Track: '$qtrack' | Dur: $duration")
 
             simpMusicLyrics
                 .searchLrclibLyrics(qtrack, qartist, duration)
-                .onSuccess {
-                    it?.let { emit(Resource.Success<Lyrics>(it.toLyrics())) }
+                .onSuccess { result ->
+                    val lyrics = result?.toLyrics()
+                    if (lyrics != null && !lyrics.lines.isNullOrEmpty()) {
+                        emit(Resource.Success<Lyrics>(lyrics))
+                    } else {
+                        emit(Resource.Error<Lyrics>("Empty LRCLIB lyrics"))
+                    }
                 }.onFailure {
-                    it.printStackTrace()
-                    emit(Resource.Error<Lyrics>("Not found"))
+                    Logger.e("Lyrics", "LRCLIB failed: ${it.message}")
+                    emit(Resource.Error<Lyrics>(it.message ?: "Not found"))
                 }
         }.flowOn(Dispatchers.IO)
 
@@ -482,7 +408,7 @@ internal class LyricsCanvasRepositoryImpl(
         flow {
             val qartist = artist.cleanArtistForLyrics()
             val qtrack = track.cleanTrackForLyrics()
-            Logger.w("Lyrics", "getBetterLyrics: '$qartist' - '$qtrack'")
+            Logger.w("Lyrics", "getBetterLyrics -> Artist: '$qartist' | Track: '$qtrack'")
 
             simpMusicLyrics
                 .searchBetterLyrics(qtrack, qartist, duration)
@@ -492,10 +418,14 @@ internal class LyricsCanvasRepositoryImpl(
                         return@onSuccess
                     }
                     val lyrics = parseTtmlLyrics(ttml).toLyrics()
-                    emit(Resource.Success(lyrics))
+                    if (!lyrics.lines.isNullOrEmpty()) {
+                        emit(Resource.Success(lyrics))
+                    } else {
+                        emit(Resource.Error<Lyrics>("Parsed BetterLyrics empty"))
+                    }
                 }.onFailure {
-                    it.printStackTrace()
-                    emit(Resource.Error<Lyrics>("BetterLyrics search failed"))
+                    Logger.e("Lyrics", "BetterLyrics failed: ${it.message}")
+                    emit(Resource.Error<Lyrics>(it.message ?: "BetterLyrics search failed"))
                 }
         }.flowOn(Dispatchers.IO)
 
@@ -546,15 +476,12 @@ internal class LyricsCanvasRepositoryImpl(
     ): Flow<Resource<Lyrics>> =
         flow {
             runCatching {
-                Logger.w("AI Translation", "targetLanguage: $targetLanguage")
                 aiClient
                     .translateLyrics(lyrics, targetLanguage)
                     .onSuccess { translatedLyrics ->
-                        Logger.w("AI Translation", "translatedLyrics: $translatedLyrics")
                         emit(Resource.Success(translatedLyrics))
                     }.onFailure { throwable ->
-                        Logger.e("AI Translation", "Error: ${throwable.message}")
-                        emit(Resource.Error<Lyrics>("Translation failed"))
+                        emit(Resource.Error<Lyrics>(throwable.message ?: "Translation failed"))
                     }
             }
         }.flowOn(Dispatchers.IO)
@@ -566,10 +493,8 @@ internal class LyricsCanvasRepositoryImpl(
             simpMusicLyrics
                 .getLyrics(videoId)
                 .onSuccess { lyrics ->
-                    Logger.d(simpMusicLyricsTag, "Lyrics found: $lyrics")
                     val result = lyrics.firstOrNull()
                     if (result == null) {
-                        Logger.w(simpMusicLyricsTag, "No lyrics found for videoId: $videoId")
                         emit(Resource.Error<Lyrics>("No lyrics found"))
                         return@onSuccess
                     }
@@ -582,17 +507,11 @@ internal class LyricsCanvasRepositoryImpl(
                                 ),
                         )
                     if (appLyrics == null) {
-                        Logger.w(simpMusicLyricsTag, "Failed to convert lyrics for videoId: $videoId")
                         emit(Resource.Error<Lyrics>("Failed to convert lyrics"))
                         return@onSuccess
                     }
-                    emit(
-                        Resource.Success<Lyrics>(
-                            appLyrics,
-                        ),
-                    )
+                    emit(Resource.Success<Lyrics>(appLyrics))
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Get Lyrics Error: ${it.message}")
                     emit(Resource.Error<Lyrics>(it.message ?: "Failed to get lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -605,7 +524,6 @@ internal class LyricsCanvasRepositoryImpl(
             simpMusicLyrics
                 .getTranslatedLyrics(videoId, language)
                 .onSuccess { lyrics ->
-                    Logger.d(simpMusicLyricsTag, "Translated Lyrics found: ${lyrics.toLyrics()}")
                     emit(
                         Resource.Success<Lyrics>(
                             lyrics
@@ -620,7 +538,6 @@ internal class LyricsCanvasRepositoryImpl(
                         ),
                     )
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Get Translated Lyrics Error: ${it.message}")
                     emit(Resource.Error<Lyrics>(it.message ?: "Failed to get translated lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -633,10 +550,8 @@ internal class LyricsCanvasRepositoryImpl(
             simpMusicLyrics
                 .voteLyrics(lyricsId, upvote)
                 .onSuccess {
-                    Logger.d(simpMusicLyricsTag, "Vote Lyrics Success: $it")
                     emit(Resource.Success(it.id))
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Vote Lyrics Error: ${it.message}")
                     emit(Resource.Error<String>(it.message ?: "Failed to vote lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -649,10 +564,8 @@ internal class LyricsCanvasRepositoryImpl(
             simpMusicLyrics
                 .voteTranslatedLyrics(translatedLyricsId, upvote)
                 .onSuccess {
-                    Logger.d(simpMusicLyricsTag, "Vote Translated Lyrics Success: $it")
                     emit(Resource.Success(it.id))
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Vote Translated Lyrics Error: ${it.message}")
                     emit(Resource.Error<String>(it.message ?: "Failed to vote translated lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -665,9 +578,7 @@ internal class LyricsCanvasRepositoryImpl(
     ): Flow<Resource<String>> =
         flow {
             if (lyrics.lines.isNullOrEmpty()) {
-                emit(
-                    Resource.Error<String>("Lyrics are empty"),
-                )
+                emit(Resource.Error<String>("Lyrics are empty"))
                 return@flow
             }
             val syncedLyric =
@@ -701,10 +612,8 @@ internal class LyricsCanvasRepositoryImpl(
                         trackType = if (track.thumbnails?.firstOrNull()?.let { it.width == it.height && it.width > 0 } == true) "SONG" else "VIDEO",
                     ),
                 ).onSuccess {
-                    Logger.d(simpMusicLyricsTag, "Inserted Lyrics: $it")
                     emit(Resource.Success(it.id))
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Insert Lyrics Error: ${it.message}")
                     emit(Resource.Error<String>(it.message ?: "Failed to insert lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -718,9 +627,7 @@ internal class LyricsCanvasRepositoryImpl(
         flow {
             val syncedLyrics = translatedLyrics.toSyncedLrcString()
             if (translatedLyrics.lines.isNullOrEmpty() || syncedLyrics == null || language.length != 2) {
-                emit(
-                    Resource.Error<String>("Lyrics are empty"),
-                )
+                emit(Resource.Error<String>("Lyrics are empty"))
                 return@flow
             }
             val (contributorName, contributorEmail) = dataStoreManager.contributorName.first() to dataStoreManager.contributorEmail.first()
@@ -734,10 +641,8 @@ internal class LyricsCanvasRepositoryImpl(
                         contributorEmail = contributorEmail,
                     ),
                 ).onSuccess {
-                    Logger.d(simpMusicLyricsTag, "Inserted Translated Lyrics: $it")
                     emit(Resource.Success(it.id))
                 }.onFailure {
-                    Logger.e(simpMusicLyricsTag, "Insert Translated Lyrics Error: ${it.message}")
                     emit(Resource.Error<String>(it.message ?: "Failed to insert translated lyrics"))
                 }
         }.flowOn(Dispatchers.IO)
@@ -752,31 +657,28 @@ private const val AM_PREVIEW_FRAME_SIZE = 1080
 private const val PLACEHOLDER_ALBUM_NAME = "Album"
 
 private fun String.cleanTrackForLyrics(): String {
-    return this
+    val cleaned = this
         .replace(Regex("(?i)\\[.*?(official|audio|video|lyrics|hd|4k|visualizer|lyric video|music video).*?\\]"), " ")
-        .replace(Regex("(?i)\\((feat\\.|ft\\.|cùng với|con|mukana|com|avec|合作音乐人: ).*?\\)"), " ")
+        .replace(Regex("(?i)\\((feat\\.|ft\\.|with|cùng với|con|mukana|com|avec).*?\\)"), " ")
         .replace(Regex("(?i)\\((official|audio|video|lyrics|hd|4k|visualizer|lyric video|music video).*?\\)"), " ")
-        .replace(Regex("(?i)(official video|official audio|lyric video|music video|full video song)"), " ")
-        .replace(Regex("(?i)( và | & | и | e | und |, |和| dan)"), " ")
-        .replace(Regex("[\\[\\]()]"), " ")
-        .replace(".", " ")
+        .replace(Regex("(?i)\\b(official video|official audio|lyric video|music video|full video song|full audio)\\b"), " ")
+        .replace(Regex("[\\[\\]]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+    return cleaned.ifEmpty { this.trim() }
 }
 
 private fun String.cleanArtistForLyrics(): String {
-    return this
-        .replace(Regex("(?i)\\((feat\\.|ft\\.|cùng với|con|mukana|com|avec|合作音乐人: ).*?\\)"), " ")
-        .replace(Regex("(?i)( và | & | и | e | und |, |和| dan)"), " ")
-        .replace(Regex("[\\[\\]()]"), " ")
-        .replace(".", " ")
+    val firstArtist = this.split(",", ";", " - ", " / ", " ft. ", " feat. ").firstOrNull() ?: this
+    val cleaned = firstArtist
+        .replace(Regex("(?i)\\((feat\\.|ft\\.|with).*?\\)"), " ")
+        .replace(Regex("[\\[\\]]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+    return cleaned.ifEmpty { this.trim() }
 }
 
-private fun String.cleanForSearch(): String =
-    this
-        .cleanTrackForLyrics()
+private fun String.cleanForSearch(): String = this.cleanTrackForLyrics()
 
 private fun String.normalizeForMatch(): String =
     lowercase()
@@ -867,7 +769,7 @@ private fun List<AMSongWithAlbum>.pickSongMatch(
 private fun AMSongWithAlbum.matchesDuration(durationSeconds: Int): Boolean {
     val theirs = durationInMillis ?: return true
     if (durationSeconds <= 0) return true
-    return abs(theirs / 1000L - durationSeconds) <= AM_DURATION_TOLERANCE_SECONDS
+    return abs((theirs / 1000L) - durationSeconds) <= AM_DURATION_TOLERANCE_SECONDS
 }
 
 private fun String?.agreesWith(artist: String): Boolean =

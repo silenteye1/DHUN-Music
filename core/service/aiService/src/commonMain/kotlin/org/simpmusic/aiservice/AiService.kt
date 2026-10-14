@@ -50,7 +50,7 @@ class AiService(
     ): Lyrics {
         val lines = inputLyrics.lines ?: throw IllegalStateException("No lyrics lines to translate")
 
-        // 1. Unique lines extract karo taaki payload 50-60% chhota ho jaye aur response super fast aaye
+        // 1. Unique lines extract karo taaki payload chhota ho aur speed fast rahe
         val uniqueTextToId = mutableMapOf<String, String>()
         var idCounter = 0
 
@@ -65,18 +65,22 @@ class AiService(
             throw IllegalStateException("No translatable lyrics lines found")
         }
 
-        // Key -> unique text
         val idToUniqueText = uniqueTextToId.entries.associate { (k, v) -> v to k }
         val inputJson = json.encodeToString(MapSerializer(String.serializer(), String.serializer()), idToUniqueText)
 
-        // 2. High-speed, compact prompt
+        // 2. Strict Hinglish (Roman Script) prompt
         val prompt = """
-            Song lyric processing:
-            - If lines are Urdu/Punjabi/Hindi/South-Asian: Transliterate ONLY into Romanized Hinglish (English letters). Do not change original words.
-            - If lines are English: Translate into natural Hindi lyrics.
-            - Keep all numeric IDs identical.
-            - Return JSON ONLY: {"translations": {"0": "text"}}
-            Input:
+            You are an expert song lyrics translator.
+            Task: Translate/convert the input lines into conversational Hinglish (Hindi written ONLY using the English/Latin alphabet, NEVER use Devanagari script).
+
+            Rules:
+            1. If the line is English or any other language: Translate the poetic meaning into natural, conversational Hinglish (e.g., "I will always love you" -> "Main hamesha tumse pyaar karunga", "Hold my hand" -> "Mera haath pakad lo").
+            2. If the line is already in Hindi/Urdu/Punjabi: Transliterate it directly into clean Roman/English letters without altering the original lyrics.
+            3. STRICT RULE: DO NOT use Devanagari script (like 'तुम', 'प्यार'). Use ONLY English alphabet characters (A-Z, a-z).
+            4. Keep all numeric keys identical to the input.
+            5. Return JSON ONLY with format: {"translations": {"0": "translated line"}}
+
+            Input JSON:
             $inputJson
         """.trimIndent()
 
@@ -96,11 +100,12 @@ class AiService(
             }
             putJsonObject("generationConfig") {
                 put("response_mime_type", "application/json")
-                put("temperature", 0.0) // 0.0 temperature fastest generation deta hai
+                put("temperature", 0.1)
             }
         }
 
-        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey"
+        val modelName = customModelId ?: "gemini-2.5-flash"
+        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
 
         val response = httpClient.post(endpointUrl) {
             contentType(ContentType.Application.Json)
@@ -132,7 +137,7 @@ class AiService(
             }
         }
 
-        // 4. Sabhi lines me instant assign kar do
+        // 4. Sabhi lines me assign karo
         val translatedLines = lines.map { originalLine ->
             val words = originalLine.words.trim()
             val translatedWords = wordToTranslatedMap[words]

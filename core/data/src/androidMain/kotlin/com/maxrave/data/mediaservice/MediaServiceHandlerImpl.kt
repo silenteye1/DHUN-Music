@@ -156,21 +156,10 @@ internal class MediaServiceHandlerImpl(
                 isShuffle = player.shuffleModeEnabled,
                 repeatState =
                     when (player.repeatMode) {
-                        PlayerConstants.REPEAT_MODE_ONE -> {
-                            RepeatState.One
-                        }
-
-                        PlayerConstants.REPEAT_MODE_ALL -> {
-                            RepeatState.All
-                        }
-
-                        PlayerConstants.REPEAT_MODE_OFF -> {
-                            RepeatState.None
-                        }
-
-                        else -> {
-                            RepeatState.None
-                        }
+                        PlayerConstants.REPEAT_MODE_ONE -> RepeatState.One
+                        PlayerConstants.REPEAT_MODE_ALL -> RepeatState.All
+                        PlayerConstants.REPEAT_MODE_OFF -> RepeatState.None
+                        else -> RepeatState.None
                     },
                 isLiked = false,
                 isNextAvailable = player.hasNextMediaItem(),
@@ -480,7 +469,7 @@ internal class MediaServiceHandlerImpl(
             }
         val track =
             queueData.value.data.listTracks
-                ?.find { it.videoId == videoId }
+                .find { it.videoId == videoId }
         _nowPlayingState.update {
             it.copy(
                 mediaItem = mediaItem,
@@ -908,10 +897,19 @@ internal class MediaServiceHandlerImpl(
                     val data = res.data
                     when (res) {
                         is Resource.Success if (data != null && data.first.isNotEmpty()) -> {
+                            val currentTrack = currentSong.toTrack()
+                            val rawList = data.first
+                            val filteredList = if (isDevotionalTrack(currentSong.title)) {
+                                val matches = rawList.filter { isDevotionalTrack(it.title) || it.videoId == currentSong.videoId }
+                                if (matches.isNotEmpty()) matches else listOf(currentTrack)
+                            } else {
+                                rawList
+                            }
+
                             setQueueData(
                                 QueueData.Data(
-                                    listTracks = data.first,
-                                    firstPlayedTrack = data.first.first(),
+                                    listTracks = filteredList,
+                                    firstPlayedTrack = currentTrack,
                                     playlistId = "RDAMVM${currentSong.videoId}",
                                     playlistName = "\"${currentSong.title}\" Radio",
                                     playlistType = PlaylistType.RADIO,
@@ -937,7 +935,6 @@ internal class MediaServiceHandlerImpl(
         toggleLikeJob?.cancel()
         toggleLikeJob =
             coroutineScope.launch(Dispatchers.Main) {
-                // 1. Reliable videoId fetch karein
                 var id = nowPlayingState.value.songEntity?.videoId
                     ?: (player.currentMediaItem?.mediaId ?: "")
 
@@ -945,23 +942,17 @@ internal class MediaServiceHandlerImpl(
                     id = id.removePrefix("Video")
                 }
 
-                Logger.d(TAG, "toggleLike called for videoId: $id")
                 if (id.isBlank() || id.startsWith("content://") || id.startsWith("file://")) {
-                    Logger.e(TAG, "toggleLike aborted: invalid or local id -> $id")
                     return@launch
                 }
 
-                // 2. Target like status determine karein
                 val currentLiked = nowPlayingState.value.songEntity?.liked
                     ?: controlState.first().isLiked
                 val targetLiked = !currentLiked
-                Logger.d(TAG, "toggleLike target state: $targetLiked")
 
-                // Notification & MediaSession State update
                 _controlState.update { it.copy(isLiked = targetLiked) }
                 updateNotification()
 
-                // Playing Screen UI State update (Now Playing Screen ka heart icon instantly update hoga)
                 _nowPlayingState.update { current ->
                     current.copy(
                         songEntity = current.songEntity?.copy(
@@ -971,14 +962,12 @@ internal class MediaServiceHandlerImpl(
                     )
                 }
 
-                // Native Toast popup
                 android.widget.Toast.makeText(
                     context,
                     if (targetLiked) "Added to Liked Songs" else "Removed from Liked Songs",
                     android.widget.Toast.LENGTH_SHORT,
                 ).show()
 
-                // 3. Room Database aur YouTube Music account sync
                 withContext(Dispatchers.IO) {
                     songRepository.updateLikeStatus(
                         id,
@@ -986,23 +975,14 @@ internal class MediaServiceHandlerImpl(
                     )
 
                     val isLoggedIn = dataStoreManager.loggedIn.first() == TRUE
-                    Logger.d(TAG, "User logged in status: $isLoggedIn")
-
                     if (isLoggedIn) {
                         runCatching {
                             if (targetLiked) {
-                                val res = youTube.addToLiked(id)
-                                Logger.d(TAG, "YouTube addToLiked response: $res")
+                                youTube.addToLiked(id)
                             } else {
-                                val res = youTube.removeFromLiked(id)
-                                Logger.d(TAG, "YouTube removeFromLiked response: $res")
+                                youTube.removeFromLiked(id)
                             }
-                        }.onFailure { error ->
-                            Logger.e(TAG, "YouTube sync failed: ${error.message}")
-                            error.printStackTrace()
                         }
-                    } else {
-                        Logger.w(TAG, "Skipping YouTube API sync because user is not logged in.")
                     }
                 }
             }
@@ -1051,7 +1031,7 @@ internal class MediaServiceHandlerImpl(
                         while (count > 0) {
                             val isFinalMinute = count == 1
                             delay(
-                                if (isFinalMinute) 60 * 1000L - sleepFadeDurationMs - sleepFadeTailMs else 60 * 1000L,
+                                if (isFinalMinute) (60 * 1000L) - sleepFadeDurationMs - sleepFadeTailMs else 60 * 1000L,
                             )
                             if (isFinalMinute) {
                                 fadeOutForSleep(sleepFadeDurationMs)
@@ -1388,7 +1368,17 @@ internal class MediaServiceHandlerImpl(
                         .let { response ->
                             val list = response?.first
                             if (list != null) {
-                                loadMoreCatalog(list)
+                                val currentSong = nowPlayingState.value.songEntity
+                                    ?: queueData.value.data.firstPlayedTrack?.toSongEntity()
+                                val tracksToLoad = if (currentSong != null && isDevotionalTrack(currentSong.title)) {
+                                    val filtered = list.filter { isDevotionalTrack(it.title) || it.videoId == currentSong.videoId }
+                                    filtered.toCollection(arrayListOf())
+                                } else {
+                                    list
+                                }
+                                if (tracksToLoad.isNotEmpty()) {
+                                    loadMoreCatalog(tracksToLoad)
+                                }
                                 _queueData.update {
                                     it.copy(
                                         data =
@@ -1451,7 +1441,23 @@ internal class MediaServiceHandlerImpl(
             songRepository.getRelatedData(videoId).collect { response ->
                 when (response) {
                     is Resource.Success -> {
-                        loadMoreCatalog(response.data?.first?.toCollection(arrayListOf()) ?: arrayListOf())
+                        val rawTracks = response.data?.first ?: emptyList()
+                        val currentSong = nowPlayingState.value.songEntity
+                            ?: queueData.value.data.firstPlayedTrack?.toSongEntity()
+
+                        val filteredTracks = if (currentSong != null && isDevotionalTrack(currentSong.title)) {
+                            val devotionalMatches = rawTracks.filter { track ->
+                                isDevotionalTrack(track.title) || track.videoId == currentSong.videoId
+                            }
+                            devotionalMatches
+                        } else {
+                            rawTracks
+                        }
+
+                        if (filteredTracks.isNotEmpty()) {
+                            loadMoreCatalog(filteredTracks.toCollection(arrayListOf()))
+                        }
+
                         _queueData.update {
                             it.copy(
                                 data =
@@ -1480,14 +1486,31 @@ internal class MediaServiceHandlerImpl(
     }
 
     override fun setQueueData(queueData: QueueData.Data) {
+        val currentTitle = nowPlayingState.value.songEntity?.title
+            ?: queueData.firstPlayedTrack?.title
+            ?: queueData.listTracks.firstOrNull()?.title
+
+        val isDevotional = currentTitle != null && isDevotionalTrack(currentTitle)
+
+        val tracksToSet = if (isDevotional) {
+            val filtered = queueData.listTracks.filter { track ->
+                isDevotionalTrack(track.title) || track.videoId == queueData.firstPlayedTrack?.videoId
+            }
+            if (filtered.isNotEmpty()) filtered else listOfNotNull(queueData.firstPlayedTrack)
+        } else {
+            queueData.listTracks
+        }
+
+        val cleanedQueueData = queueData.copy(listTracks = tracksToSet)
+
         _queueData.update {
             it.copy(
-                data = queueData,
+                data = cleanedQueueData,
             )
         }
         player.albumTrackIds =
-            if (queueData.playlistType == PlaylistType.ALBUM) {
-                queueData.listTracks.map { it.videoId }.toSet()
+            if (cleanedQueueData.playlistType == PlaylistType.ALBUM) {
+                cleanedQueueData.listTracks.map { it.videoId }.toSet()
             } else {
                 emptySet()
             }
@@ -1565,9 +1588,25 @@ internal class MediaServiceHandlerImpl(
                 queueState = QueueData.StateSource.STATE_INITIALIZING,
             )
         }
+
+        val currentSong = nowPlayingState.value.songEntity
+            ?: queueData.value.data.firstPlayedTrack?.toSongEntity()
+            ?: listTrack.firstOrNull()?.toSongEntity()
+
+        val isCurrentDevotional = currentSong != null && isDevotionalTrack(currentSong.title)
+
+        val filteredList = if (isCurrentDevotional) {
+            val matched = listTrack.filter { track ->
+                isDevotionalTrack(track.title) || track.videoId == currentSong?.videoId
+            }
+            ArrayList(matched.ifEmpty { listOfNotNull(currentSong?.toTrack()) })
+        } else {
+            listTrack
+        }
+
         val catalogMetadata: ArrayList<Track> = arrayListOf()
-        for (i in 0 until listTrack.size) {
-            val track = listTrack[i]
+        for (i in 0 until filteredList.size) {
+            val track = filteredList[i]
             var thumbUrl =
                 track.thumbnails?.lastOrNull()?.url
                     ?: "http://i.ytimg.com/vi/${track.videoId}/maxresdefault.jpg"
@@ -2346,8 +2385,8 @@ internal class MediaServiceHandlerImpl(
         if (!isDevicePlaylist) {
             queueData.value.data.listTracks.let { list ->
                 if ((list.size > 3 || runBlocking { dataStoreManager.endlessQueue.first() == TRUE }) &&
-                    list.size - player.currentMediaItemIndex < 3 &&
-                    list.size - player.currentMediaItemIndex >= 0 &&
+                    (list.size - player.currentMediaItemIndex) < 3 &&
+                    (list.size - player.currentMediaItemIndex) >= 0 &&
                     queueData.value.queueState == QueueData.StateSource.STATE_INITIALIZED
                 ) {
                     loadMore()
@@ -2472,6 +2511,40 @@ internal class MediaServiceHandlerImpl(
                 }
             }
     }
+}
+
+/**
+ * Intelligent Devotional / Bhakti / Navratri Theme Classifier.
+ * Normalizes input, strictly drops party/item songs, and requires verified devotional markers.
+ */
+private fun isDevotionalTrack(title: String): Boolean {
+    val t = title.lowercase().replace(Regex("[^a-zA-Z0-9\\s]"), " ")
+
+    // 1. Strict Negative Exclusion (Party / Romantic / Item / DJ songs)
+    val nonDevotionalWords = listOf(
+        "lahanga", "meter", "salwar", "kamariya", "choli", "bhatar", "saiya",
+        "palang", "raat", "jawani", "item", "arkestra", "orchestra", "remix club",
+        "dj song", "sad song", "bewafa", "judaai", "love song", "romantic",
+        "nathuniya", "patli kamariya", "saree", "dhodi", "marad",
+        "sautin", "dehati", "stage show", "bhojpuri song", "hit song"
+    )
+    if (nonDevotionalWords.any { t.contains(it) }) {
+        return false
+    }
+
+    // 2. Strict Positive Devotional Keywords
+    val devotionalKeywords = listOf(
+        "bhakti", "bhajan", "aarti", "arti", "navratri", "devi", "mata",
+        "maiya", "maiyya", "durga", "kali", "sherawali", "pachra",
+        "pujwa", "puja", "pooja", "chath", "chhath", "suruj", "sooraj",
+        "darbar", "amritwani", "chalisa", "jagran", "bhole", "dura",
+        "shiv", "mahadev", "shankar", "kanwar", "bol bam", "kanpariya",
+        "ram", "sita", "hanuman", "bajrangbali", "krishna", "radha",
+        "shyam", "katha", "geet", "vrat", "sohar", "bhagwati", "mahima",
+        "baghwa", "aawatari", "kareli mori", "pujari", "lo fi", "mashup",
+        "nimiya", "shitali", "jhula", "chunari", "asthan", "mandir"
+    )
+    return devotionalKeywords.any { t.contains(it) }
 }
 
 private fun getDeviceTracksDirectly(context: Context): List<Track> {

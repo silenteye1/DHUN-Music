@@ -11,8 +11,8 @@
       "type": "UNIVERSAL",
       "filters": [],
       "attributes": [],
-      "versionCode": 22,
-      "versionName": "2.2.0",
+      "versionCode": 23,
+      "versionName": "2.3.0",
       "outputFile": "androidApp-universal-release.apk"
     },
     {
@@ -24,8 +24,8 @@
         }
       ],
       "attributes": [],
-      "versionCode": 22,
-      "versionName": "2.2.0",
+      "versionCode": 23,
+      "versionName": "2.3.0",
       "outputFile": "androidApp-arm64-v8a-release.apk"
     },
     {
@@ -37,8 +37,8 @@
         }
       ],
       "attributes": [],
-      "versionCode": 22,
-      "versionName": "2.2.0",
+      "versionCode": 23,
+      "versionName": "2.3.0",
       "outputFile": "androidApp-armeabi-v7a-release.apk"
     },
     {
@@ -50,8 +50,8 @@
         }
       ],
       "attributes": [],
-      "versionCode": 22,
-      "versionName": "2.2.0",
+      "versionCode": 23,
+      "versionName": "2.3.0",
       "outputFile": "androidApp-x86_64-release.apk"
     }
   ],
