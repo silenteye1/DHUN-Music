@@ -50,7 +50,6 @@ class AiService(
     ): Lyrics {
         val lines = inputLyrics.lines ?: throw IllegalStateException("No lyrics lines to translate")
 
-        // 1. Unique lines extract karo taaki payload chhota ho aur speed fast rahe
         val uniqueTextToId = mutableMapOf<String, String>()
         var idCounter = 0
 
@@ -68,7 +67,6 @@ class AiService(
         val idToUniqueText = uniqueTextToId.entries.associate { (k, v) -> v to k }
         val inputJson = json.encodeToString(MapSerializer(String.serializer(), String.serializer()), idToUniqueText)
 
-        // 2. Strict Hinglish (Roman Script) prompt
         val prompt = """
             You are an expert song lyrics translator.
             Task: Translate/convert the input lines into conversational Hinglish (Hindi written ONLY using the English/Latin alphabet, NEVER use Devanagari script).
@@ -76,7 +74,7 @@ class AiService(
             Rules:
             1. If the line is English or any other language: Translate the poetic meaning into natural, conversational Hinglish (e.g., "I will always love you" -> "Main hamesha tumse pyaar karunga", "Hold my hand" -> "Mera haath pakad lo").
             2. If the line is already in Hindi/Urdu/Punjabi: Transliterate it directly into clean Roman/English letters without altering the original lyrics.
-            3. STRICT RULE: DO NOT use Devanagari script (like 'तुम', 'प्यार'). Use ONLY English alphabet characters (A-Z, a-z).
+            3. STRICT RULE: DO NOT use Devanagari script. Use ONLY English alphabet characters (A-Z, a-z).
             4. Keep all numeric keys identical to the input.
             5. Return JSON ONLY with format: {"translations": {"0": "translated line"}}
 
@@ -104,8 +102,8 @@ class AiService(
             }
         }
 
-        val modelName = customModelId ?: "gemini-2.5-flash"
-        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
+        val cleanKey = apiKey.trim()
+        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=$cleanKey"
 
         val response = httpClient.post(endpointUrl) {
             contentType(ContentType.Application.Json)
@@ -114,12 +112,16 @@ class AiService(
 
         val responseBody = response.bodyAsText()
 
+        if (response.status.value !in 200..299) {
+            throw IllegalStateException("Gemini API Error [${response.status.value}]: $responseBody")
+        }
+
         val parsedResponse = json.parseToJsonElement(responseBody).jsonObject
         val candidates = parsedResponse["candidates"]?.jsonArray
         val candidate = candidates?.firstOrNull()?.jsonObject
         val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray
         val rawText = parts?.firstOrNull()?.jsonObject?.get("text")?.jsonPrimitive?.content
-            ?: throw IllegalStateException("API Error: $responseBody")
+            ?: throw IllegalStateException("API Response text empty: $responseBody")
 
         val cleanedJson = rawText
             .replace("```json", "")
@@ -129,7 +131,6 @@ class AiService(
         val translationResponse = json.decodeFromString<TranslationResponse>(cleanedJson)
         val idToTranslated = translationResponse.translations
 
-        // 3. Translated text ko original unique words ke saath map karo
         val wordToTranslatedMap = mutableMapOf<String, String>()
         uniqueTextToId.forEach { (originalWord, id) ->
             idToTranslated[id]?.let { translated ->
@@ -137,7 +138,6 @@ class AiService(
             }
         }
 
-        // 4. Sabhi lines me assign karo
         val translatedLines = lines.map { originalLine ->
             val words = originalLine.words.trim()
             val translatedWords = wordToTranslatedMap[words]

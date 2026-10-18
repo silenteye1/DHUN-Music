@@ -1193,7 +1193,7 @@ class SharedViewModel(
                 }
             resetLyricsVoteState()
 
-            // Cascading Synced & Non-Synced Search Chain
+            // Cascading Synced & Non-Synced Search Chain (Online -> Offline DB -> Stop)
             fetchCascadingLyrics(song, (artist ?: "").toString(), duration)
         }
     }
@@ -1205,11 +1205,8 @@ class SharedViewModel(
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
-
-            // Backup saved record fetch karein
             val localLyrics = lyricsCanvasRepository.getSavedLyrics(videoId).firstOrNull()
 
-            // Step 1: Online BetterLyrics try karo (live BetterLyrics provider tag ke liye)
             lyricsCanvasRepository.getBetterLyrics(artist, song.title, duration).collectLatest { res ->
                 val data = res.data
                 if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty() && data.syncType != "UNSYNCED") {
@@ -1217,8 +1214,7 @@ class SharedViewModel(
                     updateLyrics(videoId, duration, data, false, LyricsProvider.BETTER_LYRICS)
                     insertLyrics(data.toLyricsEntity(videoId))
                     getAITranslationLyrics(videoId, data)
-                } else {
-                    // Step 2: Fallback to LRCLIB
+                } else if (res is Resource.Error) {
                     tryLrclibFallback(song, artist, duration, localLyrics)
                 }
             }
@@ -1235,14 +1231,12 @@ class SharedViewModel(
             val videoId = song.videoId
             lyricsCanvasRepository.getLrclibLyricsData(artist, song.title, duration).collectLatest { res ->
                 val data = res.data
-                // Accept any valid lines (synced or unsynced)
                 if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
                     Logger.d(tag, "Lyrics found via LRCLIB for $videoId")
                     updateLyrics(videoId, duration, data, false, LyricsProvider.LRCLIB)
                     insertLyrics(data.toLyricsEntity(videoId))
                     getAITranslationLyrics(videoId, data)
-                } else {
-                    // Step 3: Fallback to SimpMusic community lyrics
+                } else if (res is Resource.Error) {
                     trySimpMusicFallback(song, artist, duration, savedFallbackLyrics)
                 }
             }
@@ -1264,12 +1258,12 @@ class SharedViewModel(
                     updateLyrics(videoId, duration, data, false, LyricsProvider.SIMPMUSIC)
                     insertLyrics(data.toLyricsEntity(videoId))
                     getSimpMusicTranslatedLyrics(videoId, data)
-                } else if (dataStoreManager.spotifyLyrics.first() == TRUE) {
-                    // Step 4: Fallback to Spotify
-                    trySpotifyFallback(song, artist, duration, savedFallbackLyrics)
-                } else {
-                    // Step 5: Check Offline Local DB before raw YouTube captions
-                    tryLocalOfflineOrYouTube(song, artist, duration, savedFallbackLyrics)
+                } else if (res is Resource.Error) {
+                    if (dataStoreManager.spotifyLyrics.first() == TRUE) {
+                        trySpotifyFallback(song, artist, duration, savedFallbackLyrics)
+                    } else {
+                        tryLocalOfflineOnly(song, duration, savedFallbackLyrics)
+                    }
                 }
             }
         }
@@ -1290,53 +1284,34 @@ class SharedViewModel(
                     insertLyrics(data.toLyricsEntity(videoId))
                     updateLyrics(videoId, duration, data, false, LyricsProvider.SPOTIFY)
                     getAITranslationLyrics(videoId, data)
-                } else {
-                    tryLocalOfflineOrYouTube(song, artist, duration, savedFallbackLyrics)
+                } else if (response is Resource.Error) {
+                    tryLocalOfflineOnly(song, duration, savedFallbackLyrics)
                 }
             }
         }
     }
 
-    private fun tryLocalOfflineOrYouTube(
+    private fun tryLocalOfflineOnly(
         song: SongEntity,
-        artist: String,
         duration: Int,
         savedFallbackLyrics: LyricsEntity?,
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
 
-            // Agar online sources fail hue, sirf tab saved cache render hoga as OFFLINE
+            // Step 5: Sabhi online sources fail hone ke baad sirf Offline Room DB check karein
             if (savedFallbackLyrics != null && !savedFallbackLyrics.lines.isNullOrEmpty()) {
-                Logger.d(tag, "Falling back to saved offline lyrics for $videoId")
+                Logger.d(tag, "All online sources exhausted. Loaded saved offline lyrics for $videoId")
                 val lyricsData = savedFallbackLyrics.toLyrics()
                 updateLyrics(videoId, duration, lyricsData, false, LyricsProvider.OFFLINE)
                 getAITranslationLyrics(videoId, lyricsData)
-                return@launch
-            }
-
-            // Agar local DB mein bhi kuch nahi hai, tab YouTube captions fallback
-            val subLang = dataStoreManager.youtubeSubtitleLanguage.first()
-            lyricsCanvasRepository.getYouTubeCaption(subLang, videoId).cancellable().collect { response ->
-                val data = response.data
-                if (response is Resource.Success && data != null && !data.first.lines.isNullOrEmpty()) {
-                    Logger.d(tag, "Unsynced Captions fallback loaded via YouTube for $videoId")
-                    val lyrics = data.first
-                    val translatedLyrics = data.second
-                    insertLyrics(lyrics.toLyricsEntity(videoId))
-                    updateLyrics(videoId, duration, lyrics, false, LyricsProvider.YOUTUBE)
-                    if (translatedLyrics != null) {
-                        updateLyrics(videoId, duration, translatedLyrics, true, LyricsProvider.YOUTUBE)
-                    } else {
-                        getAITranslationLyrics(videoId, lyrics)
-                    }
-                } else {
-                    Logger.w(tag, "No lyrics found for $videoId across all sources")
-                    _nowPlayingScreenData.update {
-                        it.copy(lyricsData = null)
-                    }
-                    makeToast("Lyrics not found")
+            } else {
+                // Online nahi mila aur phone storage me bhi nahi hai toh directly stop karein
+                Logger.w(tag, "No lyrics found online or in offline DB for $videoId. Skipping YouTube captions.")
+                _nowPlayingScreenData.update {
+                    it.copy(lyricsData = null)
                 }
+                makeToast("Lyrics not found")
             }
         }
     }
@@ -1406,47 +1381,88 @@ class SharedViewModel(
 
         if (useAi && apiKey.isNotEmpty()) {
             Logger.w(tag, "Requesting fresh translation from Gemini AI...")
-            val lyricsForAi =
-                if (lyrics.syncType == "RICH_SYNCED") {
-                    lyrics.toSyncedLyrics()
-                } else {
-                    lyrics
-                }
-            lyricsCanvasRepository
-                .getAITranslationLyrics(
-                    lyricsForAi,
-                    targetLang,
-                ).cancellable()
-                .collectLatest {
-                    val data = it.data
-                    when (it) {
-                        is Resource.Success -> {
-                            if (data != null) {
-                                Logger.d(tag, "AI Translation successfully loaded!")
-                                lyricsCanvasRepository.insertTranslatedLyrics(
-                                    TranslatedLyricsEntity(
-                                        videoId = videoId,
-                                        language = targetLang,
-                                        error = false,
-                                        lines = data.lines,
-                                        syncType = data.syncType,
-                                    ),
-                                )
-                                updateLyrics(
-                                    videoId,
-                                    0,
-                                    data,
-                                    true,
-                                    LyricsProvider.AI,
-                                )
+
+            val currentLines = lyrics.lines
+            if (currentLines.isNullOrEmpty()) {
+                Logger.w(tag, "AI Translation: Lyrics lines are null/empty, skipping translation")
+                return
+            }
+
+            // Inline timestamps aur extra tags saaf karein
+            val sanitizedLines = currentLines.map { line ->
+                val cleanWords = decodeHtmlEntities(line.words)
+                    .replace(Regex("<\\d{1,2}:\\d{2}\\.\\d{1,3}>"), "")
+                    .replace(Regex("\\[\\d{1,2}:\\d{2}\\.\\d{1,3}\\]"), "")
+                    .trim()
+                line.copy(words = cleanWords)
+            }
+
+            val lyricsForAi = lyrics.copy(
+                lines = sanitizedLines,
+                syncType = if (lyrics.syncType == "RICH_SYNCED") "LINE_SYNCED" else lyrics.syncType,
+            )
+
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    lyricsCanvasRepository
+                        .getAITranslationLyrics(
+                            lyricsForAi,
+                            targetLang,
+                        )
+                        .collect { res ->
+                            when (res) {
+                                is Resource.Success -> {
+                                    val data = res.data
+                                    val resLines = data?.lines
+                                    if (data != null && !resLines.isNullOrEmpty()) {
+                                        Logger.w(tag, "AI Translation successfully loaded! Lines: ${resLines.size}")
+
+                                        val alignedLines = if (resLines.size == currentLines.size) {
+                                            resLines.mapIndexed { idx, tLine ->
+                                                tLine.copy(
+                                                    startTimeMs = currentLines[idx].startTimeMs,
+                                                    endTimeMs = currentLines[idx].endTimeMs,
+                                                )
+                                            }
+                                        } else {
+                                            resLines
+                                        }
+
+                                        val finalLyrics = data.copy(lines = alignedLines)
+
+                                        lyricsCanvasRepository.insertTranslatedLyrics(
+                                            TranslatedLyricsEntity(
+                                                videoId = videoId,
+                                                language = targetLang,
+                                                error = false,
+                                                lines = finalLyrics.lines,
+                                                syncType = finalLyrics.syncType,
+                                            ),
+                                        )
+                                        withContext(Dispatchers.Main) {
+                                            updateLyrics(
+                                                videoId,
+                                                0,
+                                                finalLyrics,
+                                                true,
+                                                LyricsProvider.AI,
+                                            )
+                                        }
+                                    } else {
+                                        Logger.w(tag, "AI Translation: Data or lines is empty")
+                                    }
+                                }
+
+                                is Resource.Error -> {
+                                    Logger.w(tag, "AI Translation Error: ${res.message}")
+                                }
                             }
                         }
-
-                        else -> {
-                            Logger.w(tag, "Get AI Translate Lyrics Error: ${it.message}")
-                        }
-                    }
+                } catch (e: Exception) {
+                    Logger.w(tag, "AI Translation Exception: ${e.message}")
+                    e.printStackTrace()
                 }
+            }
         } else {
             Logger.w(tag, "AI Translation skipped -> useAi: $useAi, keyLength: ${apiKey.length}")
         }
