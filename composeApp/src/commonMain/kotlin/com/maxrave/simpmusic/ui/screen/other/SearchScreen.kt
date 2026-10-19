@@ -188,7 +188,25 @@ fun SearchScreen(
     val inputInteractionSource = remember { MutableInteractionSource() }
     val isInputFocused by inputInteractionSource.collectIsFocusedAsState()
 
-    // Jab bhi user input field par click ya tap karega, active mode on hoga
+    fun performSearch(query: String, type: SearchType) {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isEmpty()) return
+        isSearchSubmitted = true
+        isSearchActive = false
+        focusManager.clearFocus()
+        searchViewModel.insertSearchHistory(cleanQuery)
+        when (type) {
+            SearchType.ALL -> searchViewModel.searchAll(cleanQuery)
+            SearchType.SONGS -> searchViewModel.searchSongs(cleanQuery)
+            SearchType.VIDEOS -> searchViewModel.searchVideos(cleanQuery)
+            SearchType.ALBUMS -> searchViewModel.searchAlbums(cleanQuery)
+            SearchType.ARTISTS -> searchViewModel.searchArtists(cleanQuery)
+            SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(cleanQuery)
+            SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(cleanQuery)
+            SearchType.PODCASTS -> searchViewModel.searchPodcast(cleanQuery)
+        }
+    }
+
     LaunchedEffect(isInputFocused) {
         if (isInputFocused) {
             isSearchActive = true
@@ -274,9 +292,33 @@ fun SearchScreen(
     val chipRowState = rememberScrollState()
     val pullToRefreshState = rememberPullToRefreshState()
 
-    val onMoreClick: (SongEntity) -> Unit = { song ->
-        sheetSong = song
-        showBottomSheet = true
+    val onMoreClick: (SongEntity) -> Unit = remember {
+        { song ->
+            sheetSong = song
+            showBottomSheet = true
+        }
+    }
+
+    val onSongItemClick: (Track, String) -> Unit = remember(searchText) {
+        { track, clickType ->
+            searchViewModel.setQueueData(
+                QueueData.Data(
+                    listTracks = arrayListOf(track),
+                    firstPlayedTrack = track,
+                    playlistId = "RDAMVM${track.videoId}",
+                    playlistName = "\"${searchText}\" ${getStringBlocking(Res.string.in_search)}",
+                    playlistType = PlaylistType.RADIO,
+                    continuation = null,
+                ),
+            )
+            searchViewModel.loadMediaItem(track, clickType)
+        }
+    }
+
+    val onAddSongToQueue: (Track) -> Unit = remember {
+        { track ->
+            sharedViewModel.addListToQueue(arrayListOf(track))
+        }
     }
 
     LaunchedEffect(searchText) {
@@ -285,7 +327,6 @@ fun SearchScreen(
         }
     }
 
-    // Explicit and reliable UI mode assignment
     LaunchedEffect(isSearchActive, searchText, isSearchSubmitted) {
         searchUIType = when {
             isSearchSubmitted && searchText.isNotEmpty() -> SearchUIType.SEARCH_RESULTS
@@ -363,13 +404,25 @@ fun SearchScreen(
                         state = suggestionsState,
                         contentPadding = PaddingValues(top = searchBarHeight, bottom = 10.dp),
                     ) {
-                        items(searchScreenState.suggestYTItems) { item ->
+                        items(
+                            items = searchScreenState.suggestYTItems,
+                            key = { item ->
+                                when (item) {
+                                    is SongsResult -> "s_${item.videoId}"
+                                    is VideosResult -> "v_${item.videoId}"
+                                    is AlbumsResult -> "al_${item.browseId}"
+                                    is ArtistsResult -> "ar_${item.browseId}"
+                                    is PlaylistsResult -> "pl_${item.browseId}"
+                                    else -> item.hashCode().toString()
+                                }
+                            },
+                        ) { item ->
                             SuggestItemRow(
                                 searchResult = item,
-                                onItemClick = { item ->
-                                    when (item) {
+                                onItemClick = { clickedItem ->
+                                    when (clickedItem) {
                                         is SongsResult, is VideosResult -> {
-                                            val firstTrack: Track = (item as? SongsResult)?.toTrack() ?: (item as VideosResult).toTrack()
+                                            val firstTrack: Track = (clickedItem as? SongsResult)?.toTrack() ?: (clickedItem as VideosResult).toTrack()
                                             searchViewModel.setQueueData(
                                                 QueueData.Data(
                                                     listTracks = arrayListOf(firstTrack),
@@ -385,20 +438,20 @@ fun SearchScreen(
 
                                         is ArtistsResult -> {
                                             navController.navigate(
-                                                ArtistDestination(item.browseId),
+                                                ArtistDestination(clickedItem.browseId),
                                             )
                                         }
 
                                         is AlbumsResult -> {
                                             navController.navigate(
-                                                AlbumDestination(item.browseId),
+                                                AlbumDestination(clickedItem.browseId),
                                             )
                                         }
 
                                         is PlaylistsResult -> {
                                             navController.navigate(
                                                 PlaylistDestination(
-                                                    item.browseId,
+                                                    clickedItem.browseId,
                                                 ),
                                             )
                                         }
@@ -406,7 +459,10 @@ fun SearchScreen(
                                 },
                             )
                         }
-                        items(searchScreenState.suggestQueries) { suggestion ->
+                        items(
+                            items = searchScreenState.suggestQueries,
+                            key = { q -> "q_$q" },
+                        ) { suggestion ->
                             Row(
                                 modifier =
                                     Modifier
@@ -416,20 +472,7 @@ fun SearchScreen(
                                             indication = ripple(),
                                             onClick = {
                                                 searchText = suggestion
-                                                isSearchActive = false
-                                                focusManager.clearFocus()
-                                                isSearchSubmitted = true
-                                                searchViewModel.insertSearchHistory(suggestion)
-                                                when (searchScreenState.searchType) {
-                                                    SearchType.ALL -> searchViewModel.searchAll(suggestion)
-                                                    SearchType.SONGS -> searchViewModel.searchSongs(suggestion)
-                                                    SearchType.VIDEOS -> searchViewModel.searchVideos(suggestion)
-                                                    SearchType.ALBUMS -> searchViewModel.searchAlbums(suggestion)
-                                                    SearchType.ARTISTS -> searchViewModel.searchArtists(suggestion)
-                                                    SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(suggestion)
-                                                    SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(suggestion)
-                                                    SearchType.PODCASTS -> searchViewModel.searchPodcast(suggestion)
-                                                }
+                                                performSearch(suggestion, searchScreenState.searchType)
                                             },
                                         ).padding(horizontal = 12.dp, vertical = 2.dp)
                                         .clip(RoundedCornerShape(8.dp)),
@@ -497,27 +540,17 @@ fun SearchScreen(
                                     }
                                 }
                             }
-                            items(searchHistory) { historyItem ->
+                            items(
+                                items = searchHistory,
+                                key = { hist -> "hist_$hist" },
+                            ) { historyItem ->
                                 Row(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
                                             .clickable {
                                                 searchText = historyItem
-                                                isSearchActive = false
-                                                focusManager.clearFocus()
-                                                isSearchSubmitted = true
-                                                searchViewModel.insertSearchHistory(historyItem)
-                                                when (searchScreenState.searchType) {
-                                                    SearchType.ALL -> searchViewModel.searchAll(historyItem)
-                                                    SearchType.SONGS -> searchViewModel.searchSongs(historyItem)
-                                                    SearchType.VIDEOS -> searchViewModel.searchVideos(historyItem)
-                                                    SearchType.ALBUMS -> searchViewModel.searchAlbums(historyItem)
-                                                    SearchType.ARTISTS -> searchViewModel.searchArtists(historyItem)
-                                                    SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(historyItem)
-                                                    SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(historyItem)
-                                                    SearchType.PODCASTS -> searchViewModel.searchPodcast(historyItem)
-                                                }
+                                                performSearch(historyItem, searchScreenState.searchType)
                                             }.padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -639,22 +672,7 @@ fun SearchScreen(
                             modifier = Modifier.fillMaxSize(),
                             state = pullToRefreshState,
                             onRefresh = {
-                                val query = searchText.trim()
-                                if (query.isNotEmpty()) {
-                                    isSearchSubmitted = true
-                                    isSearchActive = false
-                                    searchViewModel.insertSearchHistory(query)
-                                    when (searchScreenState.searchType) {
-                                        SearchType.ALL -> searchViewModel.searchAll(query)
-                                        SearchType.SONGS -> searchViewModel.searchSongs(query)
-                                        SearchType.VIDEOS -> searchViewModel.searchVideos(query)
-                                        SearchType.ALBUMS -> searchViewModel.searchAlbums(query)
-                                        SearchType.ARTISTS -> searchViewModel.searchArtists(query)
-                                        SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(query)
-                                        SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(query)
-                                        SearchType.PODCASTS -> searchViewModel.searchPodcast(query)
-                                    }
-                                }
+                                performSearch(searchText, searchScreenState.searchType)
                             },
                             isRefreshing = uiState is SearchScreenUIState.Loading,
                             indicator = {
@@ -671,8 +689,8 @@ fun SearchScreen(
                                 )
                             },
                         ) {
-                            Crossfade(targetState = uiState) { uiState ->
-                                when (uiState) {
+                            Crossfade(targetState = uiState) { currentUiState ->
+                                when (currentUiState) {
                                     is SearchScreenUIState.Loading -> {
                                         LazyColumn(
                                             contentPadding =
@@ -690,19 +708,26 @@ fun SearchScreen(
                                     is SearchScreenUIState.Success -> {
                                         Column(modifier = Modifier.fillMaxSize()) {
                                             val currentResults =
-                                                when (searchScreenState.searchType) {
-                                                    SearchType.ALL -> searchScreenState.searchAllResult
-                                                    SearchType.SONGS -> searchScreenState.searchSongsResult
-                                                    SearchType.VIDEOS -> searchScreenState.searchVideosResult
-                                                    SearchType.ALBUMS -> searchScreenState.searchAlbumsResult
-                                                    SearchType.ARTISTS -> searchScreenState.searchArtistsResult
-                                                    SearchType.PLAYLISTS -> searchScreenState.searchPlaylistsResult
-                                                    SearchType.FEATURED_PLAYLISTS -> searchScreenState.searchFeaturedPlaylistsResult
-                                                    SearchType.PODCASTS -> searchScreenState.searchPodcastsResult
+                                                remember(searchScreenState) {
+                                                    when (searchScreenState.searchType) {
+                                                        SearchType.ALL -> {
+                                                            val all = searchScreenState.searchAllResult
+                                                            val tracks = all.filter { it is SongsResult || it is VideosResult }
+                                                            val others = all.filter { it !is SongsResult && it !is VideosResult }
+                                                            tracks + others
+                                                        }
+                                                        SearchType.SONGS -> searchScreenState.searchSongsResult
+                                                        SearchType.VIDEOS -> searchScreenState.searchVideosResult
+                                                        SearchType.ALBUMS -> searchScreenState.searchAlbumsResult
+                                                        SearchType.ARTISTS -> searchScreenState.searchArtistsResult
+                                                        SearchType.PLAYLISTS -> searchScreenState.searchPlaylistsResult
+                                                        SearchType.FEATURED_PLAYLISTS -> searchScreenState.searchFeaturedPlaylistsResult
+                                                        SearchType.PODCASTS -> searchScreenState.searchPodcastsResult
+                                                    }
                                                 }
 
-                                            Crossfade(targetState = currentResults.isNotEmpty()) {
-                                                if (it) {
+                                            Crossfade(targetState = currentResults.isNotEmpty()) { hasResults ->
+                                                if (hasResults) {
                                                     LazyColumn(
                                                         contentPadding =
                                                             PaddingValues(
@@ -713,40 +738,30 @@ fun SearchScreen(
                                                             ),
                                                         state = resultsState,
                                                     ) {
-                                                        items(currentResults) { result ->
+                                                        items(
+                                                            items = currentResults,
+                                                            key = { item ->
+                                                                when (item) {
+                                                                    is SongsResult -> "song_${item.videoId}"
+                                                                    is VideosResult -> "video_${item.videoId}"
+                                                                    is AlbumsResult -> "album_${item.browseId}"
+                                                                    is ArtistsResult -> "artist_${item.browseId}"
+                                                                    is PlaylistsResult -> "playlist_${item.browseId}"
+                                                                    else -> item.hashCode().toString()
+                                                                }
+                                                            },
+                                                        ) { result ->
                                                             when (result) {
                                                                 is SongsResult -> {
+                                                                    val track = remember(result) { result.toTrack() }
+                                                                    val songEntity = remember(track) { track.toSongEntity() }
                                                                     SongFullWidthItems(
-                                                                        track = result.toTrack(),
+                                                                        track = track,
                                                                         isPlaying = result.videoId == currentVideoId,
                                                                         modifier = Modifier,
-                                                                        onMoreClickListener = {
-                                                                            onMoreClick(result.toTrack().toSongEntity())
-                                                                        },
-                                                                        onClickListener = {
-                                                                            val firstTrack = result.toTrack()
-                                                                            searchViewModel.setQueueData(
-                                                                                QueueData.Data(
-                                                                                    listTracks = arrayListOf(firstTrack),
-                                                                                    firstPlayedTrack = firstTrack,
-                                                                                    playlistId = "RDAMVM${result.videoId}",
-                                                                                    playlistName =
-                                                                                        "\"${searchText}\" ${
-                                                                                            getStringBlocking(
-                                                                                                Res.string.in_search,
-                                                                                            )
-                                                                                        }",
-                                                                                    playlistType = PlaylistType.RADIO,
-                                                                                    continuation = null,
-                                                                                ),
-                                                                            )
-                                                                            searchViewModel.loadMediaItem(firstTrack, Config.SONG_CLICK)
-                                                                        },
-                                                                        onAddToQueue = {
-                                                                            sharedViewModel.addListToQueue(
-                                                                                arrayListOf(result.toTrack()),
-                                                                            )
-                                                                        },
+                                                                        onMoreClickListener = { onMoreClick(songEntity) },
+                                                                        onClickListener = { onSongItemClick(track, Config.SONG_CLICK) },
+                                                                        onAddToQueue = { onAddSongToQueue(track) },
                                                                         selectionMode = selectionState.isActive,
                                                                         isSelected = selectionState.isSelected(result.videoId),
                                                                         onLongClick = { selectionState.start(it) },
@@ -755,37 +770,15 @@ fun SearchScreen(
                                                                 }
 
                                                                 is VideosResult -> {
+                                                                    val track = remember(result) { result.toTrack() }
+                                                                    val songEntity = remember(track) { track.toSongEntity() }
                                                                     SongFullWidthItems(
-                                                                        track = result.toTrack(),
+                                                                        track = track,
                                                                         isPlaying = result.videoId == currentVideoId,
                                                                         modifier = Modifier,
-                                                                        onMoreClickListener = {
-                                                                            onMoreClick(result.toTrack().toSongEntity())
-                                                                        },
-                                                                        onClickListener = {
-                                                                            val firstTrack = result.toTrack()
-                                                                            searchViewModel.setQueueData(
-                                                                                QueueData.Data(
-                                                                                    listTracks = arrayListOf(firstTrack),
-                                                                                    firstPlayedTrack = firstTrack,
-                                                                                    playlistId = "RDAMVM${result.videoId}",
-                                                                                    playlistName =
-                                                                                        "\"${searchText}\" ${
-                                                                                            getStringBlocking(
-                                                                                                Res.string.in_search,
-                                                                                            )
-                                                                                        }",
-                                                                                    playlistType = PlaylistType.RADIO,
-                                                                                    continuation = null,
-                                                                                ),
-                                                                            )
-                                                                            searchViewModel.loadMediaItem(firstTrack, Config.VIDEO_CLICK)
-                                                                        },
-                                                                        onAddToQueue = {
-                                                                            sharedViewModel.addListToQueue(
-                                                                                arrayListOf(result.toTrack()),
-                                                                            )
-                                                                        },
+                                                                        onMoreClickListener = { onMoreClick(songEntity) },
+                                                                        onClickListener = { onSongItemClick(track, Config.VIDEO_CLICK) },
+                                                                        onAddToQueue = { onAddSongToQueue(track) },
                                                                         selectionMode = selectionState.isActive,
                                                                         isSelected = selectionState.isSelected(result.videoId),
                                                                         onLongClick = { selectionState.start(it) },
@@ -861,7 +854,7 @@ fun SearchScreen(
                                     }
 
                                     is SearchScreenUIState.Error -> {
-                                        Box {
+                                        Box(modifier = Modifier.fillMaxSize()) {
                                             Column(
                                                 modifier = Modifier.align(Alignment.Center),
                                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -876,7 +869,7 @@ fun SearchScreen(
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 Button(onClick = {
                                                     if (searchText.isNotEmpty()) {
-                                                        searchViewModel.searchAll(searchText)
+                                                        performSearch(searchText, searchScreenState.searchType)
                                                     }
                                                 }) {
                                                     Text(text = stringResource(Res.string.retry))
@@ -966,21 +959,8 @@ fun SearchScreen(
                                     isSearchActive = false
                                     focusManager.clearFocus()
                                     sharedViewModel.setIntent(GenericIntent(data = deepLink))
-                                } else if (query.isNotEmpty()) {
-                                    isSearchSubmitted = true
-                                    isSearchActive = false
-                                    focusManager.clearFocus()
-                                    searchViewModel.insertSearchHistory(query)
-                                    when (searchScreenState.searchType) {
-                                        SearchType.ALL -> searchViewModel.searchAll(query)
-                                        SearchType.SONGS -> searchViewModel.searchSongs(query)
-                                        SearchType.VIDEOS -> searchViewModel.searchVideos(query)
-                                        SearchType.ALBUMS -> searchViewModel.searchAlbums(query)
-                                        SearchType.ARTISTS -> searchViewModel.searchArtists(query)
-                                        SearchType.PLAYLISTS -> searchViewModel.searchPlaylists(query)
-                                        SearchType.FEATURED_PLAYLISTS -> searchViewModel.searchFeaturedPlaylist(query)
-                                        SearchType.PODCASTS -> searchViewModel.searchPodcast(query)
-                                    }
+                                } else {
+                                    performSearch(query, searchScreenState.searchType)
                                 }
                             },
                             expanded = false,
@@ -1070,6 +1050,9 @@ fun SearchScreen(
                                 text = stringResource(id.toStringRes()),
                             ) {
                                 searchViewModel.setSearchType(id)
+                                if (searchText.isNotBlank()) {
+                                    performSearch(searchText, id)
+                                }
                             }
                             Spacer(modifier = Modifier.width(4.dp))
                         }
@@ -1095,29 +1078,12 @@ fun SuggestItemRow(
     ) {
         val url =
             when (searchResult) {
-                is SongsResult -> {
-                    searchResult.thumbnails?.lastOrNull()?.url
-                }
-
-                is AlbumsResult -> {
-                    searchResult.thumbnails.lastOrNull()?.url
-                }
-
-                is ArtistsResult -> {
-                    searchResult.thumbnails.lastOrNull()?.url
-                }
-
-                is PlaylistsResult -> {
-                    searchResult.thumbnails.lastOrNull()?.url
-                }
-
-                is VideosResult -> {
-                    searchResult.thumbnails?.lastOrNull()?.url
-                }
-
-                else -> {
-                    null
-                }
+                is SongsResult -> searchResult.thumbnails?.lastOrNull()?.url
+                is AlbumsResult -> searchResult.thumbnails.lastOrNull()?.url
+                is ArtistsResult -> searchResult.thumbnails.lastOrNull()?.url
+                is PlaylistsResult -> searchResult.thumbnails.lastOrNull()?.url
+                is VideosResult -> searchResult.thumbnails?.lastOrNull()?.url
+                else -> null
             }
 
         Box(
@@ -1131,6 +1097,7 @@ fun SuggestItemRow(
                     ImageRequest
                         .Builder(LocalPlatformContext.current)
                         .data(url)
+                        .size(100, 100)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .diskCacheKey(url)
                         .crossfade(true)
@@ -1157,29 +1124,12 @@ fun SuggestItemRow(
         Column(modifier = Modifier.weight(1f)) {
             val title =
                 when (searchResult) {
-                    is SongsResult -> {
-                        searchResult.title
-                    }
-
-                    is AlbumsResult -> {
-                        searchResult.title
-                    }
-
-                    is ArtistsResult -> {
-                        searchResult.artist
-                    }
-
-                    is PlaylistsResult -> {
-                        searchResult.title
-                    }
-
-                    is VideosResult -> {
-                        searchResult.title
-                    }
-
-                    else -> {
-                        null
-                    }
+                    is SongsResult -> searchResult.title
+                    is AlbumsResult -> searchResult.title
+                    is ArtistsResult -> searchResult.artist
+                    is PlaylistsResult -> searchResult.title
+                    is VideosResult -> searchResult.title
+                    else -> null
                 } ?: "Unknown"
 
             Text(

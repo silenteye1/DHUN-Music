@@ -13,6 +13,8 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
+import coil3.disk.directory
+import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import coil3.request.crossfade
@@ -27,8 +29,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import multiplatform.network.cmptoast.AppContext
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
-import okio.FileSystem
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.component.KoinComponent
@@ -39,6 +41,7 @@ import org.koin.core.logger.Level
 import org.simpmusic.crashlytics.configCrashlytics
 import org.simpmusic.lastfm.configLastfm
 import java.lang.reflect.Field
+import java.util.concurrent.TimeUnit
 
 class SimpMusicApplication :
     Application(),
@@ -48,6 +51,15 @@ class SimpMusicApplication :
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val dataStoreManager: DataStoreManager by inject()
     private lateinit var autoBackupScheduler: AutoBackupScheduler
+
+    // Ek shared Singleton OkHttpClient instance reuse hoga image networking ke liye
+    private val imageOkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectionPool(ConnectionPool(8, 2, TimeUnit.MINUTES))
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .build()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -84,15 +96,15 @@ class SimpMusicApplication :
 
         CaocConfig.Builder
             .create()
-            .backgroundMode(CaocConfig.BACKGROUND_MODE_SILENT) // default: CaocConfig.BACKGROUND_MODE_SHOW_CUSTOM
-            .enabled(true) // default: true
-            .showErrorDetails(true) // default: true
-            .showRestartButton(true) // default: true
+            .backgroundMode(CaocConfig.BACKGROUND_MODE_SILENT)
+            .enabled(true)
+            .showErrorDetails(true)
+            .showRestartButton(true)
             .errorDrawable(R.mipmap.ic_launcher_round)
-            .logErrorOnRestart(false) // default: true
-            .trackActivities(true) // default: false
-            .minTimeBetweenCrashesMs(2000) // default: 3000 //default: bug image
-            .restartActivity(MainActivity::class.java) // default: null (your app's launch activity)
+            .logErrorOnRestart(false)
+            .trackActivities(true)
+            .minTimeBetweenCrashesMs(2000)
+            .restartActivity(MainActivity::class.java)
             .apply()
 
         @SuppressLint("DiscouragedPrivateApi")
@@ -108,7 +120,6 @@ class SimpMusicApplication :
 
     override fun onTerminate() {
         super.onTerminate()
-
         Logger.w("Terminate", "Checking")
     }
 
@@ -118,19 +129,25 @@ class SimpMusicApplication :
             .components {
                 add(
                     OkHttpNetworkFetcherFactory(
-                        callFactory = {
-                            OkHttpClient()
-                        },
+                        callFactory = { imageOkHttpClient },
                     ),
                 )
-            }.diskCachePolicy(CachePolicy.ENABLED)
+            }
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .memoryCache {
+                MemoryCache.Builder()
+                    .maxSizePercent(context, 0.25) // Device ki available RAM ka 25% cache
+                    .strongReferencesEnabled(true)
+                    .build()
+            }
+            .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.ENABLED)
-            .diskCache(
-                DiskCache
-                    .Builder()
-                    .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
-                    .maxSizeBytes(512L * 1024 * 1024)
-                    .build(),
-            ).crossfade(true)
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(256L * 1024 * 1024) // 256MB disk cache
+                    .build()
+            }
+            .crossfade(true)
             .build()
 }

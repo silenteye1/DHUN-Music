@@ -96,6 +96,7 @@ android {
                     include(*abis)
                 }
             }
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             isMinifyEnabled = false
@@ -103,17 +104,19 @@ android {
             versionNameSuffix = "-dev"
         }
     }
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
-    // enable view binding
+
     buildFeatures {
         viewBinding = true
         compose = true
         buildConfig = true
     }
+
     packaging {
         jniLibs.useLegacyPackaging = true
         jniLibs.excludes +=
