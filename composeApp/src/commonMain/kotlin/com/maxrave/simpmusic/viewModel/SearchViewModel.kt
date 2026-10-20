@@ -3,11 +3,11 @@ package com.maxrave.simpmusic.viewModel
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.SELECTED_LANGUAGE
 import com.maxrave.domain.data.entities.SearchHistory
+import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.data.model.searchResult.albums.AlbumsResult
 import com.maxrave.domain.data.model.searchResult.artists.ArtistsResult
 import com.maxrave.domain.data.model.searchResult.playlists.PlaylistsResult
 import com.maxrave.domain.data.model.searchResult.songs.SongsResult
-import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.data.model.searchResult.videos.VideosResult
 import com.maxrave.domain.data.type.SearchResultType
 import com.maxrave.domain.manager.DataStoreManager
@@ -38,7 +38,6 @@ import simpmusic.composeapp.generated.resources.podcasts
 import simpmusic.composeapp.generated.resources.songs
 import simpmusic.composeapp.generated.resources.videos
 
-// State cho tìm kiếm
 data class SearchScreenState(
     val searchType: SearchType = SearchType.ALL,
     val searchAllResult: List<SearchResultType> = emptyList(),
@@ -53,7 +52,6 @@ data class SearchScreenState(
     val suggestYTItems: List<SearchResultType> = emptyList(),
 )
 
-// Loại tìm kiếm
 enum class SearchType {
     ALL,
     SONGS,
@@ -77,14 +75,10 @@ fun SearchType.toStringRes(): StringResource =
         SearchType.PODCASTS -> Res.string.podcasts
     }
 
-// UI state cho tìm kiếm
 sealed class SearchScreenUIState {
     object Empty : SearchScreenUIState()
-
     object Loading : SearchScreenUIState()
-
     object Success : SearchScreenUIState()
-
     object Error : SearchScreenUIState()
 }
 
@@ -102,11 +96,9 @@ class SearchViewModel(
     private val _searchHistory: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
     val searchHistory: StateFlow<List<String>> get() = _searchHistory.asStateFlow()
 
-    /** Browse categories shown on the empty search screen, the way YouTube Music itself does. */
     private val _moodAndGenres: MutableStateFlow<Mood?> = MutableStateFlow(null)
     val moodAndGenres: StateFlow<Mood?> get() = _moodAndGenres.asStateFlow()
 
-    /** Cover art per category params, filled in as tiles scroll into view. */
     private val _moodArtwork: MutableStateFlow<Map<String, String>> = MutableStateFlow(emptyMap())
     val moodArtwork: StateFlow<Map<String, String>> get() = _moodArtwork.asStateFlow()
 
@@ -122,11 +114,6 @@ class SearchViewModel(
         getMoodAndGenres()
     }
 
-    /**
-     * Fetched once for the app's lifetime — this ViewModel is a Koin `single`, and the category
-     * list changes about as often as YouTube ships a new mood, so re-fetching on every visit to
-     * the search tab would be pure waste.
-     */
     private fun getMoodAndGenres() {
         if (_moodAndGenres.value != null) return
         viewModelScope.launch {
@@ -138,11 +125,6 @@ class SearchViewModel(
         }
     }
 
-    /**
-     * Resolve the cover for one category. Called from the tile itself, so only categories the user
-     * actually scrolls to cost a request — [requestedArtwork] keeps a tile scrolling in and out of
-     * view from firing it again.
-     */
     fun loadMoodArtwork(params: String) {
         if (!requestedArtwork.add(params)) return
         viewModelScope.launch {
@@ -195,7 +177,10 @@ class SearchViewModel(
                     is Resource.Success -> {
                         values.data?.let { songsList ->
                             _searchScreenState.update { state ->
-                                state.copy(searchSongsResult = songsList)
+                                state.copy(
+                                    searchType = SearchType.SONGS,
+                                    searchSongsResult = songsList,
+                                )
                             }
                         }
                         _searchScreenUIState.value = SearchScreenUIState.Success
@@ -295,25 +280,13 @@ class SearchViewModel(
             job7.join()
 
             try {
-                if (artist.size >= 3) {
-                    for (i in 0..2) {
-                        temp += artist[i]
-                    }
-                    temp.addAll(song)
-                    temp.addAll(video)
-                    temp.addAll(album)
-                    temp.addAll(playlist)
-                    temp.addAll(featuredPlaylist)
-                    temp.addAll(podcast)
-                } else {
-                    temp.addAll(artist)
-                    temp.addAll(song)
-                    temp.addAll(video)
-                    temp.addAll(album)
-                    temp.addAll(playlist)
-                    temp.addAll(featuredPlaylist)
-                    temp.addAll(podcast)
-                }
+                temp.addAll(song)
+                temp.addAll(video)
+                temp.addAll(album)
+                temp.addAll(playlist)
+                temp.addAll(featuredPlaylist)
+                temp.addAll(artist)
+                temp.addAll(podcast)
 
                 _searchScreenState.update { state ->
                     state.copy(
@@ -352,7 +325,6 @@ class SearchViewModel(
                     }
 
                     is Resource.Error -> {
-                        // Không cần xử lý lỗi đặc biệt cho gợi ý
                         log("Error fetching suggest queries: ${values.message}", LogLevel.ERROR)
                     }
                 }

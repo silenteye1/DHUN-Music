@@ -36,9 +36,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -195,6 +195,7 @@ fun SearchScreen(
         isSearchActive = false
         focusManager.clearFocus()
         searchViewModel.insertSearchHistory(cleanQuery)
+        searchViewModel.setSearchType(type)
         when (type) {
             SearchType.ALL -> searchViewModel.searchAll(cleanQuery)
             SearchType.SONGS -> searchViewModel.searchSongs(cleanQuery)
@@ -404,19 +405,20 @@ fun SearchScreen(
                         state = suggestionsState,
                         contentPadding = PaddingValues(top = searchBarHeight, bottom = 10.dp),
                     ) {
-                        items(
+                        itemsIndexed(
                             items = searchScreenState.suggestYTItems,
-                            key = { item ->
-                                when (item) {
-                                    is SongsResult -> "s_${item.videoId}"
-                                    is VideosResult -> "v_${item.videoId}"
-                                    is AlbumsResult -> "al_${item.browseId}"
-                                    is ArtistsResult -> "ar_${item.browseId}"
-                                    is PlaylistsResult -> "pl_${item.browseId}"
+                            key = { index, item ->
+                                val id = when (item) {
+                                    is SongsResult -> item.videoId
+                                    is VideosResult -> item.videoId
+                                    is AlbumsResult -> item.browseId
+                                    is ArtistsResult -> item.browseId
+                                    is PlaylistsResult -> item.browseId
                                     else -> item.hashCode().toString()
                                 }
+                                "sugg_${index}_$id"
                             },
-                        ) { item ->
+                        ) { _, item ->
                             SuggestItemRow(
                                 searchResult = item,
                                 onItemClick = { clickedItem ->
@@ -459,10 +461,10 @@ fun SearchScreen(
                                 },
                             )
                         }
-                        items(
+                        itemsIndexed(
                             items = searchScreenState.suggestQueries,
-                            key = { q -> "q_$q" },
-                        ) { suggestion ->
+                            key = { index, q -> "q_${index}_$q" },
+                        ) { _, suggestion ->
                             Row(
                                 modifier =
                                     Modifier
@@ -472,7 +474,7 @@ fun SearchScreen(
                                             indication = ripple(),
                                             onClick = {
                                                 searchText = suggestion
-                                                performSearch(suggestion, searchScreenState.searchType)
+                                                performSearch(suggestion, SearchType.ALL)
                                             },
                                         ).padding(horizontal = 12.dp, vertical = 2.dp)
                                         .clip(RoundedCornerShape(8.dp)),
@@ -540,17 +542,17 @@ fun SearchScreen(
                                     }
                                 }
                             }
-                            items(
+                            itemsIndexed(
                                 items = searchHistory,
-                                key = { hist -> "hist_$hist" },
-                            ) { historyItem ->
+                                key = { index, hist -> "hist_${index}_$hist" },
+                            ) { _, historyItem ->
                                 Row(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
                                             .clickable {
                                                 searchText = historyItem
-                                                performSearch(historyItem, searchScreenState.searchType)
+                                                performSearch(historyItem, SearchType.ALL)
                                             }.padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -634,8 +636,8 @@ fun SearchScreen(
                                         )
                                     }
                                 }
-                                mood.sections.forEachIndexed { index, section ->
-                                    if (index > 0) {
+                                mood.sections.forEachIndexed { sIndex, section ->
+                                    if (sIndex > 0) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
                                             Text(
                                                 text = section.title,
@@ -646,7 +648,7 @@ fun SearchScreen(
                                             )
                                         }
                                     }
-                                    items(section.items, key = { "${section.title}/${it.params}" }) { item ->
+                                    itemsIndexed(section.items, key = { itemIndex, it -> "mood_${sIndex}_${itemIndex}_${it.params}" }) { _, item ->
                                         LaunchedEffect(item.params) {
                                             searchViewModel.loadMoodArtwork(item.params)
                                         }
@@ -738,10 +740,10 @@ fun SearchScreen(
                                                             ),
                                                         state = resultsState,
                                                     ) {
-                                                        items(
+                                                        itemsIndexed(
                                                             items = currentResults,
-                                                            key = { item ->
-                                                                when (item) {
+                                                            key = { index, item ->
+                                                                val id = when (item) {
                                                                     is SongsResult -> "song_${item.videoId}"
                                                                     is VideosResult -> "video_${item.videoId}"
                                                                     is AlbumsResult -> "album_${item.browseId}"
@@ -749,8 +751,9 @@ fun SearchScreen(
                                                                     is PlaylistsResult -> "playlist_${item.browseId}"
                                                                     else -> item.hashCode().toString()
                                                                 }
+                                                                "${index}_$id"
                                                             },
-                                                        ) { result ->
+                                                        ) { _, result ->
                                                             when (result) {
                                                                 is SongsResult -> {
                                                                     val track = remember(result) { result.toTrack() }
@@ -960,7 +963,7 @@ fun SearchScreen(
                                     focusManager.clearFocus()
                                     sharedViewModel.setIntent(GenericIntent(data = deepLink))
                                 } else {
-                                    performSearch(query, searchScreenState.searchType)
+                                    performSearch(query, SearchType.ALL)
                                 }
                             },
                             expanded = false,
@@ -1049,9 +1052,10 @@ fun SearchScreen(
                                 isSelected = isSelected,
                                 text = stringResource(id.toStringRes()),
                             ) {
-                                searchViewModel.setSearchType(id)
                                 if (searchText.isNotBlank()) {
                                     performSearch(searchText, id)
+                                } else {
+                                    searchViewModel.setSearchType(id)
                                 }
                             }
                             Spacer(modifier = Modifier.width(4.dp))
