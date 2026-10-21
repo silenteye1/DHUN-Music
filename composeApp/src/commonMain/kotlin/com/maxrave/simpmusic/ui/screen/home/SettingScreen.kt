@@ -561,7 +561,6 @@ fun SettingScreen(
     val themeMode by sharedViewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by sharedViewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
     val customThemeColorHex by sharedViewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
-    val nowPlayingStyle by sharedViewModel.getNowPlayingStyle().collectAsStateWithLifecycle(DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY)
     val lyricsStyle by sharedViewModel.getLyricsStyle().collectAsStateWithLifecycle(DataStoreManager.LYRICS_STYLE_CLASSIC)
     val romanizationStored by sharedViewModel.getRomanizationLanguages().collectAsStateWithLifecycle("")
     val japaneseDictionaryState by viewModel.japaneseDictionaryState.collectAsStateWithLifecycle()
@@ -796,33 +795,6 @@ fun SettingScreen(
                     },
                 )
                 val requiresAndroid12 = " (" + stringResource(Res.string.requires_android_12) + ")"
-                val nowPlayingStyleLabels =
-                    listOf(
-                        DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY to stringResource(Res.string.now_playing_style_spotify),
-                        DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE to stringResource(Res.string.now_playing_style_m3_expressive),
-                        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC to stringResource(Res.string.now_playing_style_apple_music) + requiresAndroid12,
-                    )
-                SettingItem(
-                    title = stringResource(Res.string.now_playing_style),
-                    subtitle = nowPlayingStyleLabels.firstOrNull { it.first == nowPlayingStyle }?.second ?: "",
-                    onClick = {
-                        viewModel.setAlertData(
-                            SettingAlertState(
-                                title = runBlocking { getString(Res.string.now_playing_style) },
-                                selectOne = SettingAlertState.SelectData(
-                                    listSelect = nowPlayingStyleLabels.map { (it.first == nowPlayingStyle) to it.second },
-                                ),
-                                confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                    val selected = state.selectOne?.getSelected()
-                                    nowPlayingStyleLabels.firstOrNull { it.second == selected }?.first?.let {
-                                        sharedViewModel.setNowPlayingStyle(it)
-                                    }
-                                },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
-                        )
-                    },
-                )
                 if (isLyricsBlurSupported()) {
                     val lyricsStyleLabels =
                         listOf(
@@ -2229,7 +2201,8 @@ fun SettingScreen(
 }
 
 /**
- * Reusable Modern Expandable Settings Card Container
+- Reusable Modern Expandable Settings Card Container
+
  */
 @Composable
 private fun ExpandableSettingGroupCard(

@@ -808,17 +808,8 @@ class JvmMediaPlayerHandlerImpl(
         updateNotificationJob?.cancel()
         updateNotificationJob =
             coroutineScope.launch {
-                var id = (player.currentMediaItem?.mediaId ?: "")
-                if (id.contains("Video")) {
-                    id = id.removePrefix("Video")
-                }
-                val liked =
-                    songRepository
-                        .getSongById(id)
-                        .singleOrNull()
-                        ?.liked ?: false
-                Logger.w("Check liked", liked.toString())
-                _controlState.value = _controlState.value.copy(isLiked = liked)
+                val liked = _controlState.value.isLiked
+                Logger.w("Check liked for notification", liked.toString())
                 onUpdateNotification.invoke(
                     listOf(
                         GenericCommandButton.Like(liked),
@@ -1036,24 +1027,34 @@ class JvmMediaPlayerHandlerImpl(
     }
 
     override fun toggleLike() {
-        Logger.w(TAG, "toggleLike: ${nowPlayingState.value.mediaItem.mediaId}")
+        val currentMediaId = nowPlayingState.value.mediaItem.mediaId
+        Logger.w(TAG, "toggleLike: $currentMediaId")
         toggleLikeJob?.cancel()
         toggleLikeJob =
             coroutineScope.launch {
-                var id = (player.currentMediaItem?.mediaId ?: "")
+                var id = (player.currentMediaItem?.mediaId ?: currentMediaId)
                 if (id.contains("Video")) {
                     id = id.removePrefix("Video")
                 }
+                val newLikedStatus = !_controlState.value.isLiked
+
+                // 1. Controller state ko turant update karein
+                _controlState.update { it.copy(isLiked = newLikedStatus) }
+
+                // 2. Notification icon ko turant redraw karein
+                updateNotification()
+
+                // 3. Database mein persist karein
                 songRepository.updateLikeStatus(
                     id,
-                    if (!(controlState.first().isLiked)) 1 else 0,
+                    if (newLikedStatus) 1 else 0,
                 )
-                delay(200)
             }
     }
 
     override fun like(liked: Boolean) {
-        _controlState.value = _controlState.value.copy(isLiked = liked)
+        _controlState.update { it.copy(isLiked = liked) }
+        updateNotification()
     }
 
     override fun resetSongAndQueue() {

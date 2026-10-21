@@ -138,6 +138,7 @@ internal class SimpleMediaSessionCallback(
     ): ListenableFuture<SessionResult> {
         Logger.w(TAG, "onSetRating received from: ${controller.packageName}")
         toggleLike()
+        session.setCustomLayout(session.customLayout)
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 
@@ -149,6 +150,7 @@ internal class SimpleMediaSessionCallback(
     ): ListenableFuture<SessionResult> {
         Logger.w(TAG, "onSetRating with mediaId ($mediaId) from: ${controller.packageName}")
         toggleLike()
+        session.setCustomLayout(session.customLayout)
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 
@@ -163,6 +165,7 @@ internal class SimpleMediaSessionCallback(
         when (customCommand.customAction) {
             MEDIA_CUSTOM_COMMAND.LIKE -> {
                 toggleLike()
+                session.setCustomLayout(session.customLayout)
             }
 
             MEDIA_CUSTOM_COMMAND.REPEAT -> {

@@ -61,7 +61,6 @@ object SpotifyHelper {
 
             val html = fetchHttp(embedUrl) ?: return@withContext emptyList()
 
-            // 1. First attempt: Read standard trackList from next_data
             val pattern = Pattern.compile("<script id=\"__NEXT_DATA__\" type=\"application/json\">(.*?)</script>", Pattern.DOTALL)
             val matcher = pattern.matcher(html)
             if (matcher.find()) {
@@ -90,7 +89,6 @@ object SpotifyHelper {
                 }
             }
 
-            // 2. Fallback regex match if JSON format changed
             if (tracksList.isEmpty()) {
                 val titleRegex = "\"name\"\\s*:\\s*\"([^\"]+)\"".toRegex()
                 val artistRegex = "\"artists\"\\s*:\\s*\\[\\{\"name\"\\s*:\\s*\"([^\"]+)\"".toRegex()

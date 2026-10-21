@@ -1193,7 +1193,6 @@ class SharedViewModel(
                 }
             resetLyricsVoteState()
 
-            // Cascading Synced & Non-Synced Search Chain (Online -> Offline DB -> Stop)
             fetchCascadingLyrics(song, (artist ?: "").toString(), duration)
         }
     }
@@ -1299,14 +1298,12 @@ class SharedViewModel(
         viewModelScope.launch {
             val videoId = song.videoId
 
-            // Step 5: Sabhi online sources fail hone ke baad sirf Offline Room DB check karein
             if (savedFallbackLyrics != null && !savedFallbackLyrics.lines.isNullOrEmpty()) {
                 Logger.d(tag, "All online sources exhausted. Loaded saved offline lyrics for $videoId")
                 val lyricsData = savedFallbackLyrics.toLyrics()
                 updateLyrics(videoId, duration, lyricsData, false, LyricsProvider.OFFLINE)
                 getAITranslationLyrics(videoId, lyricsData)
             } else {
-                // Online nahi mila aur phone storage me bhi nahi hai toh directly stop karein
                 Logger.w(tag, "No lyrics found online or in offline DB for $videoId. Skipping YouTube captions.")
                 _nowPlayingScreenData.update {
                     it.copy(lyricsData = null)
@@ -1357,7 +1354,6 @@ class SharedViewModel(
     ) {
         val targetLang = dataStoreManager.translationLanguage.first().ifEmpty { "hi" }
 
-        // Local Database Cache check
         val savedTranslation = lyricsCanvasRepository.getSavedTranslatedLyrics(videoId, targetLang).firstOrNull()
         if (savedTranslation != null && !savedTranslation.lines.isNullOrEmpty()) {
             Logger.d(tag, "Loaded translated lyrics from local database for $videoId ($targetLang)")
@@ -1388,7 +1384,6 @@ class SharedViewModel(
                 return
             }
 
-            // Inline timestamps aur extra tags saaf karein
             val sanitizedLines = currentLines.map { line ->
                 val cleanWords = decodeHtmlEntities(line.words)
                     .replace(Regex("<\\d{1,2}:\\d{2}\\.\\d{1,3}>"), "")
@@ -1506,9 +1501,8 @@ class SharedViewModel(
                 val like = likeStatus.value
                 if (!like) {
                     songRepository
-                        .addToYouTubeLiked(
-                            mediaPlayerHandler.nowPlaying.first()?.mediaId,
-                        ).collect { response ->
+                        .addToYouTubeLiked(videoId)
+                        .collect { response ->
                             if (response == 200) {
                                 makeToast(getString(Res.string.added_to_youtube_liked))
                                 getLikeStatus(videoId)
@@ -1518,10 +1512,9 @@ class SharedViewModel(
                         }
                 } else {
                     songRepository
-                        .removeFromYouTubeLiked(
-                            mediaPlayerHandler.nowPlaying.first()?.mediaId,
-                        ).collect {
-                            if (it == 200) {
+                        .removeFromYouTubeLiked(videoId)
+                        .collect { response ->
+                            if (response == 200) {
                                 makeToast(getString(Res.string.removed_from_youtube_liked))
                                 getLikeStatus(videoId)
                             } else {
