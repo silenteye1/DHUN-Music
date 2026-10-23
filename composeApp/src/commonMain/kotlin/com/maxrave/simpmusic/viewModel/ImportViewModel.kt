@@ -3,6 +3,8 @@ package com.maxrave.simpmusic.viewModel
 import androidx.lifecycle.viewModelScope
 import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.repository.ImportRepository
+import com.maxrave.simpmusic.ImportState
+import com.maxrave.simpmusic.SpotifyPlaylistImporter
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import com.mohamedrejeb.calf.core.PlatformContext
 import com.mohamedrejeb.calf.io.KmpFile
@@ -18,21 +20,23 @@ import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.import_invalid_file
 
 /**
- * Drives an import of a file produced by the SimpMusic web converter.
- *
- * The picked file is read here rather than in the repository because only the app module knows
- * what a picked file is. [KmpFile] comes from the same Calf picker the backup/restore flow uses,
- * and its `readByteArray` is already cross-platform, so no expect/actual is needed.
+ * Drives an import of a file produced by the SimpMusic web converter,
+ * or direct online import from public Spotify playlists.
  */
 class ImportViewModel(
     private val importRepository: ImportRepository,
+    private val spotifyPlaylistImporter: SpotifyPlaylistImporter,
 ) : BaseViewModel() {
     private val _importState: MutableStateFlow<ImportProgress?> = MutableStateFlow(null)
 
     /** `null` while idle; otherwise the latest step of the running or finished import. */
     val importState: StateFlow<ImportProgress?> = _importState.asStateFlow()
 
+    private val _spotifyImportState: MutableStateFlow<ImportState> = MutableStateFlow(ImportState.Idle)
+    val spotifyImportState: StateFlow<ImportState> = _spotifyImportState.asStateFlow()
+
     private var importJob: Job? = null
+    private var spotifyImportJob: Job? = null
 
     fun import(
         file: KmpFile,
@@ -55,6 +59,21 @@ class ImportViewModel(
                     _importState.value = progress
                 }
             }
+    }
+
+    fun importSpotifyPlaylist(url: String) {
+        spotifyImportJob?.cancel()
+        spotifyImportJob = viewModelScope.launch {
+            spotifyPlaylistImporter.importFromUrl(url).collect { state ->
+                _spotifyImportState.value = state
+            }
+        }
+    }
+
+    fun dismissSpotifyImport() {
+        spotifyImportJob?.cancel()
+        spotifyImportJob = null
+        _spotifyImportState.value = ImportState.Idle
     }
 
     /** Back to idle, which is what dismisses the progress/result dialog. */

@@ -114,6 +114,7 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.utils.LocalResource
+import com.maxrave.simpmusic.ImportState
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.clearDownloadedUpdateApks
 import com.maxrave.simpmusic.expect.ui.fileSaverResult
@@ -491,6 +492,9 @@ fun SettingScreen(
 
     val importViewModel: ImportViewModel = koinViewModel()
     val importState by importViewModel.importState.collectAsStateWithLifecycle()
+    val spotifyImportState by importViewModel.spotifyImportState.collectAsStateWithLifecycle()
+    var showSpotifyImportDialog by rememberSaveable { mutableStateOf(false) }
+
     val importLauncher =
         rememberFilePickerLauncher(
             type = FilePickerFileType.All,
@@ -1690,6 +1694,11 @@ fun SettingScreen(
                     onClick = { coroutineScope.launch { importLauncher.launch() } },
                 )
                 SettingItem(
+                    title = "Import Spotify Playlist",
+                    subtitle = "Import public playlist via Spotify share link",
+                    onClick = { showSpotifyImportDialog = true },
+                )
+                SettingItem(
                     title = stringResource(Res.string.clear_listening_history),
                     subtitle = stringResource(Res.string.clear_listening_history_description),
                     onClick = {
@@ -1784,6 +1793,55 @@ fun SettingScreen(
         item(key = "end") {
             EndOfPage()
         }
+    }
+
+    if (showSpotifyImportDialog) {
+        var inputUrl by rememberSaveable { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSpotifyImportDialog = false },
+            title = { Text(text = "Import Spotify Playlist", style = typo().titleSmall) },
+            text = {
+                Column {
+                    Text(
+                        text = "Paste public Spotify playlist link below:",
+                        style = typo().bodyMedium,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    TextField(
+                        value = inputUrl,
+                        onValueChange = { inputUrl = it },
+                        label = { Text("Playlist URL") },
+                        placeholder = { Text("https://open.spotify.com/playlist/...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = inputUrl.trim().isNotEmpty(),
+                    onClick = {
+                        val targetUrl = inputUrl.trim()
+                        showSpotifyImportDialog = false
+                        importViewModel.importSpotifyPlaylist(targetUrl)
+                    },
+                ) {
+                    Text("Import")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSpotifyImportDialog = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (spotifyImportState !is ImportState.Idle) {
+        SpotifyImportProgressDialog(
+            state = spotifyImportState,
+            onDismiss = importViewModel::dismissSpotifyImport,
+        )
     }
 
     importState?.let { progress ->
@@ -2201,8 +2259,7 @@ fun SettingScreen(
 }
 
 /**
-- Reusable Modern Expandable Settings Card Container
-
+ * Reusable Modern Expandable Settings Card Container
  */
 @Composable
 private fun ExpandableSettingGroupCard(
@@ -2301,6 +2358,82 @@ private fun ReverbSection() {
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
     }
+}
+
+@Composable
+private fun SpotifyImportProgressDialog(
+    state: ImportState,
+    onDismiss: () -> Unit,
+) {
+    val finished = state is ImportState.Success || state is ImportState.Error
+    AlertDialog(
+        onDismissRequest = { if (finished) onDismiss() },
+        properties = DialogProperties(dismissOnBackPress = finished, dismissOnClickOutside = finished),
+        title = {
+            Text(
+                text = when (state) {
+                    is ImportState.Error -> "Import Failed"
+                    is ImportState.Success -> "Import Complete"
+                    else -> "Importing Spotify Playlist"
+                },
+                style = typo().titleSmall,
+            )
+        },
+        text = {
+            Column {
+                when (state) {
+                    is ImportState.Idle -> {}
+                    is ImportState.FetchingMetadata -> {
+                        Text(text = "Fetching playlist tracks from Spotify...", style = typo().bodyMedium)
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    is ImportState.MatchingTracks -> {
+                        Text(
+                            text = "Matching tracks (${state.current}/${state.total})...",
+                            style = typo().bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = state.songTitle,
+                            style = typo().bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { if (state.total > 0) state.current.toFloat() / state.total else 0f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    is ImportState.CreatingYouTubePlaylist -> {
+                        Text(
+                            text = "Creating and syncing playlist to your YouTube Music account...",
+                            style = typo().bodyMedium,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    is ImportState.Success -> {
+                        Text(
+                            text = "Imported \"${state.playlistName}\" successfully!\nMatched songs: ${state.matchedCount}",
+                            style = typo().bodyMedium,
+                        )
+                    }
+                    is ImportState.Error -> {
+                        Text(text = state.message, style = typo().bodyMedium, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (finished) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.ok))
+                }
+            }
+        },
+    )
 }
 
 @Composable
