@@ -4,15 +4,15 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.maxrave.simpmusic",
+  "applicationId": "com.silenteye.dhunmusic",
   "variantName": "release",
   "elements": [
     {
       "type": "UNIVERSAL",
       "filters": [],
       "attributes": [],
-      "versionCode": 26,
-      "versionName": "2.6.0",
+      "versionCode": 28,
+      "versionName": "2.7.1",
       "outputFile": "androidApp-universal-release.apk"
     },
     {
@@ -24,22 +24,9 @@
         }
       ],
       "attributes": [],
-      "versionCode": 26,
-      "versionName": "2.6.0",
+      "versionCode": 28,
+      "versionName": "2.7.1",
       "outputFile": "androidApp-x86_64-release.apk"
-    },
-    {
-      "type": "ONE_OF_MANY",
-      "filters": [
-        {
-          "filterType": "ABI",
-          "value": "armeabi-v7a"
-        }
-      ],
-      "attributes": [],
-      "versionCode": 26,
-      "versionName": "2.6.0",
-      "outputFile": "androidApp-armeabi-v7a-release.apk"
     },
     {
       "type": "ONE_OF_MANY",
@@ -50,9 +37,22 @@
         }
       ],
       "attributes": [],
-      "versionCode": 26,
-      "versionName": "2.6.0",
+      "versionCode": 28,
+      "versionName": "2.7.1",
       "outputFile": "androidApp-arm64-v8a-release.apk"
+    },
+    {
+      "type": "ONE_OF_MANY",
+      "filters": [
+        {
+          "filterType": "ABI",
+          "value": "armeabi-v7a"
+        }
+      ],
+      "attributes": [],
+      "versionCode": 28,
+      "versionName": "2.7.1",
+      "outputFile": "androidApp-armeabi-v7a-release.apk"
     }
   ],
   "elementType": "File",
@@ -63,8 +63,8 @@
       "baselineProfiles": [
         "baselineProfiles/1/androidApp-universal-release.dm",
         "baselineProfiles/1/androidApp-x86_64-release.dm",
-        "baselineProfiles/1/androidApp-armeabi-v7a-release.dm",
-        "baselineProfiles/1/androidApp-arm64-v8a-release.dm"
+        "baselineProfiles/1/androidApp-arm64-v8a-release.dm",
+        "baselineProfiles/1/androidApp-armeabi-v7a-release.dm"
       ]
     },
     {
@@ -73,8 +73,8 @@
       "baselineProfiles": [
         "baselineProfiles/0/androidApp-universal-release.dm",
         "baselineProfiles/0/androidApp-x86_64-release.dm",
-        "baselineProfiles/0/androidApp-armeabi-v7a-release.dm",
-        "baselineProfiles/0/androidApp-arm64-v8a-release.dm"
+        "baselineProfiles/0/androidApp-arm64-v8a-release.dm",
+        "baselineProfiles/0/androidApp-armeabi-v7a-release.dm"
       ]
     }
   ],
