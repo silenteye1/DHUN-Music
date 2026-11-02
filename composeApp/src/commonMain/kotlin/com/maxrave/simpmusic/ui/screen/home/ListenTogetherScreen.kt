@@ -54,9 +54,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -136,28 +136,13 @@ import simpmusic.composeapp.generated.resources.lt_waiting_approval_desc
 import simpmusic.composeapp.generated.resources.lt_you
 import simpmusic.composeapp.generated.resources.settings
 
-/**
- * Listen Together.
- *
- * Colour, type and surface all come from the app's own system — `MaterialTheme.colorScheme`,
- * `typo()`, the colour scheme, and the liquid-glass treatment the Analytics screen uses — rather than a
- * palette of hard-coded hexes. The first version of this screen invented its own #0F1319 dark and
- * its own accent, which is precisely why it read as pasted in from somewhere else.
- */
 private val CARD_SHAPE = RoundedCornerShape(24.dp)
 private val ROW_SHAPE = RoundedCornerShape(18.dp)
 
-/**
- * Below this the screen is one column. Two columns need room for two REAL columns — splitting a
- * 700dp window just makes two cramped ones.
- */
 private const val TWO_COLUMN_MIN_DP = 900
-
-/** How long the copy button shows a tick before going back to the copy glyph. */
 private const val COPIED_FEEDBACK_MS = 1800L
 private const val ROOM_CODE_LENGTH = ListenTogetherViewModel.ROOM_CODE_LENGTH
 
-/** Avatar tints derived from the theme, so they move with it instead of fighting it. */
 @Composable
 private fun tintFor(id: String): Color {
     val palette =
@@ -186,17 +171,11 @@ fun ListenTogetherScreen(
     val clipboard = LocalClipboardManager.current
     var managing by remember { mutableStateOf<RoomMember?>(null) }
 
-    // The back button refracts whatever the page has drawn, so the CONTENT is the backdrop source
-    // and the button is its SIBLING — the same arrangement Album/Playlist/Analytics use. Nesting the
-    // button inside the source is the render-feedback loop that kills the RuntimeShader.
     val backdrop = rememberBackdrop(MaterialTheme.colorScheme.background)
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
     ) {
-        // Measured from BoxWithConstraints, not the window: this is the space left after the
-        // navigation rail. Two columns only once there is room for two REAL columns — a 560dp
-        // ribbon centred in a 2000dp window is what made this read as a form rather than a page.
         val wide = maxWidth >= TWO_COLUMN_MIN_DP.dp
 
         val copyCode: () -> Unit = { state.roomCode?.let { clipboard.setText(AnnotatedString(it)) } }
@@ -206,12 +185,6 @@ fun ListenTogetherScreen(
         }
         val openSettings: () -> Unit = { navController.navigate(ListenTogetherSettingsDestination) }
 
-        // Home's ambient top glow, tinted from the THEME rather than artwork — this page has none.
-        // Same recipe as HomeScreen's first item: an angled two-stop gradient with a scrim easing
-        // its tail into the background so there is no seam. Static, since the theme colour does not
-        // move. Drawn first, so both layout branches scroll over it; deliberately NOT inside the
-        // glass backdrop source — the back button is a sibling of that source and nesting order is
-        // what keeps the RuntimeShader from feeding back into itself.
         val bg = MaterialTheme.colorScheme.background
         val glow =
             if (bg.luminance() > 0.5f) {
@@ -219,12 +192,7 @@ fun ListenTogetherScreen(
             } else {
                 MaterialTheme.colorScheme.primary.rgbFactor(0.3f)
             }
-        // The backdrop SOURCE is this ground box — page colour plus the glow — not the content
-        // columns: glass shows whatever its source recorded, and with the source on the (mostly
-        // transparent) content the back button rendered as a solid black coin over a tinted page.
-        // Same arrangement as AlbumScreen's landscape header: a matchParentSize sibling that takes
-        // part in no measurement, with the button kept OUTSIDE it — nesting the button inside the
-        // source is the render-feedback loop that kills the RuntimeShader.
+
         Box(Modifier.matchParentSize().layerBackdrop(backdrop)) {
             Box(Modifier.matchParentSize().background(bg))
             Box(
@@ -245,8 +213,6 @@ fun ListenTogetherScreen(
 
         if (wide) {
             Row(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                // The identity side scrolls separately and normally does not move at all: the room
-                // code is what people read aloud, so it stays on screen while the list scrolls.
                 Column(
                     modifier =
                         Modifier
@@ -256,8 +222,6 @@ fun ListenTogetherScreen(
                             .padding(start = 24.dp, end = 28.dp, top = 14.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    // Reserves the strip the floating back button is drawn over — it is a sibling of
-                    // this column and takes part in no measurement, so nothing else pushes down for it.
                     Spacer(Modifier.height(BACK_BUTTON_STRIP))
                     TitleBlock(inRoom = state.inRoom)
                     ConnectionLine(state.connection, viewModel::connect, viewModel::disconnect)
@@ -323,12 +287,6 @@ fun ListenTogetherScreen(
     }
 }
 
-/**
- * Everything that changes as you use the screen: the form before a room, the people inside one.
- *
- * A `ColumnScope` extension so the two-column and one-column skeletons share it verbatim instead
- * of drifting apart — the bug where a fix lands on one layout only.
- */
 @Composable
 private fun ColumnScope.WorkArea(
     state: ListenTogetherRoom,
@@ -338,8 +296,6 @@ private fun ColumnScope.WorkArea(
     onManage: (RoomMember) -> Unit,
     onSettings: () -> Unit,
 ) {
-    // Held so the card keeps its text while it animates out — `state.error` is already null by then
-    // and the card would collapse through a frame of empty space.
     var lastError by remember { mutableStateOf("") }
     LaunchedEffect(state.error) { state.error?.let { lastError = it } }
     AnimatedVisibility(visible = state.error != null) {
@@ -380,18 +336,33 @@ private fun ColumnScope.WorkArea(
 
             PrimaryButton(
                 text = stringResource(Res.string.lt_create_room),
-                enabled = displayName.isNotBlank() && state.isConnected,
-                onClick = viewModel::createRoom,
+                enabled = displayName.isNotBlank() && (state.isConnected || state.connection is RoomConnection.Connected),
+                onClick = {
+                    if (!state.isConnected) {
+                        viewModel.connect()
+                    }
+                    viewModel.createRoom()
+                },
             )
 
             DividerLabel(stringResource(Res.string.lt_or_join_with_code))
 
-            CodeInput(codeInput, viewModel::onRoomCodeChange)
+            val cleanCode = codeInput.filter { !it.isWhitespace() }.uppercase()
+
+            CodeInput(cleanCode) { input ->
+                val sanitized = input.filter { !it.isWhitespace() }.uppercase().take(ROOM_CODE_LENGTH)
+                viewModel.onRoomCodeChange(sanitized)
+            }
 
             SecondaryButton(
                 text = stringResource(Res.string.lt_join_room),
-                enabled = displayName.isNotBlank() && codeInput.length == ROOM_CODE_LENGTH && state.isConnected,
-                onClick = viewModel::joinRoom,
+                enabled = displayName.isNotBlank() && cleanCode.length == ROOM_CODE_LENGTH,
+                onClick = {
+                    if (!state.isConnected) {
+                        viewModel.connect()
+                    }
+                    viewModel.joinRoom()
+                },
             )
 
             Text(
@@ -409,12 +380,6 @@ private fun ColumnScope.WorkArea(
     EndOfPage(withoutCredit = true)
 }
 
-/**
- * Where the protocol came from.
- *
- * Left-aligned with everything else: EndOfPage centres its own credit, which reads as misaligned
- * the moment the page stops being a single centred column.
- */
 @Composable
 private fun CreditFooter() {
     Column(
@@ -434,12 +399,7 @@ private fun CreditFooter() {
     }
 }
 
-/** Prefix for the share button; the code alone means nothing to the recipient. */
 private const val SHARE_PREFIX = "Join my SimpMusic room with code "
-
-// ───────────────────────────────── structure ─────────────────────────────────
-
-/** Status-bar inset + the 8.dp above the button + its own 48.dp. */
 private val BACK_BUTTON_STRIP = 56.dp
 
 @Composable
@@ -447,16 +407,9 @@ private fun BoxScope.BackButton(
     backdrop: PlatformBackdrop,
     onBack: () -> Unit,
 ) {
-    // Glass, like every other back button in the app. It only works as an OVERLAY: in the scrolling
-    // column it used to sit in, what is behind it is the flat page background, and glass with
-    // nothing to refract renders as a grey coin. Floating it over the content gives it the page to
-    // refract — and keeps it reachable once the page has scrolled, which the in-flow one did not.
     LiquidGlassIconButton(
         backdrop = backdrop,
         imageVector = SimpIcons.ArrowBackIosNew,
-        // NOT the default Color.White: every other caller sits on a ForceDark screen, but this page
-        // follows the theme — at light theme a white glyph sits on light glass (or on the light
-        // fallback pill) and disappears. onSurface flips with the scheme.
         tint = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(24.dp),
         modifier =
@@ -469,11 +422,6 @@ private fun BoxScope.BackButton(
     )
 }
 
-/**
- * The page title, left-aligned and large enough to be the biggest thing on screen after the room
- * code. It was a centred `titleMedium` in a top bar over a decorative circle icon — which is the
- * layout every generated screen has, and it left nothing on the page holding rank.
- */
 @Composable
 private fun TitleBlock(inRoom: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -492,12 +440,6 @@ private fun TitleBlock(inRoom: Boolean) {
     }
 }
 
-/**
- * Connection state as one line of text, not a bordered card with a filled pill in it.
- *
- * It is ambient information — you glance at it and move on — so giving it the same card treatment
- * as the room itself was what made every block on this screen look equally important.
- */
 @Composable
 private fun ConnectionLine(
     connection: RoomConnection,
@@ -520,8 +462,6 @@ private fun ConnectionLine(
             RoomConnection.Disconnected -> stringResource(Res.string.lt_not_connected)
         }
 
-    // Connecting is the one state the user is waiting on, and a static dot is indistinguishable
-    // from a stuck one.
     val pulse = rememberInfiniteTransition(label = "ltConnecting")
     val dotAlpha by pulse.animateFloat(
         initialValue = 1f,
@@ -569,13 +509,6 @@ private fun ConnectionLine(
     }
 }
 
-/**
- * The room code, as a poster.
- *
- * This is the one thing on the screen a person reads out loud to someone sitting next to them, so
- * it is the one thing allowed to be outsized — and it sits directly on the background rather than
- * inside a card, because a card would rank it level with the Settings row.
- */
 @Composable
 private fun RoomCodePoster(
     state: ListenTogetherRoom,
@@ -599,8 +532,6 @@ private fun RoomCodePoster(
                     ?.chunked(4)
                     ?.joinToString(" ")
                     .orEmpty(),
-            // The app's scale stops at 25sp because nothing else has to carry across a room. Sized
-            // so eight monospace characters still fit a 390dp phone once padding is taken out.
             style =
                 typo().titleLarge.copy(
                     fontSize = 40.sp,
@@ -636,8 +567,6 @@ private fun RoomCodePoster(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 2.dp),
             ) {
-                // A silent clipboard write is indistinguishable from a dead button, and this one
-                // is the whole point of the screen — the tick is the only proof it did anything.
                 Crossfade(targetState = copied, label = "ltCopied") { done ->
                     GlyphButton(if (done) SimpIcons.Check else SimpIcons.ContentCopy) {
                         onCopyCode()
@@ -650,12 +579,6 @@ private fun RoomCodePoster(
     }
 }
 
-/**
- * The buffer barrier, said out loud.
- *
- * Playback genuinely stops until the slowest device is ready; naming who is being waited for is
- * what stops the silence reading as the app having hung.
- */
 @Composable
 private fun BufferBanner(names: List<String>) {
     Surface(tint = MaterialTheme.colorScheme.tertiary) {
@@ -804,8 +727,6 @@ private fun Members(
     onManage: (RoomMember) -> Unit,
 ) {
     SectionHeader(stringResource(Res.string.lt_in_room), members.size)
-    // A plain divided list, not one card per person: a room of five people was five identical
-    // rounded rectangles, which reads as five unrelated objects rather than one list.
     Column(Modifier.fillMaxWidth()) {
         members.forEachIndexed { index, member ->
             if (index > 0) {
@@ -888,11 +809,6 @@ private fun Members(
     }
 }
 
-/**
- * Leaving and settings, as quiet text actions on one line.
- *
- * They were two full-width cards, which gave "Settings" the same visual weight as the room itself.
- */
 @Composable
 private fun FooterActions(
     onLeave: (() -> Unit)?,
@@ -927,8 +843,6 @@ private fun TextAction(
     color: Color,
     onClick: () -> Unit,
 ) {
-    // A real Material button, not a Row with clickable on it: that hand-rolled version had no
-    // ripple, no pressed state and no guaranteed minimum touch target.
     FilledTonalButton(
         onClick = onClick,
         shape = CircleShape,
@@ -997,9 +911,6 @@ private fun MemberActionDialog(
     }
 }
 
-// ───────────────────────────────── building blocks ─────────────────────────────────
-
-/** One card. Every panel on this screen is one of these, so they cannot drift apart. */
 @Composable
 private fun Surface(
     tint: Color? = null,
@@ -1134,9 +1045,6 @@ private fun PrimaryButton(
                 .fillMaxWidth()
                 .height(52.dp)
                 .clip(CircleShape)
-                // primary/onPrimary, never primary/surface: on the light theme `surface` is nearly
-                // white and the filled button became white text on pale cyan. onPrimary is generated
-                // against primary, so it is the only text colour guaranteed to survive both themes.
                 .background(
                     if (enabled) {
                         MaterialTheme.colorScheme.primary
@@ -1269,27 +1177,24 @@ private fun CodeInput(
     onCodeChange: (String) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
-    // TextFieldValue, not String: a plain String re-places the caret at index 0 on every
-    // externally-driven recomposition, and backspace at index 0 deletes nothing — the field takes
-    // characters and then refuses to give them back.
     val fieldValue = TextFieldValue(text = code, selection = TextRange(code.length))
 
     BasicTextField(
         value = fieldValue,
-        onValueChange = { onCodeChange(it.text) },
+        onValueChange = { newValue ->
+            val clean = newValue.text.filter { !it.isWhitespace() }.uppercase().take(ROOM_CODE_LENGTH)
+            onCodeChange(clean)
+        },
         singleLine = true,
         textStyle = LocalTextStyle.current.copy(color = Color.Transparent),
         cursorBrush = SolidColor(Color.Transparent),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false),
         modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         decorationBox = { innerTextField ->
-            // Zero-sized but composed: without it nothing holds the cursor and the field takes no
-            // input at all.
             Box(Modifier.size(0.dp)) { innerTextField() }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 repeat(ROOM_CODE_LENGTH) { index ->
                     val filled = index < code.length
-                    // The caret is drawn by hand because the field that owns it is zero-sized.
                     val isCaret = index == code.length
                     Box(
                         modifier =

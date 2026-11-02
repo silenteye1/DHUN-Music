@@ -412,15 +412,6 @@ internal class DataStoreManagerImpl(
     override suspend fun setSponsorBlockCategories(categories: ArrayList<String>) {
         withContext(Dispatchers.IO) {
             Logger.w("setSponsorBlockCategories", categories.toString())
-            // Every category is written in ONE edit, keyed by `value` on both branches.
-            //
-            // The clearing branch used to key on `category.toString()`. SponsorBlockType is a sealed
-            // class of data objects, so that is the object's NAME — "SPONSOR" — while the enabled
-            // branch and [getSponsorBlockCategories] both use `value`, "sponsor". Unticking a
-            // category therefore wrote FALSE to a key nobody reads and left the real one at TRUE:
-            // the choice came back unchanged every time the dialog was reopened, and all nine
-            // categories stayed on forever. Confirmed against a real settings store where every one
-            // of the nine read TRUE.
             settingsDataStore.edit { settings ->
                 SponsorBlockType.toList().forEach { category ->
                     settings[stringPreferencesKey(category.value)] =
@@ -586,8 +577,6 @@ internal class DataStoreManagerImpl(
     override suspend fun setEqualizerBands(bandsDb: List<Float>) {
         withContext(Dispatchers.IO) {
             settingsDataStore.edit { settings ->
-                // Blank when flat, so "no equalizer" and "an equalizer set to zero" are the same
-                // stored state and neither installs a filter chain.
                 settings[EQUALIZER_BANDS] =
                     if (bandsDb.all { it == 0f }) "" else bandsDb.joinToString(",")
             }
@@ -639,9 +628,6 @@ internal class DataStoreManagerImpl(
 
     override val delayTimeMs: Flow<Int> =
         settingsDataStore.data.map { preferences ->
-            // Written as text like the preamp is, so a value that cannot be read back — hand
-            // edited, or written by a build that stored something else here — falls to the
-            // default instead of failing the whole preferences read on a typed key.
             preferences[DELAY_TIME_MS]?.toIntOrNull() ?: 400
         }
 
@@ -694,8 +680,6 @@ internal class DataStoreManagerImpl(
 
     override val reverbPreset: Flow<String> =
         settingsDataStore.data.map { preferences ->
-            // Handed back as the raw name: this layer has no business deciding what an unknown
-            // room means, and the readers that build a filter out of it already have a default.
             preferences[REVERB_PRESET] ?: ReverbPreset.HALL.name
         }
 
@@ -810,9 +794,6 @@ internal class DataStoreManagerImpl(
         }
     }
 
-    // Fallback "" (blank) on purpose: credentials are not hard-coded in source — they come
-    // only from the remote config. CommonRepositoryImpl pushes a value into YouTube only when
-    // non-blank, so an empty cache simply leaves TIDAL disabled until the first fetch.
     override val tidalClientId: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[TIDAL_CLIENT_ID] ?: ""
@@ -1448,8 +1429,6 @@ internal class DataStoreManagerImpl(
         }
     }
 
-    // Defaults to FALSE: anyone already running crossfade would otherwise find it silently absent
-    // on albums after updating.
     override val crossfadeSkipAlbum: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[CROSSFADE_SKIP_ALBUM] ?: FALSE
@@ -1463,7 +1442,6 @@ internal class DataStoreManagerImpl(
         }
     }
 
-    // Defaults to FALSE: it spends storage and mobile data on the user's behalf.
     override val autoDownloadLikedSongs: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[AUTO_DOWNLOAD_LIKED_SONGS] ?: FALSE
@@ -1526,7 +1504,7 @@ internal class DataStoreManagerImpl(
         }
 
     override suspend fun setContributorLyricsDatabase(
-        contributor: Pair<String, String>?, // contributor name and email, null if anonymous
+        contributor: Pair<String, String>?,
     ) {
         withContext(Dispatchers.IO) {
             settingsDataStore.edit { settings ->
@@ -1575,6 +1553,23 @@ internal class DataStoreManagerImpl(
             } else {
                 settingsDataStore.edit { settings ->
                     settings[LIQUID_GLASS] = FALSE
+                }
+            }
+        }
+    }
+
+    override val customBackgroundUri: Flow<String?> =
+        settingsDataStore.data.map { preferences ->
+            preferences[CUSTOM_BACKGROUND_URI]
+        }
+
+    override suspend fun setCustomBackgroundUri(uri: String?) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                if (uri != null) {
+                    settings[CUSTOM_BACKGROUND_URI] = uri
+                } else {
+                    settings.remove(CUSTOM_BACKGROUND_URI)
                 }
             }
         }
@@ -1635,13 +1630,6 @@ internal class DataStoreManagerImpl(
             preferences[LASTFM_USERNAME] ?: ""
         }
 
-    /**
-     * Key and username are written together, and an empty key clears both.
-     *
-     * They only mean anything as a pair: a username with no key cannot scrobble, and a key with no
-     * username leaves settings unable to say whose account is connected. One edit also means
-     * logging out cannot leave half the pair behind if the process dies mid-way.
-     */
     override suspend fun setLastfmSession(
         sessionKey: String,
         username: String,
@@ -1853,6 +1841,7 @@ internal class DataStoreManagerImpl(
         val BACKUP_DOWNLOADED = stringPreferencesKey("backup_downloaded")
 
         val LIQUID_GLASS = stringPreferencesKey("liquid_glass")
+        val CUSTOM_BACKGROUND_URI = stringPreferencesKey("custom_background_uri")
 
         val EXPLICIT_CONTENT_ENABLED = stringPreferencesKey("explicit_content_enabled")
 

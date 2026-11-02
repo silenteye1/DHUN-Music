@@ -12,8 +12,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +24,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -33,7 +37,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,10 +49,14 @@ import androidx.navigation.NavController
 import com.kmpalette.rememberPaletteState
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.maxrave.logger.Logger
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.GradientAngle
 import com.maxrave.simpmusic.extension.GradientOffset
 import com.maxrave.simpmusic.extension.KeepScreenOn
 import com.maxrave.simpmusic.extension.getColorFromPalette
+import com.maxrave.simpmusic.extension.getScreenSizeInfo
 import com.maxrave.simpmusic.extension.hsvToColor
 import com.maxrave.simpmusic.extension.rememberIsInPipMode
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
@@ -61,7 +72,6 @@ import com.maxrave.simpmusic.ui.navigation.destination.player.FullscreenDestinat
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentActions
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentSpotify
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentState
-import com.maxrave.simpmusic.ui.screen.player.content.PlayerBackdropColor
 import com.maxrave.simpmusic.ui.screen.player.content.toAudioCodecLabel
 import com.maxrave.simpmusic.viewModel.LyricsProvider
 import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetUIEvent
@@ -78,6 +88,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private const val TAG = "NowPlayingScreen"
+
+val LocalPlayerBackdrop = staticCompositionLocalOf<PlatformBackdrop?> { null }
 
 @OptIn(ExperimentalFoundationApi::class)
 @ExperimentalMaterial3Api
@@ -101,12 +113,8 @@ fun NowPlayingScreen(
     }
 
     ModalBottomSheet(
-        modifier =
-            Modifier
-                .fillMaxHeight(),
-        onDismissRequest = {
-            onDismiss()
-        },
+        modifier = Modifier.fillMaxHeight(),
+        onDismissRequest = { onDismiss() },
         containerColor = Color.Transparent,
         dragHandle = {},
         scrimColor = Color.Black.copy(alpha = .6f),
@@ -119,9 +127,7 @@ fun NowPlayingScreen(
             navController = navController,
             isExpanded = sheetState.currentValue == SheetValue.Expanded,
             dismissIcon = SimpIcons.KeyboardArrowDown,
-            onDismiss = {
-                hideSheet()
-            },
+            onDismiss = { hideSheet() },
         )
     }
 }
@@ -137,8 +143,9 @@ fun NowPlayingScreenContent(
     onDismiss: () -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val backdrop = rememberBackdrop(Color(0xFF040608))
+    val screenInfo = getScreenSizeInfo()
 
-    // ViewModel State
     val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
@@ -247,55 +254,21 @@ fun NowPlayingScreenContent(
     val isInPipMode = rememberIsInPipMode()
     val mainScrollState = rememberScrollState()
 
-    var showHideMiddleLayout by rememberSaveable {
-        mutableStateOf(true)
-    }
-
-    var showSheet by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showFullscreenLyrics by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showQueueBottomSheet by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showInfoBottomSheet by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showVoteDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var showAddToPlaylistDirectly by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    var shouldShowToolbar by remember {
-        mutableStateOf(false)
-    }
+    var showHideMiddleLayout by rememberSaveable { mutableStateOf(true) }
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+    var showFullscreenLyrics by rememberSaveable { mutableStateOf(false) }
+    var showQueueBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var showInfoBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var showVoteDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddToPlaylistDirectly by rememberSaveable { mutableStateOf(false) }
+    var shouldShowToolbar by remember { mutableStateOf(false) }
 
     val paletteState = rememberPaletteState()
 
-    val startColor =
-        remember {
-            Animatable(Color(0xFF1E1E1E))
-        }
-    val endColor =
-        remember {
-            Animatable(Color.Black)
-        }
-    val gradientOffset by remember {
-        mutableStateOf(GradientOffset(GradientAngle.CW135))
-    }
-
-    var spotShadowColor by remember {
-        mutableStateOf(Color.White)
-    }
+    val startColor = remember { Animatable(Color(0xFF2E2E3A)) }
+    val endColor = remember { Animatable(Color(0xFF141923)) }
+    val gradientOffset by remember { mutableStateOf(GradientOffset(GradientAngle.CW135)) }
+    var spotShadowColor by remember { mutableStateOf(Color.White) }
 
     LaunchedEffect(screenDataState) {
         Logger.d(TAG, "ScreenDataState: $screenDataState")
@@ -314,20 +287,23 @@ fun NowPlayingScreenContent(
     LaunchedEffect(Unit) {
         snapshotFlow { paletteState.palette }
             .distinctUntilChanged()
-            .collectLatest {
-                val dominant = it.getColorFromPalette()
+            .collectLatest { palette ->
+                if (palette == null) return@collectLatest
+                val dominant = palette.getColorFromPalette()
+                val secondary = palette.vibrantSwatch?.rgb?.let { Color(it) }
+                    ?: palette.darkVibrantSwatch?.rgb?.let { Color(it) }
+                    ?: palette.mutedSwatch?.rgb?.let { Color(it) }
+                    ?: palette.lightVibrantSwatch?.rgb?.let { Color(it) }
+                    ?: dominant
+
                 spotShadowColor = dominant
-                startColor.animateTo(dominant, animationSpec = tween(600))
-                endColor.animateTo(PlayerBackdropColor, animationSpec = tween(600))
+                startColor.animateTo(dominant, animationSpec = tween(900))
+                endColor.animateTo(secondary, animationSpec = tween(900))
             }
     }
 
-    var isSliding by rememberSaveable {
-        mutableStateOf(false)
-    }
-    var userSliderValue by rememberSaveable {
-        mutableFloatStateOf(0f)
-    }
+    var isSliding by rememberSaveable { mutableStateOf(false) }
+    var userSliderValue by rememberSaveable { mutableFloatStateOf(0f) }
 
     val computedProgress by remember(timelineState.current, timelineState.total) {
         derivedStateOf {
@@ -344,11 +320,10 @@ fun NowPlayingScreenContent(
     val rainbowHue by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(1000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
         label = "rainbowHue",
     )
     val rainbowColor = hsvToColor(rainbowHue, 1f, 1f)
@@ -358,22 +333,14 @@ fun NowPlayingScreenContent(
         label = "sliderCrossfadeColor",
     )
 
-    var showHideControlLayout by rememberSaveable {
-        mutableStateOf(true)
-    }
+    var showHideControlLayout by rememberSaveable { mutableStateOf(true) }
     val controlLayoutAlpha: Float by animateFloatAsState(
         targetValue = if (showHideControlLayout) 1f else 0f,
-        animationSpec =
-            tween(
-                durationMillis = 500,
-                easing = LinearEasing,
-            ),
+        animationSpec = tween(durationMillis = 500, easing = LinearEasing),
         label = "ControlLayoutAlpha",
     )
 
-    var showHideJob by remember {
-        mutableStateOf(true)
-    }
+    var showHideJob by remember { mutableStateOf(true) }
 
     LaunchedEffect(key1 = showHideJob) {
         if (!showHideJob) {
@@ -384,18 +351,16 @@ fun NowPlayingScreenContent(
     }
 
     LaunchedEffect(Unit) {
-        snapshotFlow {
-            screenDataState
-        }.distinctUntilChangedBy {
-            it.canvasData?.url
-        }.collectLatest {
-            if (it.canvasData != null && mainScrollState.value == 0) {
-                showHideJob = false
-            } else {
-                showHideJob = true
-                showHideControlLayout = true
+        snapshotFlow { screenDataState }
+            .distinctUntilChangedBy { it.canvasData?.url }
+            .collectLatest {
+                if (it.canvasData != null && mainScrollState.value == 0) {
+                    showHideJob = false
+                } else {
+                    showHideJob = true
+                    showHideControlLayout = true
+                }
             }
-        }
     }
 
     LaunchedEffect(key1 = showHideControlLayout) {
@@ -417,9 +382,7 @@ fun NowPlayingScreenContent(
             }
     }
 
-    var currentLyricLineIndex by rememberSaveable {
-        mutableIntStateOf(-1)
-    }
+    var currentLyricLineIndex by rememberSaveable { mutableIntStateOf(-1) }
 
     LaunchedEffect(timelineState, screenDataState.lyricsData?.lyrics) {
         val lyrics = screenDataState.lyricsData?.lyrics
@@ -453,13 +416,9 @@ fun NowPlayingScreenContent(
 
     if (showSheet) {
         NowPlayingBottomSheet(
-            onDismiss = {
-                showSheet = false
-            },
+            onDismiss = { showSheet = false },
             navController = navController,
-            onNavigateToOtherScreen = {
-                onDismiss()
-            },
+            onNavigateToOtherScreen = { onDismiss() },
             song = null,
             setSleepTimerEnable = true,
             changeMainLyricsProviderEnable = true,
@@ -477,19 +436,11 @@ fun NowPlayingScreenContent(
     }
 
     if (showQueueBottomSheet) {
-        QueueBottomSheet(
-            onDismiss = {
-                showQueueBottomSheet = false
-            },
-        )
+        QueueBottomSheet(onDismiss = { showQueueBottomSheet = false })
     }
 
     if (showInfoBottomSheet) {
-        InfoPlayerBottomSheet(
-            onDismiss = {
-                showInfoBottomSheet = false
-            },
-        )
+        InfoPlayerBottomSheet(onDismiss = { showInfoBottomSheet = false })
     }
 
     if (showAddToPlaylistDirectly) {
@@ -521,36 +472,26 @@ fun NowPlayingScreenContent(
     if (showVoteDialog) {
         val canVoteLyrics =
             screenDataState.lyricsData?.lyricsProvider == LyricsProvider.SIMPMUSIC &&
-                screenDataState.lyricsData
-                    ?.lyrics
-                    ?.simpMusicLyrics != null
+                screenDataState.lyricsData?.lyrics?.simpMusicLyrics != null
         val canVoteTranslatedLyrics =
             screenDataState.lyricsData?.translatedLyrics?.second == LyricsProvider.SIMPMUSIC &&
-                screenDataState.lyricsData
-                    ?.translatedLyrics
-                    ?.first
-                    ?.simpMusicLyrics != null
+                screenDataState.lyricsData?.translatedLyrics?.first?.simpMusicLyrics != null
 
         VoteLyricsDialog(
             canVoteLyrics = canVoteLyrics,
             canVoteTranslatedLyrics = canVoteTranslatedLyrics,
             lyricsVoteState = lyricsVoteState,
             translatedLyricsVoteState = translatedVoteState,
-            onVoteLyrics = { upvote ->
-                sharedViewModel.voteLyrics(upvote)
-            },
-            onVoteTranslatedLyrics = { upvote ->
-                sharedViewModel.voteTranslatedLyrics(upvote)
-            },
-            onDismiss = {
-                showVoteDialog = false
-            },
+            onVoteLyrics = { upvote -> sharedViewModel.voteLyrics(upvote) },
+            onVoteTranslatedLyrics = { upvote -> sharedViewModel.voteTranslatedLyrics(upvote) },
+            onDismiss = { showVoteDialog = false },
         )
     }
 
     if (screenDataState.lyricsData != null && controllerState.isPlaying) {
         KeepScreenOn()
     }
+
     val state =
         NowPlayingContentState(
             screenData = screenDataState,
@@ -581,12 +522,11 @@ fun NowPlayingScreenContent(
             dismissIcon = dismissIcon,
             audioCodecLabel = formatState?.codecs.toAudioCodecLabel(),
         )
+
     val actions =
         NowPlayingContentActions(
             onUIEvent = { sharedViewModel.onUIEvent(it) },
-            onSeekToQueueIndex = { index ->
-                mediaPlayerHandler.playMediaItemInMediaSource(index)
-            },
+            onSeekToQueueIndex = { index -> mediaPlayerHandler.playMediaItemInMediaSource(index) },
             onArtworkBitmap = { sharedViewModel.setBitmap(it) },
             onSliderChange = { newValue ->
                 isSliding = true
@@ -594,9 +534,7 @@ fun NowPlayingScreenContent(
             },
             onSliderChangeFinished = {
                 isSliding = false
-                sharedViewModel.onUIEvent(
-                    UIEvent.UpdateProgress(userSliderValue),
-                )
+                sharedViewModel.onUIEvent(UIEvent.UpdateProgress(userSliderValue))
             },
             onToggleControls = {
                 showHideJob = true
@@ -604,17 +542,11 @@ fun NowPlayingScreenContent(
             },
             onNavigateToArtist = {
                 val song = sharedViewModel.nowPlayingState.value?.songEntity
-                (
-                    song?.artistId?.firstOrNull()?.takeIf { it.isNotEmpty() }
-                        ?: screenDataState.songInfoData?.authorId
-                    )?.let { channelId ->
-                        onDismiss()
-                        navController.navigate(
-                            ArtistDestination(
-                                channelId = channelId,
-                            ),
-                        )
-                    }
+                (song?.artistId?.firstOrNull()?.takeIf { it.isNotEmpty() }
+                    ?: screenDataState.songInfoData?.authorId)?.let { channelId ->
+                    onDismiss()
+                    navController.navigate(ArtistDestination(channelId = channelId))
+                }
             },
             onAddToYouTubeLiked = { sharedViewModel.addToYouTubeLiked() },
             onShowMoreSheet = { showSheet = true },
@@ -630,21 +562,152 @@ fun NowPlayingScreenContent(
             onDismiss = onDismiss,
             onToolbarVisibilityChange = { shouldShowToolbar = it },
             onMoveQueueItem = { from, to ->
-                coroutineScope.launch {
-                    mediaPlayerHandler.swap(from, to)
-                }
+                coroutineScope.launch { mediaPlayerHandler.swap(from, to) }
             },
-            onRemoveQueueItem = { index ->
-                mediaPlayerHandler.removeMediaItem(index)
-            },
+            onRemoveQueueItem = { index -> mediaPlayerHandler.removeMediaItem(index) },
         )
 
-    // Unified Consistent Player:
-    // 1. Spotify Canvas first if available (Full bleed looping visual)
-    // 2. YouTube Video if active
-    // 3. Album Art fallback with uniform glass pod controls
-    NowPlayingContentSpotify(
-        state = state,
-        actions = actions,
+    val ambientMotion = rememberInfiniteTransition(label = "ambientMotionTransition")
+
+    val orb1X by ambientMotion.animateFloat(
+        initialValue = -0.10f,
+        targetValue = 0.60f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 11000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orb1X",
     )
+    val orb1Y by ambientMotion.animateFloat(
+        initialValue = 0.05f,
+        targetValue = 0.50f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 9000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orb1Y",
+    )
+    val orb2X by ambientMotion.animateFloat(
+        initialValue = 1.10f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 13000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orb2X",
+    )
+    val orb2Y by ambientMotion.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 0.40f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orb2Y",
+    )
+    val orbRadiusScale by ambientMotion.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.30f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 7500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "orbRadiusScale",
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(backdrop),
+        ) {
+            val widthPx = screenInfo.wPX.toFloat().coerceAtLeast(1080f)
+            val heightPx = screenInfo.hPX.toFloat().coerceAtLeast(2400f)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF040608)),
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                state.startColor.value.copy(alpha = 0.92f),
+                                state.startColor.value.copy(alpha = 0.40f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(
+                                x = widthPx * orb1X,
+                                y = heightPx * orb1Y,
+                            ),
+                            radius = widthPx * 1.35f * orbRadiusScale,
+                        ),
+                    ),
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                state.endColor.value.copy(alpha = 0.88f),
+                                state.spotShadowColor.copy(alpha = 0.45f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(
+                                x = widthPx * orb2X,
+                                y = heightPx * orb2Y,
+                            ),
+                            radius = widthPx * 1.55f * (2.25f - orbRadiusScale),
+                        ),
+                    ),
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                state.startColor.value.copy(alpha = 0.50f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(
+                                x = widthPx * 0.5f,
+                                y = heightPx * 0.55f,
+                            ),
+                            radius = widthPx * 1.15f * orbRadiusScale,
+                        ),
+                    ),
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                state.startColor.value.copy(alpha = 0.18f),
+                                Color(0xFF040608).copy(alpha = 0.82f),
+                            ),
+                            startY = heightPx * 0.50f,
+                            endY = heightPx,
+                        ),
+                    ),
+            )
+        }
+
+        CompositionLocalProvider(LocalPlayerBackdrop provides backdrop) {
+            NowPlayingContentSpotify(
+                state = state,
+                actions = actions,
+            )
+        }
+    }
 }

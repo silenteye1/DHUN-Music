@@ -3,6 +3,7 @@ package com.maxrave.simpmusic.ui.component
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,14 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -36,9 +36,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.domain.data.entities.AlbumEntity
 import com.maxrave.domain.data.entities.LocalPlaylistEntity
 import com.maxrave.domain.data.entities.PlaylistEntity
@@ -49,17 +56,17 @@ import com.maxrave.domain.data.type.MonthlyRecapItem
 import com.maxrave.domain.data.type.PlaylistType
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.logger.Logger
-import com.maxrave.simpmusic.extension.angledGradientBackground
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.ui.icon.Add
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.LocalPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
-import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
-import com.maxrave.simpmusic.ui.theme.seed
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -74,6 +81,7 @@ internal inline fun <reified T> GridLibraryPlaylist(
     data: LocalResource<List<T>>,
     emptyText: StringResource,
     state: LazyGridState = rememberLazyGridState(),
+    backdrop: PlatformBackdrop? = null,
     noinline onScrolling: (onTop: Boolean) -> Unit = { _ -> },
     noinline header: (@Composable () -> Unit)? = null,
     noinline createNewPlaylist: (() -> Unit)? = null,
@@ -81,6 +89,7 @@ internal inline fun <reified T> GridLibraryPlaylist(
 ) {
     Logger.w("GridLibraryPlaylist", "Generic Type: ${T::class.simpleName}")
     val isScrollingUp by state.isScrollingUp()
+    val isLiquidGlassEnabled = LocalLiquidGlassEnabled.current
 
     LaunchedEffect(state) {
         snapshotFlow { state.firstVisibleItemIndex }
@@ -118,7 +127,7 @@ internal inline fun <reified T> GridLibraryPlaylist(
             val list = (data as? LocalResource.Success)?.data ?: emptyList()
             if ((data is LocalResource.Success && list.isNotEmpty()) || createNewPlaylist != null || header != null) {
                 LazyVerticalGrid(
-                    columns = GridCells.FixedSize(size = 132.dp),
+                    columns = GridCells.FixedSize(size = 148.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     contentPadding = contentPadding,
                     state = state,
@@ -130,34 +139,51 @@ internal inline fun <reified T> GridLibraryPlaylist(
                     }
                     if (createNewPlaylist != null) {
                         item {
+                            val cardShape = RoundedCornerShape(18.dp)
                             Box(
-                                modifier =
-                                    Modifier.clickable {
-                                        createNewPlaylist()
-                                    },
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .clip(cardShape)
+                                    .then(
+                                        if (backdrop != null && isLiquidGlassEnabled) {
+                                            Modifier.drawBackdrop(
+                                                backdrop = backdrop,
+                                                shape = { cardShape },
+                                                highlight = { Highlight.Plain },
+                                                effects = {
+                                                    vibrancy()
+                                                    colorControls(brightness = 0.05f, contrast = 1f, saturation = 1.3f)
+                                                    blur(10.dp.toPx())
+                                                    lens(12.dp.toPx(), 24.dp.toPx(), false)
+                                                },
+                                                onDrawSurface = {
+                                                    drawRect(Color.White.copy(alpha = 0.12f))
+                                                },
+                                            )
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
+                                    .border(
+                                        1.dp,
+                                        Brush.verticalGradient(
+                                            listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.08f)),
+                                        ),
+                                        cardShape,
+                                    )
+                                    .clickable { createNewPlaylist() }
+                                    .padding(10.dp),
                             ) {
-                                Column(
-                                    modifier =
-                                        Modifier
-                                            .padding(10.dp),
-                                ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Box(
                                         Modifier
-                                            .size(132.dp)
+                                            .size(128.dp)
                                             .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .angledGradientBackground(
-                                                colors =
-                                                    listOf(
-                                                        seed,
-                                                        Color.White.copy(alpha = 0.8f),
-                                                    ),
-                                                degrees = 45f,
-                                            ),
+                                            .clip(RoundedCornerShape(14.dp)),
                                         Alignment.Center,
                                     ) {
                                         Icon(
-                                            modifier = Modifier.size(84.dp),
+                                            modifier = Modifier.size(56.dp),
                                             imageVector = SimpIcons.Add,
                                             tint = Color.White,
                                             contentDescription = null,
@@ -166,11 +192,11 @@ internal inline fun <reified T> GridLibraryPlaylist(
                                     Text(
                                         text = stringResource(Res.string.create),
                                         style = typo().titleSmall,
-                                        color = MaterialTheme.colorScheme.onBackground,
+                                        color = Color.White,
                                         maxLines = 1,
                                         modifier =
                                             Modifier
-                                                .width(132.dp)
+                                                .width(128.dp)
                                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                                 .padding(top = 8.dp)
                                                 .basicMarquee(
@@ -186,76 +212,112 @@ internal inline fun <reified T> GridLibraryPlaylist(
                         if (item !is PlaylistType) {
                             return@items
                         }
-                        HomeItemContentPlaylist(
-                            onClick = {
-                                when (item) {
-                                    is ChartItem -> {
-                                        navController.navigate(
-                                            PlaylistDestination(
-                                                playlistId = item.ytPlaylistId,
-                                                isYourYouTubePlaylist = false,
-                                            ),
-                                        )
-                                    }
 
-                                    is LocalPlaylistEntity -> {
-                                        navController.navigate(
-                                            LocalPlaylistDestination(
-                                                item.id,
-                                            ),
+                        val cardShape = RoundedCornerShape(18.dp)
+                        Box(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .clip(cardShape)
+                                .then(
+                                    if (backdrop != null && isLiquidGlassEnabled) {
+                                        Modifier.drawBackdrop(
+                                            backdrop = backdrop,
+                                            shape = { cardShape },
+                                            highlight = { Highlight.Plain },
+                                            effects = {
+                                                vibrancy()
+                                                colorControls(brightness = 0.05f, contrast = 1f, saturation = 1.3f)
+                                                blur(10.dp.toPx())
+                                                lens(12.dp.toPx(), 24.dp.toPx(), false)
+                                            },
+                                            onDrawSurface = {
+                                                drawRect(Color.Black.copy(alpha = 0.18f))
+                                            },
                                         )
-                                    }
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .border(
+                                    1.dp,
+                                    Brush.verticalGradient(
+                                        listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.06f)),
+                                    ),
+                                    cardShape,
+                                )
+                                .padding(8.dp),
+                        ) {
+                            HomeItemContentPlaylist(
+                                onClick = {
+                                    when (item) {
+                                        is ChartItem -> {
+                                            navController.navigate(
+                                                PlaylistDestination(
+                                                    playlistId = item.ytPlaylistId,
+                                                    isYourYouTubePlaylist = false,
+                                                ),
+                                            )
+                                        }
 
-                                    is PlaylistsResult -> {
-                                        navController.navigate(
-                                            PlaylistDestination(
-                                                item.browseId,
-                                                isYourYouTubePlaylist = true,
-                                            ),
-                                        )
-                                    }
+                                        is LocalPlaylistEntity -> {
+                                            navController.navigate(
+                                                LocalPlaylistDestination(
+                                                    item.id,
+                                                ),
+                                            )
+                                        }
 
-                                    is AlbumEntity -> {
-                                        navController.navigate(
-                                            AlbumDestination(
-                                                item.browseId,
-                                            ),
-                                        )
-                                    }
+                                        is PlaylistsResult -> {
+                                            navController.navigate(
+                                                PlaylistDestination(
+                                                    item.browseId,
+                                                    isYourYouTubePlaylist = true,
+                                                ),
+                                            )
+                                        }
 
-                                    is PlaylistEntity -> {
-                                        navController.navigate(
-                                            PlaylistDestination(
-                                                item.id,
-                                            ),
-                                        )
-                                    }
+                                        is AlbumEntity -> {
+                                            navController.navigate(
+                                                AlbumDestination(
+                                                    item.browseId,
+                                                ),
+                                            )
+                                        }
 
-                                    is PodcastsEntity -> {
-                                        navController.navigate(
-                                            PodcastDestination(
-                                                podcastId = item.podcastId,
-                                            ),
-                                        )
-                                    }
+                                        is PlaylistEntity -> {
+                                            navController.navigate(
+                                                PlaylistDestination(
+                                                    item.id,
+                                                ),
+                                            )
+                                        }
 
-                                    is MonthlyRecapItem -> {
-                                        navController.navigate(
-                                            LibraryDynamicPlaylistDestination(
-                                                type =
-                                                    LibraryDynamicPlaylistType
-                                                        .MonthlyRecap(
-                                                            year = item.year,
-                                                            month = item.month,
-                                                        ).toStringParams(),
-                                            ),
-                                        )
+                                        is PodcastsEntity -> {
+                                            navController.navigate(
+                                                PodcastDestination(
+                                                    podcastId = item.podcastId,
+                                                ),
+                                            )
+                                        }
+
+                                        is MonthlyRecapItem -> {
+                                            navController.navigate(
+                                                LibraryDynamicPlaylistDestination(
+                                                    type =
+                                                        LibraryDynamicPlaylistType
+                                                            .MonthlyRecap(
+                                                                year = item.year,
+                                                                month = item.month,
+                                                            ).toStringParams(),
+                                                ),
+                                            )
+                                        }
                                     }
-                                }
-                            },
-                            data = item,
-                            thumbSize = 132.dp,
-                        )
+                                },
+                                data = item,
+                                thumbSize = 132.dp,
+                            )
+                        }
                     }
 
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -276,7 +338,7 @@ internal inline fun <reified T> GridLibraryPlaylist(
                     Text(
                         text = stringResource(emptyText),
                         style = typo().bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White.copy(alpha = 0.7f),
                     )
                 }
             }

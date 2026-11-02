@@ -36,18 +36,24 @@ interface DataStoreManager {
     val language: Flow<String>
 
     /**
-     * Serialized "Moods & Genres" browse result, so the search and home screens can paint their
-     * category grid immediately instead of waiting on the network every time. Null until the
-     * first successful fetch.
+    - Serialized "Moods & Genres" browse result, so the search and home screens can paint their
+
+    - category grid immediately instead of waiting on the network every time. Null until the
+
+    - first successful fetch.
+
      */
     val moodAndGenresCache: Flow<String?>
 
     suspend fun setMoodAndGenresCache(json: String)
 
     /**
-     * Cover art resolved per browse category, keyed by its params. The category list itself
-     * carries no artwork, so each cover costs one full category browse — worth remembering on
-     * disk rather than paying again every time the search screen opens.
+    - Cover art resolved per browse category, keyed by its params. The category list itself
+
+    - carries no artwork, so each cover costs one full category browse — worth remembering on
+
+    - disk rather than paying again every time the search screen opens.
+
      */
     val moodArtworkCache: Flow<String?>
 
@@ -140,10 +146,13 @@ interface DataStoreManager {
     suspend fun setWatchVideoInsteadOfPlayingAudio(watch: Boolean)
 
     /**
-     * Whether a radio queue should carry audio only, dropping the video entries YouTube mixes in.
+    - Whether a radio queue should carry audio only, dropping the video entries YouTube mixes in.
+
      *
-     * Scoped to radios on purpose — it is not a global "hide every video" switch, so a playlist or
-     * an album the user picked themselves still plays exactly what it contains.
+    - Scoped to radios on purpose — it is not a global "hide every video" switch, so a playlist or
+
+    - an album the user picked themselves still plays exactly what it contains.
+
      */
     val radioAudioOnly: Flow<String>
 
@@ -162,22 +171,31 @@ interface DataStoreManager {
     suspend fun setSpdc(spdc: String)
 
     /**
-     * Whether following an artist in the app also subscribes to their YouTube channel.
+    - Whether following an artist in the app also subscribes to their YouTube channel.
+
      *
-     * Off by default and only settable while signed in: Follow has always been local-only, and
-     * writing to someone's account is not something to start doing without being asked.
+    - Off by default and only settable while signed in: Follow has always been local-only, and
+
+    - writing to someone's account is not something to start doing without being asked.
+
      */
     /**
-     * Ten equalizer band gains in dB, comma separated, or empty for flat.
+    - Ten equalizer band gains in dB, comma separated, or empty for flat.
+
      *
-     * Stored as text rather than ten keys because the bands are only ever read and written
-     * together — a curve is one setting, not ten.
+    - Stored as text rather than ten keys because the bands are only ever read and written
+
+    - together — a curve is one setting, not ten.
+
      */
     /**
-     * Whether the equalizer is applied at all.
+    - Whether the equalizer is applied at all.
+
      *
-     * Separate from the curve so switching it off keeps the shape the user built — turning it back
-     * on returns to their settings rather than to flat.
+    - Separate from the curve so switching it off keeps the shape the user built — turning it back
+
+    - on returns to their settings rather than to flat.
+
      */
     val equalizerEnabled: Flow<String>
 
@@ -193,11 +211,15 @@ interface DataStoreManager {
     suspend fun setEqualizerPreamp(preampDb: Float)
 
     /**
-     * The AutoEq profile last imported, as `"<label>\n<comma-separated gains>"`.
+    - The AutoEq profile last imported, as `
+    "<label>\n<comma-separated gains>"`.
      *
-     * Label and curve share one key on purpose. The label is only shown while the equalizer still
-     * holds exactly those gains, so storing them apart would create two values that have to agree
-     * — and a moment during the write where they do not.
+    - Label and curve share one key on purpose. The label is only shown while the equalizer still
+
+- holds exactly those gains, so storing them apart would create two values that have to agree
+
+- — and a moment during the write where they do not.
+
      */
     val equalizerAutoEqProfile: Flow<String>
 
@@ -207,12 +229,17 @@ interface DataStoreManager {
     )
 
     /**
-     * Whether the echo is applied at all.
+    - Whether the echo is applied at all.
+
      *
-     * Separate from the three values below for the same reason the equalizer switch is separate
-     * from its curve: switching it off has to take the filter out of the audio chain, but the
-     * numbers the user dialled in stay put, so switching it back on returns to their echo rather
-     * than to the default one.
+    - Separate from the three values below for the same reason the equalizer switch is separate
+
+    - from its curve: switching it off has to take the filter out of the audio chain, but the
+
+    - numbers the user dialled in stay put, so switching it back on returns to their echo rather
+
+    - than to the default one.
+
      */
     val delayEnabled: Flow<String>
 
@@ -224,11 +251,15 @@ interface DataStoreManager {
     suspend fun setDelayTimeMs(timeMs: Int)
 
     /**
-     * How much of each repeat survives into the next one, 0..0.9.
+    - How much of each repeat survives into the next one, 0..0.9.
+
      *
-     * The number of audible taps is derived from this rather than stored beside it: a tail length
-     * and a tap count are two ways of saying the same thing, and storing both creates a pair that
-     * can disagree.
+    - The number of audible taps is derived from this rather than stored beside it: a tail length
+
+    - and a tap count are two ways of saying the same thing, and storing both creates a pair that
+
+    - can disagree.
+
      */
     val delayFeedback: Flow<Float>
 
@@ -240,20 +271,27 @@ interface DataStoreManager {
     suspend fun setDelayMix(mix: Float)
 
     /**
-     * Whether the reverb is applied at all. Separate from the room and the mix on the same
-     * reasoning as [delayEnabled] — the room the user picked outlives the switch.
+    - Whether the reverb is applied at all. Separate from the room and the mix on the same
+
+    - reasoning as
+    [delayEnabled] — the room the user picked outlives the switch.
      */
     val reverbEnabled: Flow<String>
 
     suspend fun setReverbEnabled(enabled: Boolean)
 
     /**
-     * The room being convolved against, as the raw [ReverbPreset] name.
+    - The room being convolved against, as the raw
+    [ReverbPreset] name.
      *
-     * Stored as the name and handed back unresolved because a name survives the list growing —
-     * an index is a position, and inserting a room in the middle of the list would silently move
-     * every device onto a different one. Readers resolve it themselves and fall back to the
-     * default when the stored name comes from a newer build than the one reading it.
+    - Stored as the name and handed back unresolved because a name survives the list growing —
+
+    - an index is a position, and inserting a room in the middle of the list would silently move
+
+    - every device onto a different one. Readers resolve it themselves and fall back to the
+
+    - default when the stored name comes from a newer build than the one reading it.
+
      */
     val reverbPreset: Flow<String>
 
@@ -277,8 +315,10 @@ interface DataStoreManager {
     suspend fun setSpotifyCanvas(spotifyCanvas: Boolean)
 
     /**
-     * Animated album artwork from the hidden AM catalog, used in place of a Spotify canvas. It
-     * needs no account of any kind, so unlike [spotifyCanvas] it is never gated on a login.
+    - Animated album artwork from the hidden AM catalog, used in place of a Spotify canvas. It
+
+    - needs no account of any kind, so unlike
+    [spotifyCanvas] it is never gated on a login.
      */
     val amAnimatedArtwork: Flow<String>
 
@@ -435,21 +475,29 @@ interface DataStoreManager {
     suspend fun setCrossfadeDjMode(enabled: Boolean)
 
     /**
-     * When on, transitions *between tracks of the same album* skip the crossfade, so an album that
-     * was sequenced to run continuously keeps doing so. Edges still crossfade: the last album track
-     * into whatever follows it fades normally. Off by default — it changes how crossfade behaves
-     * for anyone already using it.
+    - When on, transitions *between tracks of the same album* skip the crossfade, so an album that
+
+    - was sequenced to run continuously keeps doing so. Edges still crossfade: the last album track
+
+    - into whatever follows it fades normally. Off by default — it changes how crossfade behaves
+
+    - for anyone already using it.
+
      */
     val crossfadeSkipAlbum: Flow<String>
 
     suspend fun setCrossfadeSkipAlbum(enabled: Boolean)
 
     /**
-     * When on, liking a song also queues it for offline download, at the existing download quality.
+    - When on, liking a song also queues it for offline download, at the existing download quality.
+
      *
-     * Off by default — it spends storage and data without the user asking each time. Only applies
-     * from the moment it is switched on: songs liked earlier are left alone, and unliking never
-     * removes a download that already exists.
+    - Off by default — it spends storage and data without the user asking each time. Only applies
+
+    - from the moment it is switched on: songs liked earlier are left alone, and unliking never
+
+    - removes a download that already exists.
+
      */
     val autoDownloadLikedSongs: Flow<String>
 
@@ -476,6 +524,10 @@ interface DataStoreManager {
 
     suspend fun setEnableLiquidGlass(enable: Boolean)
 
+    val customBackgroundUri: Flow<String?>
+
+    suspend fun setCustomBackgroundUri(uri: String?)
+
     /** One of [THEME_MODE_SYSTEM], [THEME_MODE_DARK], [THEME_MODE_LIGHT]. */
     val themeMode: Flow<String>
 
@@ -497,23 +549,33 @@ interface DataStoreManager {
     suspend fun setNowPlayingStyle(style: String)
 
     /**
-     * One of [LYRICS_STYLE_CLASSIC], [LYRICS_STYLE_APPLE_MUSIC]. Deliberately independent of
-     * [nowPlayingStyle]: it governs how a lyric line is drawn, everywhere lyrics are drawn —
-     * the fullscreen sheet included, whichever player style is in use.
+    - One of
+    [LYRICS_STYLE_CLASSIC], [LYRICS_STYLE_APPLE_MUSIC]. Deliberately independent of
+    -
+    [nowPlayingStyle]: it governs how a lyric line is drawn, everywhere lyrics are drawn —
+    - the fullscreen sheet included, whichever player style is in use.
+
      */
     val lyricsStyle: Flow<String>
 
     suspend fun setLyricsStyle(style: String)
 
     /**
-     * Which languages get a Latin-script reading shown for their lyrics, as a comma-separated list
-     * of [org.simpmusic.lyrics.romanization.RomanizationLanguage] NAMES — empty string means the
-     * feature is off, which is the default.
+    - Which languages get a Latin-script reading shown for their lyrics, as a comma-separated list
+
+    - of
+    [org.simpmusic.lyrics.romanization.RomanizationLanguage] NAMES — empty string means the
+    - feature is off, which is the default.
+
      *
-     * Stored as names rather than ordinals because an enum's ordinal is a position, not an
-     * identity: inserting a language into the middle of that enum would silently repoint every
-     * saved preference. Stored as ONE key rather than twelve booleans so reading it is a single
-     * flow rather than a combine of twelve.
+    - Stored as names rather than ordinals because an enum's ordinal is a position, not an
+
+    - identity: inserting a language into the middle of that enum would silently repoint every
+
+    - saved preference. Stored as ONE key rather than twelve booleans so reading it is a single
+
+    - flow rather than a combine of twelve.
+
      */
     val romanizationLanguages: Flow<String>
 

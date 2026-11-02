@@ -1,15 +1,12 @@
 package com.maxrave.simpmusic.ui.screen.home
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -32,13 +29,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,7 +44,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,32 +73,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.annotation.ExperimentalCoilApi
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.common.LIMIT_CACHE_SIZE
 import com.maxrave.common.QUALITY
 import com.maxrave.common.SUPPORTED_LANGUAGE
@@ -117,12 +118,15 @@ import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.simpmusic.ImportState
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.clearDownloadedUpdateApks
 import com.maxrave.simpmusic.expect.ui.fileSaverResult
 import com.maxrave.simpmusic.expect.ui.getDownloadedUpdateApkSize
 import com.maxrave.simpmusic.expect.ui.isLyricsBlurSupported
 import com.maxrave.simpmusic.expect.ui.isWallpaperDynamicColorSupported
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.openAppLinkingSettings
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.bytesToMB
 import com.maxrave.simpmusic.extension.displayString
 import com.maxrave.simpmusic.extension.isTwoLetterCode
@@ -131,12 +135,9 @@ import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.ActionButton
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.EndOfPage
-import com.maxrave.simpmusic.ui.component.FrostedBackground
 import com.maxrave.simpmusic.ui.component.LoadingDialog
 import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.SettingItem
-import com.maxrave.simpmusic.ui.component.frostedGlass
-import com.maxrave.simpmusic.ui.component.rememberNowPlayingGlowTint
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.Error
@@ -148,7 +149,8 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.DiscordLoginDestina
 import com.maxrave.simpmusic.ui.navigation.destination.login.LastfmLoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestination
-import com.maxrave.simpmusic.ui.theme.md_theme_dark_primary
+import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.utils.VersionManager
@@ -165,12 +167,18 @@ import com.mikepenz.aboutlibraries.ui.compose.m3.libraryColors
 import com.mikepenz.aboutlibraries.ui.compose.produceLibraries
 import com.mohamedrejeb.calf.core.ExperimentalCalfApi
 import com.mohamedrejeb.calf.io.getPath
+import com.mohamedrejeb.calf.io.readByteArray
 import com.mohamedrejeb.calf.picker.FilePickerFileType
 import com.mohamedrejeb.calf.picker.FilePickerSelectionMode
 import com.mohamedrejeb.calf.picker.rememberFilePickerLauncher
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.rememberHazeState
+import java.io.File
+import java.io.FileOutputStream
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -417,9 +425,6 @@ import simpmusic.composeapp.generated.resources.youtube_account
 import simpmusic.composeapp.generated.resources.youtube_subtitle_language
 import simpmusic.composeapp.generated.resources.youtube_subtitle_language_message
 import simpmusic.composeapp.generated.resources.youtube_transcript
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 enum class SettingSection {
     ACCOUNTS,
@@ -428,7 +433,40 @@ enum class SettingSection {
     AUDIO_PLAYBACK,
     LYRICS_AI,
     STORAGE_BACKUP,
-    ABOUT
+    ABOUT,
+}
+
+@Composable
+fun Modifier.settingCleanLiquidGlass(
+    backdrop: PlatformBackdrop,
+    shape: Shape = RoundedCornerShape(22.dp),
+): Modifier {
+    if (!LocalLiquidGlassEnabled.current) {
+        return this
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f))
+    }
+    val isDark = LocalIsDarkTheme.current
+    return this
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            highlight = { Highlight.Plain },
+            effects = {
+                vibrancy()
+                colorControls(
+                    brightness = 0.05f,
+                    contrast = 1f,
+                    saturation = 1.4f,
+                )
+                blur(10.dp.toPx())
+                lens(14.dp.toPx(), 28.dp.toPx(), false)
+            },
+            onDrawSurface = {
+                drawRect((if (isDark) Color.Black else Color.White).copy(alpha = 0.16f))
+            },
+        )
 }
 
 @OptIn(
@@ -443,6 +481,7 @@ fun SettingScreen(
     navController: NavController,
     viewModel: SettingsViewModel = koinViewModel(),
     sharedViewModel: SharedViewModel = koinInject(),
+    dataStoreManager: DataStoreManager = koinInject(),
 ) {
     val platformContext = LocalPlatformContext.current
     val pl = com.mohamedrejeb.calf.core.LocalPlatformContext.current
@@ -450,7 +489,6 @@ fun SettingScreen(
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
 
-    var width by rememberSaveable { mutableIntStateOf(0) }
     var expandedSection by rememberSaveable { mutableStateOf<SettingSection?>(null) }
     var updateApkSize by remember { mutableStateOf(getDownloadedUpdateApkSize(platformContext)) }
 
@@ -472,6 +510,37 @@ fun SettingScreen(
         ) { file ->
             file.firstOrNull()?.getPath(pl)?.toKmpUri()?.let {
                 viewModel.restore(it)
+            }
+        }
+
+    val customBackgroundUri by dataStoreManager.customBackgroundUri.collectAsStateWithLifecycle(initialValue = null)
+
+    val customWallpaperLauncher =
+        rememberFilePickerLauncher(
+            type = FilePickerFileType.Image,
+            selectionMode = FilePickerSelectionMode.Single,
+        ) { files ->
+            files.firstOrNull()?.let { file ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        val bytes = file.readByteArray(pl)
+                        val baseDir = File(System.getProperty("java.io.tmpdir") ?: ".").parentFile ?: File(".")
+                        val filesDir = File(baseDir, "files").apply { if (!exists()) mkdirs() }
+
+                        val oldPath = customBackgroundUri
+                        if (!oldPath.isNullOrEmpty()) {
+                            try { File(oldPath).delete() } catch (_: Exception) {}
+                        }
+
+                        val newWallpaperFile = File(filesDir, "custom_wallpaper_${System.currentTimeMillis()}.jpg")
+                        FileOutputStream(newWallpaperFile).use { out ->
+                            out.write(bytes)
+                        }
+                        dataStoreManager.setCustomBackgroundUri(newWallpaperFile.absolutePath)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
 
@@ -519,9 +588,7 @@ fun SettingScreen(
     val playerCache by viewModel.cacheSize.collectAsStateWithLifecycle()
     val downloadedCache by viewModel.downloadedCacheSize.collectAsStateWithLifecycle()
     val thumbnailCache by viewModel.thumbCacheSize.collectAsStateWithLifecycle()
-    val canvasCache by viewModel.canvasCacheSize.collectAsStateWithLifecycle()
     val limitPlayerCache by viewModel.playerCacheLimit.collectAsStateWithLifecycle()
-    val fraction by viewModel.fraction.collectAsStateWithLifecycle()
     val lastCheckUpdate by viewModel.lastCheckForUpdate.collectAsStateWithLifecycle()
     val explicitContentEnabled by viewModel.explicitContentEnabled.collectAsStateWithLifecycle()
     val usingProxy by viewModel.usingProxy.collectAsStateWithLifecycle()
@@ -536,16 +603,9 @@ fun SettingScreen(
     val useAITranslation by viewModel.useAITranslation.collectAsStateWithLifecycle()
     val translationLanguage by viewModel.translationLanguage.collectAsStateWithLifecycle()
     val customModelId by viewModel.customModelId.collectAsStateWithLifecycle()
-    val customOpenAIBaseUrl by viewModel.customOpenAIBaseUrl.collectAsStateWithLifecycle()
-    val customOpenAIHeaders by viewModel.customOpenAIHeaders.collectAsStateWithLifecycle()
     val helpBuildLyricsDatabase by viewModel.helpBuildLyricsDatabase.collectAsStateWithLifecycle()
-    val contributor by viewModel.contributor.collectAsStateWithLifecycle()
     val backupDownloaded by viewModel.backupDownloaded.collectAsStateWithLifecycle()
     val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsStateWithLifecycle()
-    val autoBackupFrequency by viewModel.autoBackupFrequency.collectAsStateWithLifecycle()
-    val autoBackupMaxFiles by viewModel.autoBackupMaxFiles.collectAsStateWithLifecycle()
-    val autoBackupLastTime by viewModel.autoBackupLastTime.collectAsStateWithLifecycle()
-    val updateChannel by viewModel.updateChannel.collectAsStateWithLifecycle()
     val enableLiquidGlass by viewModel.enableLiquidGlass.collectAsStateWithLifecycle()
     val themeMode by sharedViewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by sharedViewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
@@ -573,7 +633,8 @@ fun SettingScreen(
     val castState by viewModel.castState.collectAsStateWithLifecycle()
     val isCheckingUpdate by sharedViewModel.isCheckingUpdate.collectAsStateWithLifecycle()
 
-    val hazeState = rememberHazeState(blurEnabled = true)
+    val backdrop = rememberBackdrop(Color.Transparent)
+    var topAppBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
     var manualCheckedTime by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val checkForUpdateSubtitle by remember {
@@ -609,21 +670,73 @@ fun SettingScreen(
     }
 
     val settingListState = rememberLazyListState()
-    val glowNowPlaying by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
-    val dominantGlow = rememberNowPlayingGlowTint(glowNowPlaying?.songEntity?.thumbnails)
 
-    FrostedBackground(
-        dominantColor = dominantGlow,
-        hazeState = hazeState,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF030508))
     ) {
+        // ==================== 1. LIVE BACKDROP SOURCE CANVAS ====================
+        key(customBackgroundUri) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(backdrop)
+            ) {
+                val wallpaperFile = remember(customBackgroundUri) {
+                    customBackgroundUri?.takeIf { it.isNotEmpty() }?.let { path ->
+                        val f = File(path)
+                        if (f.exists()) f else null
+                    }
+                }
+
+                if (wallpaperFile != null) {
+                    val lastModified = remember(wallpaperFile) { wallpaperFile.lastModified() }
+                    AsyncImage(
+                        model = remember(customBackgroundUri, lastModified) {
+                            ImageRequest.Builder(platformContext)
+                                .data(wallpaperFile)
+                                .memoryCacheKey("${customBackgroundUri}_$lastModified")
+                                .diskCacheKey("${customBackgroundUri}_$lastModified")
+                                .memoryCachePolicy(CachePolicy.WRITE_ONLY)
+                                .crossfade(true)
+                                .build()
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    DynamicAmbientBackground(
+                        modifier = Modifier.fillMaxSize(),
+                        primaryColor = MaterialTheme.colorScheme.primary,
+                        secondaryColor = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+            }
+        }
+
+        // ==================== 2. SCROLLABLE SETTINGS CONTENT ====================
+        val calculatedHeaderSpacerHeight = if (topAppBarHeightPx > 0) {
+            with(localDensity) { topAppBarHeightPx.toDp() + 14.dp }
+        } else {
+            96.dp
+        }
+
         LazyColumn(
             state = settingListState,
-            contentPadding = innerPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 140.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
         ) {
             item {
-                Spacer(Modifier.height(56.dp))
+                Spacer(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .height(calculatedHeaderSpacerHeight)
+                )
             }
 
             // ==================== 1. ACCOUNTS & LINKED SERVICES ====================
@@ -632,7 +745,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = "Accounts & Linked Services",
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.ACCOUNTS
                     },
@@ -734,7 +847,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.user_interface),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.USER_INTERFACE
                     },
@@ -752,15 +865,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.theme) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = themeModeLabels.map { (it.first == themeMode) to it.second },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        val selected = state.selectOne?.getSelected()
-                                        themeModeLabels.firstOrNull { it.second == selected }?.first?.let {
-                                            sharedViewModel.setThemeMode(it)
-                                        }
-                                    },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = themeModeLabels.map { (it.first == themeMode) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            themeModeLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setThemeMode(it)
+                                            }
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -780,15 +895,17 @@ fun SettingScreen(
                                 viewModel.setAlertData(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.lyrics_style) },
-                                        selectOne = SettingAlertState.SelectData(
-                                            listSelect = lyricsStyleLabels.map { (it.first == lyricsStyle) to it.second },
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            val selected = state.selectOne?.getSelected()
-                                            lyricsStyleLabels.firstOrNull { it.second == selected }?.first?.let {
-                                                sharedViewModel.setLyricsStyle(it)
-                                            }
-                                        },
+                                        selectOne =
+                                            SettingAlertState.SelectData(
+                                                listSelect = lyricsStyleLabels.map { (it.first == lyricsStyle) to it.second },
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                val selected = state.selectOne?.getSelected()
+                                                lyricsStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                    sharedViewModel.setLyricsStyle(it)
+                                                }
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -811,18 +928,20 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.theme_color) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = colorSourceLabels.map { (it.first == themeColorSource) to it.second },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        val selected = state.selectOne?.getSelected()
-                                        colorSourceLabels.firstOrNull { it.second == selected }?.first?.let {
-                                            sharedViewModel.setThemeColorSource(it)
-                                            if (it == DataStoreManager.THEME_COLOR_CUSTOM) {
-                                                showColorPickerDialog = true
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = colorSourceLabels.map { (it.first == themeColorSource) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            colorSourceLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setThemeColorSource(it)
+                                                if (it == DataStoreManager.THEME_COLOR_CUSTOM) {
+                                                    showColorPickerDialog = true
+                                                }
                                             }
-                                        }
-                                    },
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -836,6 +955,72 @@ fun SettingScreen(
                             onClick = { showColorPickerDialog = true },
                         )
                     }
+
+                    // --- Custom Wallpaper Picker ---
+                    SettingItem(
+                        title = "Custom Wallpaper",
+                        subtitle = if (customBackgroundUri != null) "Custom wallpaper active (Tap to change)" else "None (Using default ambient glow)",
+                        smallSubtitle = true,
+                        onClick = {
+                            coroutineScope.launch { customWallpaperLauncher.launch() }
+                        },
+                    )
+
+                    if (customBackgroundUri != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(platformContext)
+                                        .data(File(customBackgroundUri!!))
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Wallpaper Preview",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = "Active Wallpaper",
+                                    style = typo().bodySmall,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                )
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        try {
+                                            customBackgroundUri?.let { path ->
+                                                val file = File(path)
+                                                if (file.exists()) {
+                                                    file.delete()
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                        dataStoreManager.setCustomBackgroundUri(null)
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    text = "Reset Default",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = typo().labelMedium,
+                                )
+                            }
+                        }
+                    }
+
                     SettingItem(
                         title = stringResource(Res.string.translucent_bottom_navigation_bar),
                         subtitle = stringResource(Res.string.you_can_see_the_content_below_the_bottom_bar),
@@ -859,7 +1044,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.content),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.CONTENT_PREFERENCES
                     },
@@ -871,26 +1056,30 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.language) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = SUPPORTED_LANGUAGE.items.map {
-                                            (it.toString() == SUPPORTED_LANGUAGE.getLanguageFromCode(language ?: "en-US")) to it.toString()
-                                        },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        val code = SUPPORTED_LANGUAGE.getCodeFromLanguage(state.selectOne?.getSelected() ?: "English")
-                                        viewModel.setBasicAlertData(
-                                            SettingBasicAlertState(
-                                                title = runBlocking { getString(Res.string.warning) },
-                                                message = runBlocking { getString(Res.string.change_language_warning) },
-                                                confirm = runBlocking { getString(Res.string.change) } to {
-                                                    sharedViewModel.activityRecreate()
-                                                    viewModel.setBasicAlertData(null)
-                                                    viewModel.changeLanguage(code)
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                SUPPORTED_LANGUAGE.items.map {
+                                                    (it.toString() == SUPPORTED_LANGUAGE.getLanguageFromCode(language ?: "en-US")) to it.toString()
                                                 },
-                                                dismiss = runBlocking { getString(Res.string.cancel) },
-                                            ),
-                                        )
-                                    },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val code = SUPPORTED_LANGUAGE.getCodeFromLanguage(state.selectOne?.getSelected() ?: "English")
+                                            viewModel.setBasicAlertData(
+                                                SettingBasicAlertState(
+                                                    title = runBlocking { getString(Res.string.warning) },
+                                                    message = runBlocking { getString(Res.string.change_language_warning) },
+                                                    confirm =
+                                                        runBlocking { getString(Res.string.change) } to {
+                                                            sharedViewModel.activityRecreate()
+                                                            viewModel.setBasicAlertData(null)
+                                                            viewModel.changeLanguage(code)
+                                                        },
+                                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                                ),
+                                            )
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -903,14 +1092,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.content_country) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = SUPPORTED_LOCATION.items.map { item ->
-                                            (item.toString() == location) to item.toString()
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                SUPPORTED_LOCATION.items.map { item ->
+                                                    (item.toString() == location) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.changeLocation(state.selectOne?.getSelected() ?: "US")
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.changeLocation(state.selectOne?.getSelected() ?: "US")
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -924,14 +1116,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.quality) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = QUALITY.items.map { item ->
-                                            (item.toString() == quality) to item.toString()
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                QUALITY.items.map { item ->
+                                                    (item.toString() == quality) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.changeQuality(state.selectOne?.getSelected())
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.changeQuality(state.selectOne?.getSelected())
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -945,14 +1140,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.download_quality) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = QUALITY.items.map { item ->
-                                            (item.toString() == downloadQuality) to item.toString()
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                QUALITY.items.map { item ->
+                                                    (item.toString() == downloadQuality) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            state.selectOne?.getSelected()?.let { viewModel.setDownloadQuality(it) }
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        state.selectOne?.getSelected()?.let { viewModel.setDownloadQuality(it) }
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -965,14 +1163,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.video_quality) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = VIDEO_QUALITY.items.map { item ->
-                                            (item.toString() == videoQuality) to item.toString()
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                VIDEO_QUALITY.items.map { item ->
+                                                    (item.toString() == videoQuality) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.changeVideoQuality(state.selectOne?.getSelected() ?: "")
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.changeVideoQuality(state.selectOne?.getSelected() ?: "")
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -985,14 +1186,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.video_download_quality) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = VIDEO_QUALITY.items.map { item ->
-                                            (item.toString() == videoDownloadQuality) to item.toString()
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                VIDEO_QUALITY.items.map { item ->
+                                                    (item.toString() == videoDownloadQuality) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setVideoDownloadQuality(state.selectOne?.getSelected() ?: "")
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setVideoDownloadQuality(state.selectOne?.getSelected() ?: "")
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1039,18 +1243,21 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.categories_sponsor_block) },
-                                    multipleSelect = SettingAlertState.SelectData(
-                                        listSelect = listName.mapIndexed { index, item ->
-                                            (skipSegments?.contains(SponsorBlockType.toList().getOrNull(index)?.value) == true) to item
+                                    multipleSelect =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                listName.mapIndexed { index, item ->
+                                                    (skipSegments?.contains(SponsorBlockType.toList().getOrNull(index)?.value) == true) to item
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.save) } to { state ->
+                                            viewModel.setSponsorBlockCategories(
+                                                state.multipleSelect?.getListSelected()?.map { selected -> listName.indexOf(selected) }
+                                                    ?.mapNotNull { s -> SponsorBlockType.toList().getOrNull(s)?.value }
+                                                    ?.toCollection(ArrayList()) ?: arrayListOf(),
+                                            )
                                         },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.save) } to { state ->
-                                        viewModel.setSponsorBlockCategories(
-                                            state.multipleSelect?.getListSelected()?.map { selected -> listName.indexOf(selected) }
-                                                ?.mapNotNull { s -> SponsorBlockType.toList().getOrNull(s)?.value }
-                                                ?.toCollection(ArrayList()) ?: arrayListOf(),
-                                        )
-                                    },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1066,31 +1273,35 @@ fun SettingScreen(
                     if (usingProxy) {
                         SettingItem(
                             title = stringResource(Res.string.proxy_type),
-                            subtitle = when (proxyType) {
-                                DataStoreManager.ProxyType.PROXY_TYPE_HTTP -> stringResource(Res.string.http)
-                                DataStoreManager.ProxyType.PROXY_TYPE_SOCKS -> stringResource(Res.string.socks)
-                            },
+                            subtitle =
+                                when (proxyType) {
+                                    DataStoreManager.ProxyType.PROXY_TYPE_HTTP -> stringResource(Res.string.http)
+                                    DataStoreManager.ProxyType.PROXY_TYPE_SOCKS -> stringResource(Res.string.socks)
+                                },
                             onClick = {
                                 viewModel.setAlertData(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.proxy_type) },
-                                        selectOne = SettingAlertState.SelectData(
-                                            listSelect = listOf(
-                                                (proxyType == DataStoreManager.ProxyType.PROXY_TYPE_HTTP) to runBlocking { getString(Res.string.http) },
-                                                (proxyType == DataStoreManager.ProxyType.PROXY_TYPE_SOCKS) to runBlocking { getString(Res.string.socks) },
+                                        selectOne =
+                                            SettingAlertState.SelectData(
+                                                listSelect =
+                                                    listOf(
+                                                        (proxyType == DataStoreManager.ProxyType.PROXY_TYPE_HTTP) to runBlocking { getString(Res.string.http) },
+                                                        (proxyType == DataStoreManager.ProxyType.PROXY_TYPE_SOCKS) to runBlocking { getString(Res.string.socks) },
+                                                    ),
                                             ),
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setProxy(
-                                                if (state.selectOne?.getSelected() == runBlocking { getString(Res.string.socks) }) {
-                                                    DataStoreManager.ProxyType.PROXY_TYPE_SOCKS
-                                                } else {
-                                                    DataStoreManager.ProxyType.PROXY_TYPE_HTTP
-                                                },
-                                                proxyHost,
-                                                proxyPort,
-                                            )
-                                        },
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setProxy(
+                                                    if (state.selectOne?.getSelected() == runBlocking { getString(Res.string.socks) }) {
+                                                        DataStoreManager.ProxyType.PROXY_TYPE_SOCKS
+                                                    } else {
+                                                        DataStoreManager.ProxyType.PROXY_TYPE_HTTP
+                                                    },
+                                                    proxyHost,
+                                                    proxyPort,
+                                                )
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1104,14 +1315,16 @@ fun SettingScreen(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.proxy_host) },
                                         message = runBlocking { getString(Res.string.proxy_host_message) },
-                                        textField = SettingAlertState.TextFieldData(
-                                            label = runBlocking { getString(Res.string.proxy_host) },
-                                            value = proxyHost,
-                                            verifyCodeBlock = { isValidProxyHost(it) to runBlocking { getString(Res.string.invalid_host) } },
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setProxy(proxyType, state.textField?.value ?: "", proxyPort)
-                                        },
+                                        textField =
+                                            SettingAlertState.TextFieldData(
+                                                label = runBlocking { getString(Res.string.proxy_host) },
+                                                value = proxyHost,
+                                                verifyCodeBlock = { isValidProxyHost(it) to runBlocking { getString(Res.string.invalid_host) } },
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setProxy(proxyType, state.textField?.value ?: "", proxyPort)
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1125,14 +1338,16 @@ fun SettingScreen(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.proxy_port) },
                                         message = runBlocking { getString(Res.string.proxy_port_message) },
-                                        textField = SettingAlertState.TextFieldData(
-                                            label = runBlocking { getString(Res.string.proxy_port) },
-                                            value = proxyPort.toString(),
-                                            verifyCodeBlock = { (it.toIntOrNull() != null) to runBlocking { getString(Res.string.invalid_port) } },
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setProxy(proxyType, proxyHost, state.textField?.value?.toIntOrNull() ?: 0)
-                                        },
+                                        textField =
+                                            SettingAlertState.TextFieldData(
+                                                label = runBlocking { getString(Res.string.proxy_port) },
+                                                value = proxyPort.toString(),
+                                                verifyCodeBlock = { (it.toIntOrNull() != null) to runBlocking { getString(Res.string.invalid_port) } },
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setProxy(proxyType, proxyHost, state.textField?.value?.toIntOrNull() ?: 0)
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1146,13 +1361,15 @@ fun SettingScreen(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.proxy_username) },
                                         message = runBlocking { getString(Res.string.proxy_username_message) },
-                                        textField = SettingAlertState.TextFieldData(
-                                            label = runBlocking { getString(Res.string.proxy_username) },
-                                            value = proxyUsername,
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setProxyCredentials(state.textField?.value ?: "", proxyPassword)
-                                        },
+                                        textField =
+                                            SettingAlertState.TextFieldData(
+                                                label = runBlocking { getString(Res.string.proxy_username) },
+                                                value = proxyUsername,
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setProxyCredentials(state.textField?.value ?: "", proxyPassword)
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1166,13 +1383,15 @@ fun SettingScreen(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.proxy_password) },
                                         message = runBlocking { getString(Res.string.proxy_password_message) },
-                                        textField = SettingAlertState.TextFieldData(
-                                            label = runBlocking { getString(Res.string.proxy_password) },
-                                            value = proxyPassword,
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setProxyCredentials(proxyUsername, state.textField?.value ?: "")
-                                        },
+                                        textField =
+                                            SettingAlertState.TextFieldData(
+                                                label = runBlocking { getString(Res.string.proxy_password) },
+                                                value = proxyPassword,
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setProxyCredentials(proxyUsername, state.textField?.value ?: "")
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1188,7 +1407,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.playback),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.AUDIO_PLAYBACK
                     },
@@ -1243,50 +1462,55 @@ fun SettingScreen(
                         Column {
                             SettingItem(
                                 title = stringResource(Res.string.crossfade_duration),
-                                subtitle = if (castState.isRemote) {
-                                    stringResource(Res.string.not_available_while_casting)
-                                } else if (crossfadeDuration == DataStoreManager.CROSSFADE_DURATION_AUTO) {
-                                    stringResource(Res.string.crossfade_auto)
-                                } else {
-                                    "${crossfadeDuration / 1000}s"
-                                },
+                                subtitle =
+                                    if (castState.isRemote) {
+                                        stringResource(Res.string.not_available_while_casting)
+                                    } else if (crossfadeDuration == DataStoreManager.CROSSFADE_DURATION_AUTO) {
+                                        stringResource(Res.string.crossfade_auto)
+                                    } else {
+                                        "${crossfadeDuration / 1000}s"
+                                    },
                                 isEnable = !castState.isRemote,
                                 onClick = {
                                     viewModel.setAlertData(
                                         SettingAlertState(
                                             title = runBlocking { getString(Res.string.crossfade_duration) },
-                                            selectOne = SettingAlertState.SelectData(
-                                                listSelect = listOf(
-                                                    (crossfadeDuration == DataStoreManager.CROSSFADE_DURATION_AUTO) to runBlocking { getString(Res.string.crossfade_auto) },
-                                                    (crossfadeDuration == 1000) to "1s",
-                                                    (crossfadeDuration == 2000) to "2s",
-                                                    (crossfadeDuration == 3000) to "3s",
-                                                    (crossfadeDuration == 5000) to "5s",
-                                                    (crossfadeDuration == 8000) to "8s",
-                                                    (crossfadeDuration == 10000) to "10s",
-                                                    (crossfadeDuration == 12000) to "12s",
-                                                    (crossfadeDuration == 15000) to "15s",
-                                                    (crossfadeDuration == 20000) to "20s",
-                                                    (crossfadeDuration == 30000) to "30s",
+                                            selectOne =
+                                                SettingAlertState.SelectData(
+                                                    listSelect =
+                                                        listOf(
+                                                            (crossfadeDuration == DataStoreManager.CROSSFADE_DURATION_AUTO) to runBlocking { getString(Res.string.crossfade_auto) },
+                                                            (crossfadeDuration == 1000) to "1s",
+                                                            (crossfadeDuration == 2000) to "2s",
+                                                            (crossfadeDuration == 3000) to "3s",
+                                                            (crossfadeDuration == 5000) to "5s",
+                                                            (crossfadeDuration == 8000) to "8s",
+                                                            (crossfadeDuration == 10000) to "10s",
+                                                            (crossfadeDuration == 12000) to "12s",
+                                                            (crossfadeDuration == 15000) to "15s",
+                                                            (crossfadeDuration == 20000) to "20s",
+                                                            (crossfadeDuration == 30000) to "30s",
+                                                        ),
                                                 ),
-                                            ),
-                                            confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                                val duration = when (state.selectOne?.getSelected()) {
-                                                    runBlocking { getString(Res.string.crossfade_auto) } -> DataStoreManager.CROSSFADE_DURATION_AUTO
-                                                    "1s" -> 1000
-                                                    "2s" -> 2000
-                                                    "3s" -> 3000
-                                                    "5s" -> 5000
-                                                    "8s" -> 8000
-                                                    "10s" -> 10000
-                                                    "12s" -> 12000
-                                                    "15s" -> 15000
-                                                    "20s" -> 20000
-                                                    "30s" -> 30000
-                                                    else -> 5000
-                                                }
-                                                viewModel.setCrossfadeDuration(duration)
-                                            },
+                                            confirm =
+                                                runBlocking { getString(Res.string.change) } to { state ->
+                                                    val duration =
+                                                        when (state.selectOne?.getSelected()) {
+                                                            runBlocking { getString(Res.string.crossfade_auto) } -> DataStoreManager.CROSSFADE_DURATION_AUTO
+                                                            "1s" -> 1000
+                                                            "2s" -> 2000
+                                                            "3s" -> 3000
+                                                            "5s" -> 5000
+                                                            "8s" -> 8000
+                                                            "10s" -> 10000
+                                                            "12s" -> 12000
+                                                            "15s" -> 15000
+                                                            "20s" -> 20000
+                                                            "30s" -> 30000
+                                                            else -> 5000
+                                                        }
+                                                    viewModel.setCrossfadeDuration(duration)
+                                                },
                                             dismiss = runBlocking { getString(Res.string.cancel) },
                                         ),
                                     )
@@ -1339,43 +1563,47 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.lyrics) + " & " + stringResource(Res.string.ai),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.LYRICS_AI
                     },
                 ) {
                     SettingItem(
                         title = stringResource(Res.string.main_lyrics_provider),
-                        subtitle = when (mainLyricsProvider) {
-                            DataStoreManager.SIMPMUSIC -> stringResource(Res.string.simpmusic_lyrics)
-                            DataStoreManager.YOUTUBE -> stringResource(Res.string.youtube_transcript)
-                            DataStoreManager.LRCLIB -> stringResource(Res.string.lrclib)
-                            DataStoreManager.BETTER_LYRICS -> stringResource(Res.string.better_lyrics)
-                            else -> stringResource(Res.string.unknown)
-                        },
+                        subtitle =
+                            when (mainLyricsProvider) {
+                                DataStoreManager.SIMPMUSIC -> stringResource(Res.string.simpmusic_lyrics)
+                                DataStoreManager.YOUTUBE -> stringResource(Res.string.youtube_transcript)
+                                DataStoreManager.LRCLIB -> stringResource(Res.string.lrclib)
+                                DataStoreManager.BETTER_LYRICS -> stringResource(Res.string.better_lyrics)
+                                else -> stringResource(Res.string.unknown)
+                            },
                         onClick = {
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.main_lyrics_provider) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = listOf(
-                                            (mainLyricsProvider == DataStoreManager.SIMPMUSIC) to runBlocking { getString(Res.string.simpmusic_lyrics) },
-                                            (mainLyricsProvider == DataStoreManager.YOUTUBE) to runBlocking { getString(Res.string.youtube_transcript) },
-                                            (mainLyricsProvider == DataStoreManager.LRCLIB) to runBlocking { getString(Res.string.lrclib) },
-                                            (mainLyricsProvider == DataStoreManager.BETTER_LYRICS) to runBlocking { getString(Res.string.better_lyrics) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                listOf(
+                                                    (mainLyricsProvider == DataStoreManager.SIMPMUSIC) to runBlocking { getString(Res.string.simpmusic_lyrics) },
+                                                    (mainLyricsProvider == DataStoreManager.YOUTUBE) to runBlocking { getString(Res.string.youtube_transcript) },
+                                                    (mainLyricsProvider == DataStoreManager.LRCLIB) to runBlocking { getString(Res.string.lrclib) },
+                                                    (mainLyricsProvider == DataStoreManager.BETTER_LYRICS) to runBlocking { getString(Res.string.better_lyrics) },
+                                                ),
                                         ),
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setLyricsProvider(
-                                            when (state.selectOne?.getSelected()) {
-                                                runBlocking { getString(Res.string.simpmusic_lyrics) } -> DataStoreManager.SIMPMUSIC
-                                                runBlocking { getString(Res.string.youtube_transcript) } -> DataStoreManager.YOUTUBE
-                                                runBlocking { getString(Res.string.lrclib) } -> DataStoreManager.LRCLIB
-                                                runBlocking { getString(Res.string.better_lyrics) } -> DataStoreManager.BETTER_LYRICS
-                                                else -> DataStoreManager.SIMPMUSIC
-                                            },
-                                        )
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setLyricsProvider(
+                                                when (state.selectOne?.getSelected()) {
+                                                    runBlocking { getString(Res.string.simpmusic_lyrics) } -> DataStoreManager.SIMPMUSIC
+                                                    runBlocking { getString(Res.string.youtube_transcript) } -> DataStoreManager.YOUTUBE
+                                                    runBlocking { getString(Res.string.lrclib) } -> DataStoreManager.LRCLIB
+                                                    runBlocking { getString(Res.string.better_lyrics) } -> DataStoreManager.BETTER_LYRICS
+                                                    else -> DataStoreManager.SIMPMUSIC
+                                                },
+                                            )
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1399,32 +1627,35 @@ fun SettingScreen(
                     val romanizationSelected = RomanizationLanguage.parse(romanizationStored)
                     SettingItem(
                         title = stringResource(Res.string.lyrics_romanization),
-                        subtitle = if (romanizationSelected.isEmpty()) {
-                            stringResource(Res.string.lyrics_romanization_description)
-                        } else {
-                            val selectedNames = romanizationLabels.filter { it.first in romanizationSelected }.joinToString(", ") { it.second }
-                            when {
-                                RomanizationLanguage.JAPANESE !in romanizationSelected -> selectedNames
-                                japaneseDictionaryState == RomanizationDictionaryState.DOWNLOADING -> "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_downloading)}"
-                                japaneseDictionaryState == RomanizationDictionaryState.FAILED -> "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_failed)}"
-                                else -> selectedNames
-                            }
-                        },
+                        subtitle =
+                            if (romanizationSelected.isEmpty()) {
+                                stringResource(Res.string.lyrics_romanization_description)
+                            } else {
+                                val selectedNames = romanizationLabels.filter { it.first in romanizationSelected }.joinToString(", ") { it.second }
+                                when {
+                                    RomanizationLanguage.JAPANESE !in romanizationSelected -> selectedNames
+                                    japaneseDictionaryState == RomanizationDictionaryState.DOWNLOADING -> "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_downloading)}"
+                                    japaneseDictionaryState == RomanizationDictionaryState.FAILED -> "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_failed)}"
+                                    else -> selectedNames
+                                }
+                            },
                         onClick = {
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.lyrics_romanization) },
-                                    multipleSelect = SettingAlertState.SelectData(
-                                        listSelect = romanizationLabels.map { (language, label) -> (language in romanizationSelected) to label },
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.save) } to { state ->
-                                        val chosen = state.multipleSelect?.getListSelected().orEmpty()
-                                        val languages = romanizationLabels.filter { it.second in chosen }.map { it.first }.toSet()
-                                        sharedViewModel.setRomanizationLanguages(languages)
-                                        if (RomanizationLanguage.JAPANESE in languages) {
-                                            viewModel.downloadJapaneseDictionaryIfNeeded()
-                                        }
-                                    },
+                                    multipleSelect =
+                                        SettingAlertState.SelectData(
+                                            listSelect = romanizationLabels.map { (language, label) -> (language in romanizationSelected) to label },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.save) } to { state ->
+                                            val chosen = state.multipleSelect?.getListSelected().orEmpty()
+                                            val languages = romanizationLabels.filter { it.second in chosen }.map { it.first }.toSet()
+                                            sharedViewModel.setRomanizationLanguages(languages)
+                                            if (RomanizationLanguage.JAPANESE in languages) {
+                                                viewModel.downloadJapaneseDictionaryIfNeeded()
+                                            }
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1437,15 +1668,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.translation_language) },
-                                    textField = SettingAlertState.TextFieldData(
-                                        label = runBlocking { getString(Res.string.translation_language) },
-                                        value = translationLanguage ?: "",
-                                        verifyCodeBlock = { (it.length == 2 && it.isTwoLetterCode()) to runBlocking { getString(Res.string.invalid_language_code) } },
-                                    ),
+                                    textField =
+                                        SettingAlertState.TextFieldData(
+                                            label = runBlocking { getString(Res.string.translation_language) },
+                                            value = translationLanguage ?: "",
+                                            verifyCodeBlock = { (it.length == 2 && it.isTwoLetterCode()) to runBlocking { getString(Res.string.invalid_language_code) } },
+                                        ),
                                     message = runBlocking { getString(Res.string.translation_language_message) },
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setTranslationLanguage(state.textField?.value ?: "")
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setTranslationLanguage(state.textField?.value ?: "")
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1458,15 +1691,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.youtube_subtitle_language) },
-                                    textField = SettingAlertState.TextFieldData(
-                                        label = runBlocking { getString(Res.string.youtube_subtitle_language) },
-                                        value = youtubeSubtitleLanguage,
-                                        verifyCodeBlock = { (it.length == 2 && it.isTwoLetterCode()) to runBlocking { getString(Res.string.invalid_language_code) } },
-                                    ),
+                                    textField =
+                                        SettingAlertState.TextFieldData(
+                                            label = runBlocking { getString(Res.string.youtube_subtitle_language) },
+                                            value = youtubeSubtitleLanguage,
+                                            verifyCodeBlock = { (it.length == 2 && it.isTwoLetterCode()) to runBlocking { getString(Res.string.invalid_language_code) } },
+                                        ),
                                     message = runBlocking { getString(Res.string.youtube_subtitle_language_message) },
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setYoutubeSubtitleLanguage(state.textField?.value ?: "")
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setYoutubeSubtitleLanguage(state.textField?.value ?: "")
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1474,33 +1709,37 @@ fun SettingScreen(
                     )
                     SettingItem(
                         title = stringResource(Res.string.ai_provider),
-                        subtitle = when (aiProvider) {
-                            DataStoreManager.AI_PROVIDER_OPENAI -> stringResource(Res.string.openai)
-                            DataStoreManager.AI_PROVIDER_GEMINI -> stringResource(Res.string.gemini)
-                            DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI -> stringResource(Res.string.openai_api_compatible)
-                            else -> stringResource(Res.string.unknown)
-                        },
+                        subtitle =
+                            when (aiProvider) {
+                                DataStoreManager.AI_PROVIDER_OPENAI -> stringResource(Res.string.openai)
+                                DataStoreManager.AI_PROVIDER_GEMINI -> stringResource(Res.string.gemini)
+                                DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI -> stringResource(Res.string.openai_api_compatible)
+                                else -> stringResource(Res.string.unknown)
+                            },
                         onClick = {
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.ai_provider) },
-                                    selectOne = SettingAlertState.SelectData(
-                                        listSelect = listOf(
-                                            (aiProvider == DataStoreManager.AI_PROVIDER_OPENAI) to runBlocking { getString(Res.string.openai) },
-                                            (aiProvider == DataStoreManager.AI_PROVIDER_GEMINI) to runBlocking { getString(Res.string.gemini) },
-                                            (aiProvider == DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI) to runBlocking { getString(Res.string.openai_api_compatible) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                listOf(
+                                                    (aiProvider == DataStoreManager.AI_PROVIDER_OPENAI) to runBlocking { getString(Res.string.openai) },
+                                                    (aiProvider == DataStoreManager.AI_PROVIDER_GEMINI) to runBlocking { getString(Res.string.gemini) },
+                                                    (aiProvider == DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI) to runBlocking { getString(Res.string.openai_api_compatible) },
+                                                ),
                                         ),
-                                    ),
-                                    confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setAIProvider(
-                                            when (state.selectOne?.getSelected()) {
-                                                runBlocking { getString(Res.string.openai) } -> DataStoreManager.AI_PROVIDER_OPENAI
-                                                runBlocking { getString(Res.string.gemini) } -> DataStoreManager.AI_PROVIDER_GEMINI
-                                                runBlocking { getString(Res.string.openai_api_compatible) } -> DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI
-                                                else -> DataStoreManager.AI_PROVIDER_OPENAI
-                                            },
-                                        )
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setAIProvider(
+                                                when (state.selectOne?.getSelected()) {
+                                                    runBlocking { getString(Res.string.openai) } -> DataStoreManager.AI_PROVIDER_OPENAI
+                                                    runBlocking { getString(Res.string.gemini) } -> DataStoreManager.AI_PROVIDER_GEMINI
+                                                    runBlocking { getString(Res.string.openai_api_compatible) } -> DataStoreManager.AI_PROVIDER_CUSTOM_OPENAI
+                                                    else -> DataStoreManager.AI_PROVIDER_OPENAI
+                                                },
+                                            )
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1513,15 +1752,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.ai_api_key) },
-                                    textField = SettingAlertState.TextFieldData(
-                                        label = runBlocking { getString(Res.string.ai_api_key) },
-                                        value = "",
-                                        verifyCodeBlock = { (it.isNotEmpty()) to runBlocking { getString(Res.string.invalid_api_key) } },
-                                    ),
+                                    textField =
+                                        SettingAlertState.TextFieldData(
+                                            label = runBlocking { getString(Res.string.ai_api_key) },
+                                            value = "",
+                                            verifyCodeBlock = { (it.isNotEmpty()) to runBlocking { getString(Res.string.invalid_api_key) } },
+                                        ),
                                     message = "",
-                                    confirm = runBlocking { getString(Res.string.set) } to { state ->
-                                        viewModel.setAIApiKey(state.textField?.value ?: "")
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.set) } to { state ->
+                                            viewModel.setAIApiKey(state.textField?.value ?: "")
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1534,15 +1775,17 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.custom_ai_model_id) },
-                                    textField = SettingAlertState.TextFieldData(
-                                        label = runBlocking { getString(Res.string.custom_ai_model_id) },
-                                        value = "",
-                                        verifyCodeBlock = { (it.isNotEmpty() && !it.contains(" ")) to runBlocking { getString(Res.string.invalid) } },
-                                    ),
+                                    textField =
+                                        SettingAlertState.TextFieldData(
+                                            label = runBlocking { getString(Res.string.custom_ai_model_id) },
+                                            value = "",
+                                            verifyCodeBlock = { (it.isNotEmpty() && !it.contains(" ")) to runBlocking { getString(Res.string.invalid) } },
+                                        ),
                                     message = runBlocking { getString(Res.string.custom_model_id_messages) },
-                                    confirm = runBlocking { getString(Res.string.set) } to { state ->
-                                        viewModel.setCustomModelId(state.textField?.value ?: "")
-                                    },
+                                    confirm =
+                                        runBlocking { getString(Res.string.set) } to { state ->
+                                            viewModel.setCustomModelId(state.textField?.value ?: "")
+                                        },
                                     dismiss = runBlocking { getString(Res.string.cancel) },
                                 ),
                             )
@@ -1568,7 +1811,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.storage) + " & " + stringResource(Res.string.backup),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.STORAGE_BACKUP
                     },
@@ -1623,14 +1866,17 @@ fun SettingScreen(
                                 viewModel.setAlertData(
                                     SettingAlertState(
                                         title = runBlocking { getString(Res.string.limit_player_cache) },
-                                        selectOne = SettingAlertState.SelectData(
-                                            listSelect = LIMIT_CACHE_SIZE.items.map { item ->
-                                                (item == LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache)) to item.toString()
+                                        selectOne =
+                                            SettingAlertState.SelectData(
+                                                listSelect =
+                                                    LIMIT_CACHE_SIZE.items.map { item ->
+                                                        (item == LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache)) to item.toString()
+                                                    },
+                                            ),
+                                        confirm =
+                                            runBlocking { getString(Res.string.change) } to { state ->
+                                                viewModel.setPlayerCacheLimit(LIMIT_CACHE_SIZE.getDataFromItem(state.selectOne?.getSelected()))
                                             },
-                                        ),
-                                        confirm = runBlocking { getString(Res.string.change) } to { state ->
-                                            viewModel.setPlayerCacheLimit(LIMIT_CACHE_SIZE.getDataFromItem(state.selectOne?.getSelected()))
-                                        },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -1693,7 +1939,7 @@ fun SettingScreen(
                 ExpandableSettingGroupCard(
                     title = stringResource(Res.string.about_us),
                     isExpanded = isExpanded,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     onToggle = {
                         expandedSection = if (isExpanded) null else SettingSection.ABOUT
                     },
@@ -1743,10 +1989,11 @@ fun SettingScreen(
                                     SettingBasicAlertState(
                                         title = "Clear Downloaded Update",
                                         message = "Are you sure you want to delete the downloaded APK file?",
-                                        confirm = "Clear" to {
-                                            clearDownloadedUpdateApks(platformContext)
-                                            updateApkSize = getDownloadedUpdateApkSize(platformContext)
-                                        },
+                                        confirm =
+                                            "Clear" to {
+                                                clearDownloadedUpdateApks(platformContext)
+                                                updateApkSize = getDownloadedUpdateApkSize(platformContext)
+                                            },
                                         dismiss = "Cancel",
                                     ),
                                 )
@@ -1763,6 +2010,57 @@ fun SettingScreen(
 
             item(key = "end") {
                 EndOfPage()
+            }
+        }
+
+        // ==================== 3. FLOATING TOP LIQUID GLASS BAR ====================
+        val headerCapsuleShape = RoundedCornerShape(26.dp)
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .zIndex(100f)
+                .onGloballyPositioned { coordinates ->
+                    topAppBarHeightPx = coordinates.size.height
+                },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .settingCleanLiquidGlass(
+                        backdrop = backdrop,
+                        shape = headerCapsuleShape,
+                    ),
+            ) {
+                TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    title = {
+                        Text(
+                            text = stringResource(Res.string.settings),
+                            style = typo().titleMedium,
+                            color = Color.White,
+                        )
+                    },
+                    navigationIcon = {
+                        Box(Modifier.padding(horizontal = 6.dp)) {
+                            RippleIconButton(
+                                SimpIcons.ArrowBackIosNew,
+                                Modifier.size(32.dp),
+                                true,
+                                tint = Color.White,
+                            ) {
+                                navController.navigateUp()
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                    ),
+                )
             }
         }
     }
@@ -2020,10 +2318,11 @@ fun SettingScreen(
                                     SettingBasicAlertState(
                                         title = runBlocking { getString(Res.string.warning) },
                                         message = runBlocking { getString(Res.string.log_out_warning) },
-                                        confirm = runBlocking { getString(Res.string.log_out) } to {
-                                            viewModel.logOutAllYouTube()
-                                            showYouTubeAccountDialog = false
-                                        },
+                                        confirm =
+                                            runBlocking { getString(Res.string.log_out) } to {
+                                                viewModel.logOutAllYouTube()
+                                                showYouTubeAccountDialog = false
+                                            },
                                         dismiss = runBlocking { getString(Res.string.cancel) },
                                     ),
                                 )
@@ -2074,11 +2373,13 @@ fun SettingScreen(
                             val onSelect = {
                                 viewModel.setAlertData(
                                     alertState.copy(
-                                        selectOne = alertState.selectOne.copy(
-                                            listSelect = alertState.selectOne.listSelect.toMutableList().map {
-                                                if (it == item) true to it.second else false to it.second
-                                            },
-                                        ),
+                                        selectOne =
+                                            alertState.selectOne.copy(
+                                                listSelect =
+                                                    alertState.selectOne.listSelect.toMutableList().map {
+                                                        if (it == item) true to it.second else false to it.second
+                                                    },
+                                            ),
                                     ),
                                 )
                             }
@@ -2092,7 +2393,11 @@ fun SettingScreen(
                                     text = item.second,
                                     style = typo().bodyMedium,
                                     maxLines = 1,
-                                    modifier = Modifier.fillMaxWidth().wrapContentHeight(align = Alignment.CenterVertically).basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately).focusable(),
+                                    modifier =
+                                        Modifier.fillMaxWidth().wrapContentHeight(align = Alignment.CenterVertically).basicMarquee(
+                                            iterations = Int.MAX_VALUE,
+                                            animationMode = MarqueeAnimationMode.Immediately,
+                                        ).focusable(),
                                 )
                             }
                         }
@@ -2105,11 +2410,13 @@ fun SettingScreen(
                             val onCheck = {
                                 viewModel.setAlertData(
                                     alertState.copy(
-                                        multipleSelect = alertState.multipleSelect.copy(
-                                            listSelect = alertState.multipleSelect.listSelect.toMutableList().map {
-                                                if (it == item) !it.first to it.second else it
-                                            },
-                                        ),
+                                        multipleSelect =
+                                            alertState.multipleSelect.copy(
+                                                listSelect =
+                                                    alertState.multipleSelect.listSelect.toMutableList().map {
+                                                        if (it == item) !it.first to it.second else it
+                                                    },
+                                            ),
                                     ),
                                 )
                             }
@@ -2171,12 +2478,14 @@ fun SettingScreen(
                 Modifier.fillMaxSize(),
                 lazyListState = lazyListState,
                 contentPadding = innerPadding,
-                colors = LibraryDefaults.libraryColors(
-                    licenseChipColors = object : ChipColors {
-                        override val containerColor: Color get() = surfaceContainerHighestColor
-                        override val contentColor: Color get() = onSurfaceColor
-                    },
-                ),
+                colors =
+                    LibraryDefaults.libraryColors(
+                        licenseChipColors =
+                            object : ChipColors {
+                                override val containerColor: Color get() = surfaceContainerHighestColor
+                                override val contentColor: Color get() = onSurfaceColor
+                            },
+                    ),
                 header = {
                     item {
                         TopAppBar(
@@ -2198,31 +2507,13 @@ fun SettingScreen(
             )
         }
     }
-
-    TopAppBar(
-        title = { Text(text = stringResource(Res.string.settings), style = typo().titleMedium) },
-        navigationIcon = {
-            Box(Modifier.padding(horizontal = 5.dp)) {
-                RippleIconButton(SimpIcons.ArrowBackIosNew, Modifier.size(32.dp), true, tint = MaterialTheme.colorScheme.onSurface) {
-                    navController.navigateUp()
-                }
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Transparent,
-            scrolledContainerColor = Color.Transparent,
-        ),
-    )
 }
 
-/**
- * Ultra-Smooth 120fps Hardware-Cached Expandable Card
- */
 @Composable
 private fun ExpandableSettingGroupCard(
     title: String,
     isExpanded: Boolean,
-    hazeState: HazeState? = null,
+    backdrop: PlatformBackdrop,
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -2236,22 +2527,24 @@ private fun ExpandableSettingGroupCard(
     val interactionSource = remember { MutableInteractionSource() }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .frostedGlass(
-                hazeState = hazeState,
-                shape = cardShape,
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onToggle,
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .settingCleanLiquidGlass(
+                    backdrop = backdrop,
+                    shape = cardShape,
+                )
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onToggle,
+                ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 17.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 17.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -2264,9 +2557,10 @@ private fun ExpandableSettingGroupCard(
                 imageVector = SimpIcons.ArrowBackIosNew,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier
-                    .size(15.dp)
-                    .graphicsLayer { rotationZ = arrowRotation },
+                modifier =
+                    Modifier
+                        .size(15.dp)
+                        .graphicsLayer { rotationZ = arrowRotation },
             )
         }
 
@@ -2276,14 +2570,15 @@ private fun ExpandableSettingGroupCard(
             exit = shrinkVertically(animationSpec = tween(240)) + fadeOut(animationSpec = tween(240)),
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = {},
-                    )
-                    .padding(bottom = 10.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = {},
+                        )
+                        .padding(bottom = 10.dp),
                 content = content,
             )
         }
@@ -2293,14 +2588,15 @@ private fun ExpandableSettingGroupCard(
 @Composable
 private fun DelaySection() {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
             text = stringResource(Res.string.audio_delay_description),
             style = typo().bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = 0.7f),
         )
     }
 }
@@ -2308,14 +2604,15 @@ private fun DelaySection() {
 @Composable
 private fun ReverbSection() {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
             text = stringResource(Res.string.audio_reverb_description),
             style = typo().bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = 0.7f),
         )
     }
 }
@@ -2331,11 +2628,12 @@ private fun SpotifyImportProgressDialog(
         properties = DialogProperties(dismissOnBackPress = finished, dismissOnClickOutside = finished),
         title = {
             Text(
-                text = when (state) {
-                    is ImportState.Error -> "Import Failed"
-                    is ImportState.Success -> "Import Complete"
-                    else -> "Importing Spotify Playlist"
-                },
+                text =
+                    when (state) {
+                        is ImportState.Error -> "Import Failed"
+                        is ImportState.Success -> "Import Complete"
+                        else -> "Importing Spotify Playlist"
+                    },
                 style = typo().titleSmall,
             )
         },

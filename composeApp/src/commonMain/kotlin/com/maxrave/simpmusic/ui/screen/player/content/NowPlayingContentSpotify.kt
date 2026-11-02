@@ -54,10 +54,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -88,12 +86,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
@@ -109,18 +105,26 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.kmpalette.rememberPaletteState
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.common.Config.MAIN_PLAYER
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.RepeatState
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.MediaPlayerView
 import com.maxrave.simpmusic.expect.ui.MediaPlayerViewWithSubtitle
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.PlatformCastButton
 import com.maxrave.simpmusic.expect.ui.toImageBitmap
 import com.maxrave.simpmusic.extension.formatDuration
@@ -137,6 +141,7 @@ import com.maxrave.simpmusic.ui.component.HeartCheckBox
 import com.maxrave.simpmusic.ui.component.LyricsView
 import com.maxrave.simpmusic.ui.component.PlayPauseButton
 import com.maxrave.simpmusic.ui.component.PlayerControlLayout
+import com.maxrave.simpmusic.ui.component.frostedGlass
 import com.maxrave.simpmusic.ui.component.lyrics.ShareLyricsSheet
 import com.maxrave.simpmusic.ui.component.lyrics.toShareLyricsLines
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
@@ -152,16 +157,21 @@ import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.Subtitles
 import com.maxrave.simpmusic.ui.icon.SubtitlesOff
 import com.maxrave.simpmusic.ui.icon.ThumbsUpDown
+import com.maxrave.simpmusic.ui.screen.player.LocalPlayerBackdrop
+import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.blackMoreOverlay
 import com.maxrave.simpmusic.ui.theme.overlay
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LyricsProvider
 import com.maxrave.simpmusic.viewModel.UIEvent
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.roundToLong
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -188,6 +198,62 @@ import simpmusic.composeapp.generated.resources.spotify_lyrics_provider
 import simpmusic.composeapp.generated.resources.unsynced
 import simpmusic.composeapp.generated.resources.view_count
 
+@Composable
+fun Modifier.playerLiquidGlass(
+    backdrop: PlatformBackdrop?,
+    shape: Shape = RoundedCornerShape(26.dp),
+    hazeState: HazeState? = null,
+    isLiquidGlassEnabled: Boolean = true,
+): Modifier {
+    if (backdrop != null && isLiquidGlassEnabled) {
+        val isDark = LocalIsDarkTheme.current
+        return this
+            .clip(shape)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                highlight = { Highlight.Plain },
+                effects = {
+                    vibrancy()
+                    colorControls(
+                        brightness = 0.05f,
+                        contrast = 1.05f,
+                        saturation = 1.35f,
+                    )
+                    blur(12.dp.toPx())
+                    lens(14.dp.toPx(), 28.dp.toPx(), false)
+                },
+                onDrawSurface = {
+                    drawRect((if (isDark) Color.Black else Color.White).copy(alpha = 0.22f))
+                },
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.45f),
+                        Color.White.copy(alpha = 0.08f),
+                    ),
+                ),
+                shape = shape,
+            )
+    }
+
+    if (hazeState != null) {
+        return this.frostedGlass(
+            hazeState = hazeState,
+            shape = shape,
+            isDarkTheme = true,
+            isLiquidGlassEnabled = isLiquidGlassEnabled,
+        )
+    }
+
+    return this
+        .clip(shape)
+        .background(Color.Black.copy(alpha = 0.45f))
+        .border(1.dp, Color.White.copy(alpha = 0.15f), shape)
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingContentSpotify(
@@ -195,6 +261,12 @@ fun NowPlayingContentSpotify(
     actions: NowPlayingContentActions,
     dataStoreManager: DataStoreManager = koinInject(),
 ) {
+    val isLiquidGlassEnabled by remember {
+        dataStoreManager.enableLiquidGlass.map { it == DataStoreManager.TRUE }
+    }.collectAsStateWithLifecycle(initialValue = true)
+    val hazeState = rememberHazeState(blurEnabled = true)
+    val playerBackdrop = LocalPlayerBackdrop.current
+
     val screenInfo = getScreenSizeInfo()
     val localDensity = LocalDensity.current
     val uriHandler = LocalUriHandler.current
@@ -216,6 +288,7 @@ fun NowPlayingContentSpotify(
         topAppBarHeightDp,
         screenInfo,
         infoLayoutHeightDp,
+        middleLayoutHeightDp,
         minimumPaddingDp,
     ) {
         if (topAppBarHeightDp > 0 && middleLayoutHeightDp > 0 && infoLayoutHeightDp > 0 && screenInfo.hDP > 0) {
@@ -240,41 +313,7 @@ fun NowPlayingContentSpotify(
                     state.mainScrollState,
                     enabled = state.isExpanded,
                 )
-                .then(
-                    if (state.showHideMiddleLayout) {
-                        Modifier
-                            .background(PlayerBackdropColor)
-                            .drawBehind {
-                                val gradientHeight = screenInfo.hPX.toFloat()
-                                val area = Size(size.width, gradientHeight)
-                                drawRect(
-                                    brush =
-                                        Brush.radialGradient(
-                                            colors =
-                                                listOf(
-                                                    state.startColor.value.copy(alpha = 0.85f),
-                                                    state.endColor.value.copy(alpha = 0.95f),
-                                                    PlayerBackdropColor,
-                                                ),
-                                            radius = gradientHeight * 0.85f,
-                                        ),
-                                    size = area,
-                                )
-                                drawRect(
-                                    brush =
-                                        smoothScrimBrush(
-                                            from = PlayerBackdropColor.copy(alpha = 0f),
-                                            to = PlayerBackdropColor,
-                                            startY = 0f,
-                                            endY = gradientHeight * 0.95f,
-                                        ),
-                                    size = area,
-                                )
-                            }
-                    } else {
-                        Modifier.background(Color.Black)
-                    },
-                ),
+                .background(Color.Transparent),
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 HorizontalPager(
@@ -297,7 +336,7 @@ fun NowPlayingContentSpotify(
                     val pagePaletteState = rememberPaletteState()
                     val pageStartColor =
                         remember(pageTrack?.videoId) {
-                            Animatable(Color.Black)
+                            Animatable(Color.Transparent)
                         }
                     LaunchedEffect(pagePaletteState, pageTrack?.videoId) {
                         snapshotFlow { pagePaletteState.palette }
@@ -331,17 +370,7 @@ fun NowPlayingContentSpotify(
                                 modifier =
                                     Modifier
                                         .fillMaxSize()
-                                        .background(
-                                            Brush.linearGradient(
-                                                colors =
-                                                    listOf(
-                                                        pageStartColor.value,
-                                                        Color.Black,
-                                                    ),
-                                                start = state.gradientOffset.start,
-                                                end = state.gradientOffset.end,
-                                            ),
-                                        ),
+                                        .background(Color.Transparent),
                             )
                         }
 
@@ -395,7 +424,7 @@ fun NowPlayingContentSpotify(
                                                 .background(
                                                     smoothScrimBrush(
                                                         from = overlay,
-                                                        to = Color.Black,
+                                                        to = Color.Black.copy(alpha = 0.5f),
                                                         startFraction = 0.2f,
                                                     ),
                                                 ),
@@ -407,10 +436,10 @@ fun NowPlayingContentSpotify(
                                                 .fillMaxSize()
                                                 .background(
                                                     smoothScrimBrush(
-                                                        from = Color.Black.copy(alpha = 0f),
-                                                        to = Color.Black,
-                                                        startFraction = 0.92f,
-                                                        endFraction = 0.97f,
+                                                        from = Color.Transparent,
+                                                        to = Color.Black.copy(alpha = 0.6f),
+                                                        startFraction = 0.88f,
+                                                        endFraction = 0.98f,
                                                     ),
                                                 ),
                                     )
@@ -464,10 +493,10 @@ fun NowPlayingContentSpotify(
                                                 .align(Alignment.Center)
                                                 .background(Color.Transparent)
                                                 .shadow(
-                                                    elevation = 16.dp,
+                                                    elevation = 20.dp,
                                                     shape = RoundedCornerShape(16.dp),
-                                                    spotColor = state.spotShadowColor.copy(alpha = 0.65f),
-                                                    ambientColor = Color.Black.copy(alpha = 0.45f),
+                                                    spotColor = state.spotShadowColor.copy(alpha = 0.75f),
+                                                    ambientColor = Color.Black.copy(alpha = 0.35f),
                                                 ),
                                     ) {
                                         AsyncImage(
@@ -477,7 +506,6 @@ fun NowPlayingContentSpotify(
                                                     .data(artworkUrl)
                                                     .size(1080, 1080)
                                                     .memoryCachePolicy(CachePolicy.ENABLED)
-                                                    .diskCachePolicy(CachePolicy.ENABLED)
                                                     .diskCacheKey(artworkUrl + "BIGGER")
                                                     .crossfade(300)
                                                     .build(),
@@ -833,7 +861,7 @@ fun NowPlayingContentSpotify(
                                                 .align(Alignment.Center)
                                                 .background(Color.Transparent)
                                                 .shadow(
-                                                    elevation = 12.dp,
+                                                    elevation = 16.dp,
                                                     shape = RoundedCornerShape(16.dp),
                                                     spotColor = Color.Black.copy(alpha = 0.5f),
                                                     ambientColor = Color.Transparent,
@@ -975,7 +1003,7 @@ fun NowPlayingContentSpotify(
                                         }.aspectRatio(1f),
                             )
 
-                            // --- LYRICS CAPSULE WITH TRANSLATED PRIORITY & FALLBACK ---
+                            // --- LYRICS CAPSULE WITH LIQUID GLASS ---
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier =
@@ -1001,7 +1029,6 @@ fun NowPlayingContentSpotify(
                                     ) {
                                         ""
                                     } else {
-                                        // Priority 1: Translated Lyrics (Hinglish/Hindi)
                                         val translatedLine =
                                             translatedLyrics
                                                 ?.lines
@@ -1009,7 +1036,6 @@ fun NowPlayingContentSpotify(
                                                 ?.words
                                                 ?.stripRichSyncTimestamps()
 
-                                        // Priority 2 (Fallback): Original Lyrics
                                         val originalLine =
                                             originalLyrics
                                                 ?.lines
@@ -1033,18 +1059,11 @@ fun NowPlayingContentSpotify(
                                         Box(
                                             modifier =
                                                 Modifier
-                                                    .clip(RoundedCornerShape(50))
-                                                    .background(Color.White.copy(alpha = 0.08f))
-                                                    .border(
-                                                        width = 1.dp,
-                                                        brush =
-                                                            Brush.verticalGradient(
-                                                                listOf(
-                                                                    Color.White.copy(alpha = 0.28f),
-                                                                    Color.White.copy(alpha = 0.04f),
-                                                                ),
-                                                            ),
+                                                    .playerLiquidGlass(
+                                                        backdrop = playerBackdrop,
                                                         shape = RoundedCornerShape(50),
+                                                        hazeState = hazeState,
+                                                        isLiquidGlassEnabled = isLiquidGlassEnabled,
                                                     )
                                                     .padding(horizontal = 16.dp, vertical = 6.dp),
                                         ) {
@@ -1093,18 +1112,11 @@ fun NowPlayingContentSpotify(
                                                 Modifier
                                                     .padding(horizontal = 16.dp)
                                                     .fillMaxWidth()
-                                                    .clip(glassPodShape)
-                                                    .background(Color.White.copy(alpha = 0.06f))
-                                                    .border(
-                                                        width = 1.dp,
-                                                        brush =
-                                                            Brush.verticalGradient(
-                                                                listOf(
-                                                                    Color.White.copy(alpha = 0.25f),
-                                                                    Color.White.copy(alpha = 0.04f),
-                                                                ),
-                                                            ),
+                                                    .playerLiquidGlass(
+                                                        backdrop = playerBackdrop,
                                                         shape = glassPodShape,
+                                                        hazeState = hazeState,
+                                                        isLiquidGlassEnabled = isLiquidGlassEnabled,
                                                     )
                                                     .padding(top = 10.dp, bottom = 12.dp),
                                         ) {
@@ -1271,7 +1283,6 @@ fun NowPlayingContentSpotify(
 
                                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                                // Actions Row inside Glass Pod
                                                 Row(
                                                     modifier =
                                                         Modifier
@@ -1359,7 +1370,6 @@ fun NowPlayingContentSpotify(
                                         Spacer(Modifier.height(16.dp))
                                     }
 
-                                    // Navigation bars safe bottom padding
                                     Spacer(
                                         modifier = Modifier.height(
                                             with(localDensity) {
@@ -1396,8 +1406,8 @@ fun NowPlayingContentSpotify(
                                                     .fillMaxSize()
                                                     .background(
                                                         smoothScrimBrush(
-                                                            from = Color.Black.copy(alpha = 0f),
-                                                            to = Color.Black.copy(alpha = 0.85f),
+                                                            from = Color.Transparent,
+                                                            to = Color.Black.copy(alpha = 0.70f),
                                                         ),
                                                     ),
                                         )
@@ -1482,25 +1492,15 @@ fun NowPlayingContentSpotify(
                             modifier = Modifier.padding(top = 16.dp),
                         ) {
                             val lyricsCardShape = RoundedCornerShape(20.dp)
-                            ElevatedCard(
-                                onClick = {},
-                                shape = lyricsCardShape,
-                                colors =
-                                    CardDefaults.elevatedCardColors().copy(
-                                        containerColor = state.startColor.value.copy(alpha = 0.28f),
-                                    ),
+                            Box(
                                 modifier =
                                     Modifier
-                                        .border(
-                                            width = 1.dp,
-                                            brush =
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = 0.25f),
-                                                        Color.White.copy(alpha = 0.04f),
-                                                    ),
-                                                ),
+                                        .fillMaxWidth()
+                                        .playerLiquidGlass(
+                                            backdrop = playerBackdrop,
                                             shape = lyricsCardShape,
+                                            hazeState = hazeState,
+                                            isLiquidGlassEnabled = isLiquidGlassEnabled,
                                         ),
                             ) {
                                 Column(modifier = Modifier.padding(18.dp)) {
@@ -1614,26 +1614,17 @@ fun NowPlayingContentSpotify(
 
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
                             val artistCardShape = RoundedCornerShape(20.dp)
-                            ElevatedCard(
-                                onClick = { actions.onNavigateToArtist() },
-                                shape = artistCardShape,
-                                colors =
-                                    CardDefaults.elevatedCardColors().copy(
-                                        containerColor = Color.White.copy(alpha = 0.05f),
-                                    ),
+                            Box(
                                 modifier =
                                     Modifier
-                                        .border(
-                                            width = 1.dp,
-                                            brush =
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = 0.22f),
-                                                        Color.White.copy(alpha = 0.03f),
-                                                    ),
-                                                ),
+                                        .fillMaxWidth()
+                                        .playerLiquidGlass(
+                                            backdrop = playerBackdrop,
                                             shape = artistCardShape,
-                                        ),
+                                            hazeState = hazeState,
+                                            isLiquidGlassEnabled = isLiquidGlassEnabled,
+                                        )
+                                        .clickable { actions.onNavigateToArtist() },
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Box(
@@ -1706,25 +1697,15 @@ fun NowPlayingContentSpotify(
 
                         AnimatedVisibility(visible = state.screenData.songInfoData != null) {
                             val metaCardShape = RoundedCornerShape(20.dp)
-                            ElevatedCard(
-                                onClick = {},
-                                shape = metaCardShape,
-                                colors =
-                                    CardDefaults.elevatedCardColors().copy(
-                                        containerColor = state.startColor.value.copy(alpha = 0.22f),
-                                    ),
+                            Box(
                                 modifier =
                                     Modifier
-                                        .border(
-                                            width = 1.dp,
-                                            brush =
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = 0.22f),
-                                                        Color.White.copy(alpha = 0.03f),
-                                                    ),
-                                                ),
+                                        .fillMaxWidth()
+                                        .playerLiquidGlass(
+                                            backdrop = playerBackdrop,
                                             shape = metaCardShape,
+                                            hazeState = hazeState,
+                                            isLiquidGlassEnabled = isLiquidGlassEnabled,
                                         ),
                             ) {
                                 Column(
@@ -1805,25 +1786,16 @@ fun NowPlayingContentSpotify(
             exit = fadeOut() + slideOutVertically(),
         ) {
             val toolbarShape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
-            ElevatedCard(
-                elevation = CardDefaults.elevatedCardElevation(12.dp),
-                shape = toolbarShape,
-                colors =
-                    CardDefaults.elevatedCardColors(
-                        containerColor = state.startColor.value.copy(alpha = 0.82f),
-                    ),
+            Box(
                 modifier =
                     Modifier
-                        .clipToBounds()
-                        .wrapContentHeight()
                         .fillMaxWidth()
-                        .border(
-                            width = 1.dp,
-                            brush =
-                                Brush.verticalGradient(
-                                    listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
-                                ),
+                        .wrapContentHeight()
+                        .playerLiquidGlass(
+                            backdrop = playerBackdrop,
                             shape = toolbarShape,
+                            hazeState = hazeState,
+                            isLiquidGlassEnabled = isLiquidGlassEnabled,
                         ),
             ) {
                 Box(

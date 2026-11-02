@@ -1,6 +1,5 @@
 package com.maxrave.simpmusic.ui.screen.home
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -9,7 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -59,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,17 +69,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -87,8 +85,12 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.kmpalette.loader.rememberNetworkLoader
-import com.kmpalette.rememberDominantColorState
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.common.CHART_SUPPORTED_COUNTRY
 import com.maxrave.common.Config
 import com.maxrave.domain.data.model.browse.album.Track
@@ -101,13 +103,11 @@ import com.maxrave.domain.mediaservice.handler.PlaylistType
 import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
-import com.maxrave.logger.Logger
-import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.isScrollingUp
-import com.maxrave.simpmusic.extension.rgbFactor
-import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
-import com.maxrave.simpmusic.ui.component.DropdownButton
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.HomeItem
 import com.maxrave.simpmusic.ui.component.HomeItemContentPlaylist
@@ -135,7 +135,8 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
-import com.maxrave.simpmusic.ui.theme.desktopPanelDark
+import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.HomeViewModel
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_COMMUTE
@@ -150,13 +151,7 @@ import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_SLEEP
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_WORKOUT
 import com.maxrave.simpmusic.viewModel.ListState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
-import dev.chrisbanes.haze.HazeDefaults
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.http.Url
+import java.io.File
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -207,6 +202,95 @@ private val listOfHomeChip =
         Res.string.focus,
     )
 
+/**
+ * True Full-Screen Smooth Ambient Wallpaper:
+ * Smooth gradient mesh fills the canvas evenly without any circular spotlight cutoff.
+ */
+@Composable
+fun DynamicAmbientBackground(
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    secondaryColor: Color = MaterialTheme.colorScheme.tertiary,
+) {
+    val animatedPrimary by animateColorAsState(
+        targetValue = primaryColor,
+        animationSpec = tween(1200),
+        label = "PrimaryAmbient",
+    )
+    val animatedSecondary by animateColorAsState(
+        targetValue = secondaryColor,
+        animationSpec = tween(1200),
+        label = "SecondaryAmbient",
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        animatedPrimary.copy(alpha = 0.35f),
+                        Color(0xFF070B12),
+                        animatedSecondary.copy(alpha = 0.28f),
+                        Color(0xFF04060A),
+                    ),
+                ),
+            ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            animatedSecondary.copy(alpha = 0.25f),
+                            Color.Transparent,
+                            animatedPrimary.copy(alpha = 0.20f),
+                        ),
+                    ),
+                ),
+        )
+    }
+}
+
+/**
+ * Liquid Glass Shader for HomeScreen:
+ * - Highlight.Plain avoids harsh diagonal corner artifacts[cite: 4]
+ * - Instant load without GPU buffer readback
+ */
+@Composable
+fun Modifier.homeCleanLiquidGlass(
+    backdrop: PlatformBackdrop,
+    shape: Shape = RoundedCornerShape(22.dp),
+): Modifier {
+    if (!LocalLiquidGlassEnabled.current) {
+        return this
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f))
+    }
+    val isDark = LocalIsDarkTheme.current
+    return this
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            highlight = { Highlight.Plain },
+            effects = {
+                vibrancy()
+                colorControls(
+                    brightness = 0.05f,
+                    contrast = 1f,
+                    saturation = 1.4f,
+                )
+                blur(10.dp.toPx())
+                lens(14.dp.toPx(), 28.dp.toPx(), false)
+            },
+            onDrawSurface = {
+                drawRect((if (isDark) Color.Black else Color.White).copy(alpha = 0.16f))
+            },
+        )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalFoundationApi
 @Composable
@@ -217,9 +301,7 @@ fun HomeScreen(
     sharedViewModel: SharedViewModel = koinInject(),
     navController: NavController,
 ) {
-    val isLiquidGlassEnabled by remember {
-        dataStoreManager.enableLiquidGlass.map { it == DataStoreManager.TRUE }
-    }.collectAsStateWithLifecycle(initialValue = true)
+    val customBackgroundUri by dataStoreManager.customBackgroundUri.collectAsStateWithLifecycle(initialValue = null)
 
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
@@ -229,12 +311,8 @@ fun HomeScreen(
     val newRelease by viewModel.newRelease.collectAsStateWithLifecycle()
     val chart by viewModel.chart.collectAsStateWithLifecycle()
     val moodMomentAndGenre by viewModel.exploreMoodItem.collectAsStateWithLifecycle()
-    val chartLoading by viewModel.loadingChart.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
-    var accountShow by rememberSaveable {
-        mutableStateOf(false)
-    }
-    val regionChart by viewModel.regionCodeChart.collectAsStateWithLifecycle()
+    var accountShow by rememberSaveable { mutableStateOf(false) }
     val reloadDestination by sharedViewModel.reloadDestination.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
     var isRefreshing by remember { mutableStateOf(false) }
@@ -244,70 +322,10 @@ fun HomeScreen(
     val continuation by viewModel.continuation.collectAsStateWithLifecycle()
 
     val shouldShowLogInAlert by viewModel.showLogInAlert.collectAsStateWithLifecycle()
+    var topAppBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
+    val localDensity = LocalDensity.current
 
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val isLightTheme = backgroundColor.luminance() > 0.5f
-
-    val pageBackground =
-        if (getPlatform() == Platform.Desktop) {
-            if (isLightTheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
-        } else {
-            backgroundColor
-        }
-
-    val moodTargetColor =
-        remember(params, isLightTheme) {
-            when (params) {
-                HOME_PARAMS_RELAX -> if (isLightTheme) Color(0xFF80CBC4) else Color(0xFF004D40)
-                HOME_PARAMS_SLEEP -> if (isLightTheme) Color(0xFF9FA8DA) else Color(0xFF1A237E)
-                HOME_PARAMS_ENERGIZE -> if (isLightTheme) Color(0xFFFFCC80) else Color(0xFFE65100)
-                HOME_PARAMS_SAD -> if (isLightTheme) Color(0xFFB0BEC5) else Color(0xFF263238)
-                HOME_PARAMS_ROMANCE -> if (isLightTheme) Color(0xFFF48FB1) else Color(0xFF880E4F)
-                HOME_PARAMS_FEEL_GOOD -> if (isLightTheme) Color(0xFFFFF59D) else Color(0xFFF57F17)
-                HOME_PARAMS_WORKOUT -> if (isLightTheme) Color(0xFFFFAB91) else Color(0xFFBF360C)
-                HOME_PARAMS_PARTY -> if (isLightTheme) Color(0xFFCE93D8) else Color(0xFF4A148C)
-                HOME_PARAMS_COMMUTE -> if (isLightTheme) Color(0xFF80DEEA) else Color(0xFF006064)
-                HOME_PARAMS_FOCUS -> if (isLightTheme) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
-                else -> null
-            }
-        }
-
-    var baseThumbnailColor by remember {
-        mutableStateOf(backgroundColor)
-    }
-
-    val finalHeaderTargetColor = moodTargetColor ?: baseThumbnailColor
-    val animatedColor by animateColorAsState(finalHeaderTargetColor, tween(750))
-
-    val mainHomeThumbnail by viewModel.mainHomeThumbnail.collectAsStateWithLifecycle()
-    val networkLoader = rememberNetworkLoader(HttpClient(CIO))
-    val dominantColorState =
-        rememberDominantColorState(
-            defaultColor = backgroundColor,
-            defaultOnColor = backgroundColor,
-            loader = networkLoader,
-        )
-
-    LaunchedEffect(mainHomeThumbnail) {
-        mainHomeThumbnail?.let {
-            dominantColorState.updateFrom(Url(it))
-        }
-    }
-
-    LaunchedEffect(dominantColorState, isLightTheme) {
-        snapshotFlow { dominantColorState.color }.collect {
-            baseThumbnailColor = if (isLightTheme) lerp(it, Color.White, 0.85f) else it.rgbFactor(0.35f)
-        }
-    }
-
-    var topAppBarHeightPx by rememberSaveable {
-        mutableIntStateOf(0)
-    }
-
-    val hazeState =
-        rememberHazeState(
-            blurEnabled = isLiquidGlassEnabled,
-        )
+    val backdrop = rememberBackdrop(Color.Transparent)
 
     LaunchedEffect(scrollState) {
         snapshotFlow { scrollState.firstVisibleItemIndex }
@@ -323,16 +341,13 @@ fun HomeScreen(
     val onRefresh: () -> Unit = {
         isRefreshing = true
         viewModel.getHomeItemList(params)
-        Logger.w("HomeScreen", "onRefresh")
     }
     LaunchedEffect(key1 = reloadDestination) {
         if (reloadDestination == HomeDestination::class) {
             if (scrollState.firstVisibleItemIndex > 1) {
-                Logger.w("HomeScreen", "scrollState.firstVisibleItemIndex: ${scrollState.firstVisibleItemIndex}")
                 scrollState.animateScrollToItem(0)
                 sharedViewModel.reloadDestinationDone()
             } else {
-                Logger.w("HomeScreen", "scrollState.firstVisibleItemIndex: ${scrollState.firstVisibleItemIndex}")
                 onRefresh.invoke()
             }
         }
@@ -363,42 +378,29 @@ fun HomeScreen(
         }
 
     LaunchedEffect(key1 = shouldStartPaginate.value) {
-        Logger.d("HomeScreen", "shouldStartPaginate: ${shouldStartPaginate.value}")
-        Logger.d("HomeScreen", "homeListState: $homeListState")
-        Logger.d("HomeScreen", "Continuation: $continuation")
         if (shouldStartPaginate.value && homeListState == ListState.IDLE) {
-            viewModel.getContinueHomeItem(
-                continuation,
-            )
+            viewModel.getContinueHomeItem(continuation)
         }
     }
 
     if (shouldShowLogInAlert) {
-        var doNotShowAgain by rememberSaveable {
-            mutableStateOf(false)
-        }
+        var doNotShowAgain by rememberSaveable { mutableStateOf(false) }
         AlertDialog(
-            title = {
-                Text(stringResource(Res.string.warning))
-            },
+            title = { Text(stringResource(Res.string.warning)) },
             text = {
                 Column {
                     Text(text = stringResource(Res.string.log_in_warning))
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    doNotShowAgain = !doNotShowAgain
-                                }.fillMaxWidth(),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { doNotShowAgain = !doNotShowAgain }
+                            .fillMaxWidth(),
                     ) {
                         Checkbox(
                             checked = doNotShowAgain,
-                            onCheckedChange = {
-                                doNotShowAgain = it
-                            },
+                            onCheckedChange = { doNotShowAgain = it },
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(stringResource(Res.string.do_not_show_again))
@@ -420,42 +422,69 @@ fun HomeScreen(
                     Text(stringResource(Res.string.cancel))
                 }
             },
-            onDismissRequest = {
-                viewModel.doneShowLogInAlert()
-            },
+            onDismissRequest = { viewModel.doneShowLogInAlert() },
         )
     }
 
-    val floatingCapsuleShape = RoundedCornerShape(28.dp)
+    val headerCapsuleShape = RoundedCornerShape(26.dp)
 
-    Box(modifier = Modifier.fillMaxSize().background(pageBackground)) {
-        PullToRefreshBox(
-            modifier =
-                Modifier
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF030508))
+    ) {
+        // ==================== 1. LIVE BACKDROP SOURCE CANVAS ====================
+        // key(customBackgroundUri) guarantees that the entire backdrop canvas is rebuilt instantly when wallpaper path changes
+        key(customBackgroundUri) {
+            Box(
+                modifier = Modifier
                     .fillMaxSize()
-                    .then(if (isLiquidGlassEnabled) Modifier.hazeSource(hazeState) else Modifier),
+                    .layerBackdrop(backdrop)
+            ) {
+                val context = LocalPlatformContext.current
+
+                val wallpaperFile = remember(customBackgroundUri) {
+                    customBackgroundUri?.takeIf { it.isNotEmpty() }?.let { path ->
+                        val f = File(path)
+                        if (f.exists()) f else null
+                    }
+                }
+
+                if (wallpaperFile != null) {
+                    val lastModified = remember(wallpaperFile) { wallpaperFile.lastModified() }
+                    AsyncImage(
+                        model = remember(customBackgroundUri, lastModified) {
+                            ImageRequest.Builder(context)
+                                .data(wallpaperFile)
+                                .memoryCacheKey("${customBackgroundUri}_$lastModified")
+                                .diskCacheKey("${customBackgroundUri}_$lastModified")
+                                .memoryCachePolicy(CachePolicy.WRITE_ONLY) // Purana cached bitmap bypass karega
+                                .crossfade(true)
+                                .build()
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    // DEFAULT WALLPAPER: Smooth Multi-Stop Ambient Flow
+                    DynamicAmbientBackground(
+                        modifier = Modifier.fillMaxSize(),
+                        primaryColor = MaterialTheme.colorScheme.primary,
+                        secondaryColor = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+            }
+        }
+
+        // ==================== 2. SIBLING SCROLLABLE CONTENT ====================
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
             state = pullToRefreshState,
             onRefresh = onRefresh,
             isRefreshing = isRefreshing,
             indicator = {},
         ) {
-            // Smooth Ambient Background Glow (Diffuses down cleanly without sharp patches)
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(650.dp)
-                        .background(
-                            brush =
-                                Brush.verticalGradient(
-                                    0.0f to animatedColor.copy(alpha = 0.85f),
-                                    0.35f to animatedColor.copy(alpha = 0.45f),
-                                    0.70f to animatedColor.copy(alpha = 0.15f),
-                                    1.0f to pageBackground,
-                                ),
-                        ),
-            )
-
             Crossfade(targetState = loading, label = "Home Shimmer") { loadingState ->
                 if (!loadingState) {
                     if (homeData.isEmpty()) {
@@ -471,83 +500,64 @@ fun HomeScreen(
                         )
                         return@Crossfade
                     }
+
                     LazyColumn(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 140.dp),
+                        modifier = Modifier.fillMaxSize(),
                     ) {
+                        item {
+                            Spacer(
+                                modifier = Modifier
+                                    .statusBarsPadding()
+                                    .height(
+                                        if (topAppBarHeightPx > 0) {
+                                            with(localDensity) { topAppBarHeightPx.toDp() + 14.dp }
+                                        } else {
+                                            165.dp
+                                        },
+                                    ),
+                            )
+                        }
+
                         itemsIndexed(homeData, key = { _, item ->
-                            item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
+                            item.hashCode().toString()
                         }) { index, item ->
                             Column(
-                                modifier =
-                                    Modifier
-                                        .padding(horizontal = 16.dp),
+                                modifier = Modifier.padding(horizontal = 14.dp),
                             ) {
-                                if (index == 0) {
-                                    Spacer(
-                                        Modifier
-                                            .statusBarsPadding()
-                                            .height(
-                                                if (topAppBarHeightPx > 0) {
-                                                    with(LocalDensity.current) { topAppBarHeightPx.toDp() + 18.dp }
-                                                } else {
-                                                    170.dp
-                                                },
-                                            ),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
                                 if (index == 0 && accountInfo != null && accountShow) {
                                     AccountLayout(
                                         accountName = accountInfo?.first ?: "",
                                         url = accountInfo?.second ?: "",
-                                        isGlassEnabled = isLiquidGlassEnabled,
+                                        backdrop = backdrop,
                                     )
                                     Spacer(Modifier.height(14.dp))
                                 }
                                 if (item.title == stringResource(Res.string.quick_picks)) {
                                     AnimatedVisibility(
-                                        visible =
-                                            homeData.find {
-                                                it.title ==
-                                                    stringResource(
-                                                        Res.string.quick_picks,
-                                                    )
-                                            } != null,
+                                        visible = homeData.find { it.title == stringResource(Res.string.quick_picks) } != null,
                                     ) {
                                         QuickPicks(
-                                            homeItem =
-                                                (
-                                                    homeData.find {
-                                                        it.title ==
-                                                            stringResource(
-                                                                Res.string.quick_picks,
-                                                            )
-                                                    } ?: return@AnimatedVisibility
-                                                    ).let { content ->
-                                                        content.copy(
-                                                            contents =
-                                                                content.contents.mapNotNull { ct ->
-                                                                    ct?.copy(
-                                                                        artists =
-                                                                            ct.artists?.let { art ->
-                                                                                if (art.size > 1) {
-                                                                                    art.dropLast(1)
-                                                                                } else {
-                                                                                    art
-                                                                                }
-                                                                            },
-                                                                    )
-                                                                },
+                                            homeItem = (homeData.find { it.title == stringResource(Res.string.quick_picks) } ?: return@AnimatedVisibility).let { content ->
+                                                content.copy(
+                                                    contents = content.contents.mapNotNull { ct ->
+                                                        ct?.copy(
+                                                            artists = ct.artists?.let { art ->
+                                                                if (art.size > 1) art.dropLast(1) else art
+                                                            },
                                                         )
                                                     },
+                                                )
+                                            },
                                             navController = navController,
                                             viewModel = viewModel,
-                                            isGlassEnabled = isLiquidGlassEnabled,
+                                            backdrop = backdrop,
                                         )
                                     }
                                 } else {
-                                    HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
+                                    HomeSectionCard(backdrop = backdrop) {
                                         HomeItem(
                                             navController = navController,
                                             data = item,
@@ -559,286 +569,108 @@ fun HomeScreen(
                         item {
                             AnimatedVisibility(
                                 homeListState == ListState.PAGINATING,
-                                enter = expandVertically() + expandVertically(),
+                                enter = expandVertically(),
                                 exit = fadeOut() + shrinkVertically(),
                             ) {
                                 CenterLoadingBox(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(200.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp),
                                 )
                             }
                         }
                         if (homeListState == ListState.PAGINATION_EXHAUST) {
                             items(newRelease, key = { it.hashCode() }) {
-                                AnimatedVisibility(
-                                    visible = newRelease.isNotEmpty(),
-                                ) {
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .padding(horizontal = 16.dp),
-                                    ) {
-                                        HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
-                                            HomeItem(
-                                                navController = navController,
-                                                data = it,
-                                            )
+                                AnimatedVisibility(visible = newRelease.isNotEmpty()) {
+                                    Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                                        HomeSectionCard(backdrop = backdrop) {
+                                            HomeItem(navController = navController, data = it)
                                         }
                                     }
                                 }
                             }
                             item {
-                                AnimatedVisibility(
-                                    visible = moodMomentAndGenre != null,
-                                ) {
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .padding(horizontal = 16.dp),
-                                    ) {
+                                AnimatedVisibility(visible = moodMomentAndGenre != null) {
+                                    Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                                         moodMomentAndGenre?.let {
-                                            HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
-                                                MoodMomentAndGenre(
-                                                    mood = it,
-                                                    navController = navController,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            item {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .padding(horizontal = 16.dp),
-                                ) {
-                                    HomeSectionCard(isGlassEnabled = isLiquidGlassEnabled) {
-                                        Column(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 14.dp, vertical = 6.dp),
-                                            verticalArrangement = Arrangement.SpaceBetween,
-                                        ) {
-                                            ChartTitle()
-                                            Spacer(modifier = Modifier.height(5.dp))
-                                            Crossfade(targetState = regionChart) {
-                                                Logger.w("HomeScreen", "regionChart: $it")
-                                                if (it != null) {
-                                                    DropdownButton(
-                                                        items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
-                                                        defaultSelected =
-                                                            CHART_SUPPORTED_COUNTRY.itemsData.getOrNull(
-                                                                CHART_SUPPORTED_COUNTRY.items.indexOf(it),
-                                                            )
-                                                                ?: CHART_SUPPORTED_COUNTRY.itemsData[1],
-                                                    ) {
-                                                        viewModel.exploreChart(
-                                                            CHART_SUPPORTED_COUNTRY.items[
-                                                                CHART_SUPPORTED_COUNTRY.itemsData.indexOf(
-                                                                    it,
-                                                                ),
-                                                            ],
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(5.dp))
-                                            Crossfade(
-                                                targetState = chartLoading,
-                                                label = "Chart",
-                                            ) { loadingInProgress ->
-                                                if (!loadingInProgress) {
-                                                    chart?.let {
-                                                        ChartData(
-                                                            chart = it,
-                                                            navController = navController,
-                                                        )
-                                                    }
-                                                } else {
-                                                    CenterLoadingBox(
-                                                        modifier =
-                                                            Modifier
-                                                                .fillMaxWidth()
-                                                                .height(400.dp),
-                                                    )
-                                                }
+                                            HomeSectionCard(backdrop = backdrop) {
+                                                MoodMomentAndGenre(mood = it, navController = navController)
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                        item {
-                            EndOfPage()
-                        }
+                        item { EndOfPage() }
                     }
                 } else {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp),
+                    ) {
                         Spacer(
                             Modifier.height(
-                                with(LocalDensity.current) {
-                                    topAppBarHeightPx.toDp()
+                                if (topAppBarHeightPx > 0) {
+                                    with(localDensity) { topAppBarHeightPx.toDp() + 14.dp }
+                                } else {
+                                    165.dp
                                 },
                             ),
                         )
-                        HomeShimmer()
+                        HomeSectionCard(backdrop = backdrop) {
+                            HomeShimmer()
+                        }
                     }
                 }
             }
         }
 
-        // Notch & Status Bar Scrim
+        // ==================== 3. FLOATING TOP LIQUID GLASS BAR ====================
         Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .align(Alignment.TopCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            0.0f to Color.Black.copy(alpha = 0.95f),
-                            0.7f to Color.Black.copy(alpha = 0.70f),
-                            1.0f to Color.Transparent,
-                        ),
-                    ),
-        )
-
-        // Floating Header with Dynamic Ambient Glow
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 10.dp, start = 12.dp, end = 12.dp)
-                    .onGloballyPositioned { coordinates ->
-                        topAppBarHeightPx = coordinates.size.height
-                    },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .zIndex(100f)
+                .onGloballyPositioned { coordinates ->
+                    topAppBarHeightPx = coordinates.size.height
+                },
         ) {
-            if (isLiquidGlassEnabled) {
-                Box(
-                    modifier =
-                        Modifier
-                            .matchParentSize()
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                            .graphicsLayer {
-                                alpha = 0.85f
-                            }.background(
-                                brush =
-                                    Brush.radialGradient(
-                                        colors =
-                                            listOf(
-                                                animatedColor.copy(alpha = 0.55f),
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
-                                                Color.Transparent,
-                                            ),
-                                    ),
-                                shape = RoundedCornerShape(36.dp),
-                            ),
-                )
-            }
-
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .shadow(
-                            elevation = if (isLiquidGlassEnabled) 16.dp else 4.dp,
-                            shape = floatingCapsuleShape,
-                            ambientColor = Color.Black.copy(alpha = if (isLiquidGlassEnabled) 0.35f else 0.12f),
-                            spotColor = Color.Black.copy(alpha = if (isLiquidGlassEnabled) 0.35f else 0.12f),
-                        )
-                        .graphicsLayer {
-                            shape = floatingCapsuleShape
-                            clip = true
-                        }.clip(floatingCapsuleShape)
-                        .then(
-                            if (isLiquidGlassEnabled) {
-                                Modifier
-                                    .hazeEffect(
-                                        state = hazeState,
-                                        style =
-                                            HazeDefaults.style(
-                                                backgroundColor = Color.Transparent,
-                                                blurRadius = 24.dp,
-                                                noiseFactor = 0.03f,
-                                            ),
-                                    )
-                                    .background(
-                                        brush =
-                                            Brush.verticalGradient(
-                                                0.0f to Color.White.copy(alpha = if (isLightTheme) 0.45f else 0.22f),
-                                                0.25f to Color.White.copy(alpha = if (isLightTheme) 0.18f else 0.07f),
-                                                0.70f to (if (isLightTheme) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.18f)),
-                                                1.0f to (if (isLightTheme) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.35f)),
-                                            ),
-                                    )
-                                    .border(
-                                        width = 1.2.dp,
-                                        brush =
-                                            Brush.verticalGradient(
-                                                0.0f to Color.White.copy(alpha = 0.80f),
-                                                0.35f to Color.White.copy(alpha = 0.28f),
-                                                0.80f to Color.White.copy(alpha = 0.08f),
-                                                1.0f to Color.White.copy(alpha = 0.18f),
-                                            ),
-                                        shape = floatingCapsuleShape,
-                                    )
-                            } else {
-                                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            }
-                        ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .homeCleanLiquidGlass(
+                        backdrop = backdrop,
+                        shape = headerCapsuleShape,
+                    ),
             ) {
-                AnimatedVisibility(
-                    visible = isScrollingUp,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    HomeTopAppBar(navController)
-                }
-                AnimatedVisibility(
-                    visible = !isScrollingUp,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    Spacer(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(6.dp),
-                    )
-                }
+                HomeTopAppBar(navController)
+
                 Row(
-                    modifier =
-                        Modifier
-                            .horizontalScroll(chipRowState)
-                            .padding(bottom = 12.dp, start = 14.dp, end = 14.dp)
-                            .background(Color.Transparent),
+                    modifier = Modifier
+                        .horizontalScroll(chipRowState)
+                        .padding(bottom = 12.dp, start = 14.dp, end = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     listOfHomeChip.forEach { id ->
-                        val isSelected =
-                            when (params) {
-                                HOME_PARAMS_RELAX -> id == Res.string.relax
-                                HOME_PARAMS_SLEEP -> id == Res.string.sleep
-                                HOME_PARAMS_ENERGIZE -> id == Res.string.energize
-                                HOME_PARAMS_SAD -> id == Res.string.sad
-                                HOME_PARAMS_ROMANCE -> id == Res.string.romance
-                                HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
-                                HOME_PARAMS_WORKOUT -> id == Res.string.workout
-                                HOME_PARAMS_PARTY -> id == Res.string.party
-                                HOME_PARAMS_COMMUTE -> id == Res.string.commute
-                                HOME_PARAMS_FOCUS -> id == Res.string.focus
-                                else -> id == Res.string.all
-                            }
+                        val isSelected = when (params) {
+                            HOME_PARAMS_RELAX -> id == Res.string.relax
+                            HOME_PARAMS_SLEEP -> id == Res.string.sleep
+                            HOME_PARAMS_ENERGIZE -> id == Res.string.energize
+                            HOME_PARAMS_SAD -> id == Res.string.sad
+                            HOME_PARAMS_ROMANCE -> id == Res.string.romance
+                            HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
+                            HOME_PARAMS_WORKOUT -> id == Res.string.workout
+                            HOME_PARAMS_PARTY -> id == Res.string.party
+                            HOME_PARAMS_COMMUTE -> id == Res.string.commute
+                            HOME_PARAMS_FOCUS -> id == Res.string.focus
+                            else -> id == Res.string.all
+                        }
                         iOSGlassChip(
                             text = stringResource(id),
                             isSelected = isSelected,
-                            isDark = !isLightTheme,
-                            isGlassEnabled = isLiquidGlassEnabled,
                         ) {
                             when (id) {
                                 Res.string.all -> viewModel.setParams(null)
@@ -861,148 +693,88 @@ fun HomeScreen(
 
         if (isRefreshing) {
             Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        .padding(top = with(LocalDensity.current) { topAppBarHeightPx.toDp() + 14.dp })
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(6.dp),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = with(localDensity) { topAppBarHeightPx.toDp() + 18.dp })
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(
                     strokeWidth = 2.5.dp,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color.White,
                 )
             }
         }
     }
 }
 
-/**
- * Reusable Frosted Glass Card for dynamic sections
- */
 @Composable
 fun HomeSectionCard(
+    backdrop: PlatformBackdrop,
     modifier: Modifier = Modifier,
-    isGlassEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val cardShape = RoundedCornerShape(24.dp)
-    val cardModifier =
-        if (isGlassEnabled) {
-            Modifier
-                .background(
-                    brush =
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.08f),
-                                Color.White.copy(alpha = 0.02f),
-                            ),
-                        ),
-                    shape = cardShape,
-                )
-                .border(
-                    width = 1.dp,
-                    brush =
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.18f),
-                                Color.White.copy(alpha = 0.03f),
-                            ),
-                        ),
-                    shape = cardShape,
-                )
-        } else {
-            Modifier.background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                shape = cardShape,
-            )
-        }
+    val cardShape = RoundedCornerShape(22.dp)
 
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(cardShape)
-                .then(cardModifier)
-                .padding(vertical = 10.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .homeCleanLiquidGlass(
+                backdrop = backdrop,
+                shape = cardShape,
+            )
+            .padding(vertical = 12.dp),
         content = content,
     )
 }
 
-/**
- * iOS-styled Translucent Frosted Glass Chip Pill
- */
 @Composable
 fun iOSGlassChip(
     text: String,
     isSelected: Boolean,
-    isDark: Boolean,
-    isGlassEnabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val pillShape = RoundedCornerShape(50)
 
-    val chipModifier =
-        if (isGlassEnabled) {
-            val containerBrush =
-                if (isSelected) {
-                    Brush.verticalGradient(
-                        listOf(
-                            (if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black.copy(alpha = 0.90f)),
-                            (if (isDark) Color(0xFFD4D4D4) else Color(0xFF181818)),
-                        ),
-                    )
-                } else {
-                    Brush.verticalGradient(
-                        listOf(
-                            (if (isDark) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.08f)),
-                            (if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.02f)),
-                        ),
-                    )
-                }
-            Modifier
-                .background(brush = containerBrush)
-                .border(
-                    width = 1.dp,
-                    brush =
-                        Brush.verticalGradient(
-                            colors =
-                                if (isSelected) {
-                                    listOf(Color.White.copy(alpha = 0.6f), Color.Transparent)
-                                } else {
-                                    listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.04f))
-                                },
-                        ),
-                    shape = pillShape,
-                )
-        } else {
-            val solidBackground =
-                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
-            Modifier.background(solidBackground)
-        }
+    val containerBrush = if (isSelected) {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.95f),
+                Color(0xFFE2E2E2),
+            ),
+        )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.05f),
+            ),
+        )
+    }
 
-    val contentColor =
-        if (isGlassEnabled) {
-            if (isSelected) {
-                if (isDark) Color.Black else Color.White
-            } else {
-                if (isDark) Color.White.copy(alpha = 0.92f) else Color.Black.copy(alpha = 0.85f)
-            }
-        } else {
-            if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-        }
+    val contentColor = if (isSelected) Color.Black else Color.White
 
     Box(
-        modifier =
-            Modifier
-                .clip(pillShape)
-                .then(chipModifier)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 7.dp),
+        modifier = Modifier
+            .clip(pillShape)
+            .background(brush = containerBrush)
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = if (isSelected) {
+                        listOf(Color.White, Color(0xFFD4D4D4))
+                    } else {
+                        listOf(Color.White.copy(alpha = 0.50f), Color.White.copy(alpha = 0.10f))
+                    },
+                ),
+                shape = pillShape,
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -1017,11 +789,10 @@ fun iOSGlassChip(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopAppBar(navController: NavController) {
-    val hour =
-        remember {
-            val date = now().time
-            date.hour
-        }
+    val hour = remember {
+        val date = now().time
+        date.hour
+    }
     TopAppBar(
         windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
@@ -1029,49 +800,36 @@ fun HomeTopAppBar(navController: NavController) {
                 Text(
                     text = stringResource(Res.string.app_name),
                     style = typo().titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = Color.White,
                     modifier = Modifier.padding(bottom = 2.dp),
                 )
                 Text(
-                    text =
-                        when (hour) {
-                            in 6..12 -> {
-                                stringResource(Res.string.good_morning)
-                            }
-
-                            in 13..17 -> {
-                                stringResource(Res.string.good_afternoon)
-                            }
-
-                            in 18..23 -> {
-                                stringResource(Res.string.good_evening)
-                            }
-
-                            else -> {
-                                stringResource(Res.string.good_night)
-                            }
-                        },
+                    text = when (hour) {
+                        in 6..12 -> stringResource(Res.string.good_morning)
+                        in 13..17 -> stringResource(Res.string.good_afternoon)
+                        in 18..23 -> stringResource(Res.string.good_evening)
+                        else -> stringResource(Res.string.good_night)
+                    },
                     style = typo().bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    color = Color.White.copy(alpha = 0.75f),
                 )
             }
         },
         actions = {
-            RippleIconButton(imageVector = SimpIcons.Notifications, tint = MaterialTheme.colorScheme.onBackground) {
+            RippleIconButton(imageVector = SimpIcons.Notifications, tint = Color.White) {
                 navController.navigate(NotificationDestination)
             }
-            RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
+            RippleIconButton(imageVector = SimpIcons.History, tint = Color.White) {
                 navController.navigate(RecentlySongsDestination)
             }
             ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
-            RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
+            RippleIconButton(imageVector = SimpIcons.Settings, tint = Color.White) {
                 navController.navigate(SettingsDestination)
             }
         },
-        colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-            ),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent,
+        ),
     )
 }
 
@@ -1079,64 +837,45 @@ fun HomeTopAppBar(navController: NavController) {
 fun AccountLayout(
     accountName: String,
     url: String,
-    isGlassEnabled: Boolean = true,
+    backdrop: PlatformBackdrop,
 ) {
     val cardShape = RoundedCornerShape(20.dp)
-    val cardModifier =
-        if (isGlassEnabled) {
-            Modifier
-                .background(Color.White.copy(alpha = 0.05f))
-                .border(
-                    width = 1.dp,
-                    brush =
-                        Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.03f)),
-                        ),
-                    shape = cardShape,
-                )
-        } else {
-            Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
-        }
 
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(cardShape)
-                .then(cardModifier)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .homeCleanLiquidGlass(
+                backdrop = backdrop,
+                shape = cardShape,
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(
             text = stringResource(Res.string.welcome_back),
             style = typo().bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            color = Color.White.copy(alpha = 0.70f),
             modifier = Modifier.padding(bottom = 3.dp),
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
-                model =
-                    ImageRequest
-                        .Builder(LocalPlatformContext.current)
-                        .data(url)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .diskCacheKey(url)
-                        .crossfade(true)
-                        .build(),
+                model = ImageRequest.Builder(LocalPlatformContext.current)
+                    .data(url)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .diskCacheKey(url)
+                    .crossfade(true)
+                    .build(),
                 placeholder = rememberHolderPainter(),
                 error = rememberHolderPainter(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .size(42.dp)
-                        .clip(CircleShape),
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape),
             )
             Text(
                 text = accountName,
                 style = typo().headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = Color.White,
                 modifier = Modifier.padding(start = 12.dp),
             )
         }
@@ -1149,16 +888,14 @@ fun QuickPicks(
     homeItem: HomeItem,
     navController: NavController,
     viewModel: HomeViewModel = koinViewModel(),
-    isGlassEnabled: Boolean = true,
+    backdrop: PlatformBackdrop,
 ) {
     val lazyListState = rememberLazyGridState()
     val snapperFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState, snapPosition = SnapPosition.Start))
-    val density = LocalDensity.current
-    var widthDp by remember {
-        mutableStateOf(0.dp)
-    }
+    var widthDp by remember { mutableStateOf(0.dp) }
     var bottomSheetShow by remember { mutableStateOf(false) }
     var track by remember { mutableStateOf<Track?>(null) }
+    val localDensity = LocalDensity.current
 
     if (bottomSheetShow) {
         NowPlayingBottomSheet(
@@ -1168,64 +905,35 @@ fun QuickPicks(
         )
     }
 
-    val cardShape = RoundedCornerShape(24.dp)
-    val cardModifier =
-        if (isGlassEnabled) {
-            Modifier
-                .background(
-                    brush =
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.08f),
-                                Color.White.copy(alpha = 0.02f),
-                            ),
-                        ),
-                    shape = cardShape,
-                )
-                .border(
-                    width = 1.dp,
-                    brush =
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.18f),
-                                Color.White.copy(alpha = 0.03f),
-                            ),
-                        ),
-                    shape = cardShape,
-                )
-        } else {
-            Modifier.background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                shape = cardShape,
-            )
-        }
+    val cardShape = RoundedCornerShape(22.dp)
 
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .then(cardModifier)
+            .homeCleanLiquidGlass(
+                backdrop = backdrop,
+                shape = cardShape,
+            )
             .padding(horizontal = 14.dp, vertical = 14.dp)
             .onGloballyPositioned { coordinates ->
-                with(density) {
-                    widthDp = (coordinates.size.width).toDp()
+                with(localDensity) {
+                    widthDp = coordinates.size.width.toDp()
                 }
             },
     ) {
         Text(
             text = stringResource(Res.string.let_s_start_with_a_radio),
             style = typo().bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            color = Color.White.copy(alpha = 0.70f),
         )
         Text(
             text = stringResource(Res.string.quick_picks),
             style = typo().headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = Color.White,
             maxLines = 1,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
         )
         Spacer(modifier = Modifier.height(6.dp))
         LazyHorizontalGrid(
@@ -1249,10 +957,7 @@ fun QuickPicks(
                                     continuation = null,
                                 ),
                             )
-                            viewModel.loadMediaItem(
-                                firstQueue,
-                                type = Config.SONG_CLICK,
-                            )
+                            viewModel.loadMediaItem(firstQueue, type = Config.SONG_CLICK)
                         },
                         onLongClick = {
                             track = it.toTrack()
@@ -1272,14 +977,11 @@ fun MoodMomentAndGenre(
     mood: Mood,
     navController: NavController,
 ) {
-    Column(
-        Modifier
-            .padding(horizontal = 14.dp, vertical = 4.dp),
-    ) {
+    Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
         Text(
             text = stringResource(Res.string.let_s_pick_a_playlist_for_you),
             style = typo().bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            color = Color.White.copy(alpha = 0.70f),
         )
         mood.sections.forEach { section ->
             val gridState = rememberLazyGridState()
@@ -1287,12 +989,11 @@ fun MoodMomentAndGenre(
             Text(
                 text = section.title,
                 style = typo().headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = Color.White,
                 maxLines = 1,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 5.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 5.dp),
             )
             LazyHorizontalGrid(
                 rows = GridCells.Fixed(3),
@@ -1305,11 +1006,7 @@ fun MoodMomentAndGenre(
                         title = item.title,
                         stripeColor = item.stripeColor,
                     ) {
-                        navController.navigate(
-                            MoodDestination(
-                                item.params,
-                            ),
-                        )
+                        navController.navigate(MoodDestination(item.params))
                     }
                 }
             }
@@ -1323,17 +1020,16 @@ fun ChartTitle() {
         Text(
             text = stringResource(Res.string.what_is_best_choice_today),
             style = typo().bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            color = Color.White.copy(alpha = 0.70f),
         )
         Text(
             text = stringResource(Res.string.chart),
             style = typo().headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = Color.White,
             maxLines = 1,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 5.dp),
         )
     }
 }
@@ -1343,18 +1039,16 @@ fun ChartData(
     chart: Chart,
     navController: NavController,
 ) {
-    var gridWidthDp by remember {
-        mutableStateOf(0.dp)
-    }
-    val density = LocalDensity.current
+    var gridWidthDp by remember { mutableStateOf(0.dp) }
+    val localDensity = LocalDensity.current
 
     val lazyListState2 = rememberLazyGridState()
     val snapperFlingBehavior2 = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState2))
 
     Column(
         Modifier.onGloballyPositioned { coordinates ->
-            with(density) {
-                gridWidthDp = (coordinates.size.width).toDp()
+            with(localDensity) {
+                gridWidthDp = coordinates.size.width.toDp()
             }
         },
     ) {
@@ -1362,12 +1056,11 @@ fun ChartData(
             Text(
                 text = item.title,
                 style = typo().headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = Color.White,
                 maxLines = 1,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
             )
             val lazyListState = rememberLazyListState()
             val snapperFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyListState = lazyListState))
@@ -1396,12 +1089,11 @@ fun ChartData(
         Text(
             text = stringResource(Res.string.top_artists),
             style = typo().headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = Color.White,
             maxLines = 1,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
         )
         LazyHorizontalGrid(
             rows = GridCells.Fixed(3),
@@ -1416,11 +1108,7 @@ fun ChartData(
                 val data = chart.artists.itemArtists[it]
                 ItemArtistChart(
                     onClick = {
-                        navController.navigate(
-                            ArtistDestination(
-                                channelId = data.browseId,
-                            ),
-                        )
+                        navController.navigate(ArtistDestination(channelId = data.browseId))
                     },
                     data = data,
                     widthDp = gridWidthDp,
