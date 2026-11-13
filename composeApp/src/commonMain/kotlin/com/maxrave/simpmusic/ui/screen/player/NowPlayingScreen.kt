@@ -3,6 +3,7 @@
 package com.maxrave.simpmusic.ui.screen.player
 
 import androidx.compose.animation.Animatable
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -11,6 +12,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -49,6 +54,7 @@ import androidx.navigation.NavController
 import com.kmpalette.rememberPaletteState
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.maxrave.logger.Logger
+import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberBackdrop
@@ -59,6 +65,7 @@ import com.maxrave.simpmusic.extension.getColorFromPalette
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
 import com.maxrave.simpmusic.extension.hsvToColor
 import com.maxrave.simpmusic.extension.rememberIsInPipMode
+import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.FullscreenLyricsSheet
 import com.maxrave.simpmusic.ui.component.InfoPlayerBottomSheet
@@ -99,6 +106,19 @@ fun NowPlayingScreen(
     navController: NavController,
     onDismiss: () -> Unit = {},
 ) {
+    // Desktop: Same Android NowPlayingScreenContent UI, direct fullscreen overlay mein
+    if (getPlatform() == Platform.Desktop) {
+        NowPlayingScreenContent(
+            sharedViewModel = sharedViewModel,
+            navController = navController,
+            isExpanded = true,
+            dismissIcon = SimpIcons.KeyboardArrowDown,
+            onDismiss = onDismiss,
+        )
+        return
+    }
+
+    // Android: Standard BottomSheet
     val coroutineScope = rememberCoroutineScope()
     val sheetState =
         rememberModalBottomSheetState(
@@ -142,13 +162,14 @@ fun NowPlayingScreenContent(
     dismissIcon: ImageVector,
     onDismiss: () -> Unit = {},
 ) {
+    val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
+    val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
+    val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
+
     val coroutineScope = rememberCoroutineScope()
     val backdrop = rememberBackdrop(Color(0xFF040608))
     val screenInfo = getScreenSizeInfo()
 
-    val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
-    val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
     val likeStatus by sharedViewModel.likeStatus.collectAsStateWithLifecycle()
     val castState by sharedViewModel.castState.collectAsStateWithLifecycle()
     val formatState by sharedViewModel.format.collectAsStateWithLifecycle(initialValue = null)
@@ -435,10 +456,6 @@ fun NowPlayingScreenContent(
         }
     }
 
-    if (showQueueBottomSheet) {
-        QueueBottomSheet(onDismiss = { showQueueBottomSheet = false })
-    }
-
     if (showInfoBottomSheet) {
         InfoPlayerBottomSheet(onDismiss = { showInfoBottomSheet = false })
     }
@@ -708,6 +725,37 @@ fun NowPlayingScreenContent(
                 state = state,
                 actions = actions,
             )
+
+            AnimatedVisibility(
+                visible = showQueueBottomSheet,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            ) {
+                QueueBottomSheet(
+                    onDismiss = { showQueueBottomSheet = false },
+                    backdrop = backdrop,
+                )
+            }
         }
     }
 }
+
+@Composable
+expect fun PlatformDesktopNowPlayingScreen(
+    title: String,
+    artist: String,
+    artworkUrl: String?,
+    isPlaying: Boolean,
+    currentPositionMs: Long,
+    durationMs: Long,
+    lyricsList: List<String>,
+    activeLyricIndex: Int,
+    volume: Float,
+    onBackClick: () -> Unit,
+    onPlayPauseClick: () -> Unit,
+    onNextClick: () -> Unit,
+    onPrevClick: () -> Unit,
+    onSeek: (Float) -> Unit,
+    onVolumeChange: (Float) -> Unit,
+    onLikeClick: () -> Unit,
+)

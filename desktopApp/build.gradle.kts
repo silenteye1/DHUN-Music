@@ -129,7 +129,7 @@ tasks.named<hydraulic.conveyor.gradle.WriteConveyorConfigTask>("writeConveyorCon
         destination.get().asFile.appendText(
             """
             |app.fsname = simpmusic
-            |app.display-name = SimpMusic
+            |app.display-name = simpmusic
             |app.rdns-name = com.maxrave.simpmusic
             |
             |// Override the Gradle-detected classpath with the ProGuard'd
@@ -149,6 +149,9 @@ compose.desktop {
     application {
         mainClass = "com.maxrave.simpmusic.MainKt"
         jvmArgs += "--add-opens=java.base/java.nio=ALL-UNNAMED"
+        jvmArgs += "-Dskiko.renderApi=DIRECT3D"
+        jvmArgs += "-Xmx512m"
+        jvmArgs += "-XX:+UseG1GC"
 
         nativeDistributions {
             appResourcesRootDir = rootDir.resolve("mpv-natives/")
@@ -162,12 +165,12 @@ compose.desktop {
                 )
             } else {
                 listTarget.addAll(
-                    listOf(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.AppImage),
+                    listOf(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.AppImage),
                 )
             }
             targetFormats(*listTarget.toTypedArray())
             modules("jdk.unsupported")
-            packageName = "SimpMusic"
+            packageName = "Dhun Music"
             macOS {
                 val formatedDate =
                     Instant.now().let {
@@ -214,6 +217,10 @@ compose.desktop {
                         .get()
                         .removeSuffix("-hf")
                 iconFile.set(rootDir.resolve("composeApp/icon/circle_app_icon.ico"))
+                menuGroup = "Dhun Music"
+                shortcut = true
+                dirChooser = true
+                perUserInstall = false
             }
             linux {
                 includeAllModules = true
@@ -241,6 +248,9 @@ afterEvaluate {
         jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
         jvmArgs("--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED")
         jvmArgs("--add-opens", "java.base/java.nio=ALL-UNNAMED")
+        jvmArgs("-Dskiko.renderApi=DIRECT3D")
+        jvmArgs("-Xmx512m")
+        jvmArgs("-XX:+UseG1GC")
 
         // A native crash (SIGSEGV) leaves no Kotlin stack trace; the hs_err file is the only thing
         // that names the library that died. Without an explicit path the JVM writes it to whatever
@@ -397,7 +407,7 @@ tasks.register("packageConveyorAppImage") {
             |Type=Application
             |Version=1.0
             |Name=SimpMusic
-            |Comment=SimpMusic v$versionName - FOSS YouTube Music Client
+            |Comment=SimpMusic v${versionName} FOSS YouTube Music Client
             |Exec=bin/simpmusic %u
             |Icon=simpmusic
             |Terminal=false

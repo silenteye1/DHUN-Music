@@ -7,17 +7,15 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -38,7 +36,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,7 +47,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -64,6 +60,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -82,9 +79,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -94,7 +91,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.LineHeightStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -148,7 +144,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import simpmusic.composeapp.generated.resources.Res
@@ -212,7 +207,7 @@ fun MiniPlayer(
                     val r = (color shr 16 and 0xFF) / 255f
                     val g = (color shr 8 and 0xFF) / 255f
                     val b = (color and 0xFF) / 255f
-                    0.2126 * r + 0.7152 * g + 0.0722 * b
+                    (0.2126 * r + 0.7152 * g + 0.0722 * b).toDouble()
                 } / 25
             luminanceAnimation.animateTo(
                 averageLuminance.coerceIn(0.3, 0.8).toFloat(),
@@ -321,26 +316,28 @@ fun MiniPlayer(
         val miniPlayerShape = RoundedCornerShape(26.dp)
 
         Box(
-            modifier = modifier
+            modifier = modifier,
         ) {
             // 1. Ambient Glow Layer (Artwork Palette Shadow)
             Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-                    .graphicsLayer {
-                        alpha = 0.55f
-                    }
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                background.value.copy(alpha = 0.70f),
-                                background.value.copy(alpha = 0.20f),
-                                Color.Transparent,
-                            ),
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .graphicsLayer {
+                            alpha = 0.55f
+                        }.background(
+                            brush =
+                                Brush.radialGradient(
+                                    colors =
+                                        listOf(
+                                            background.value.copy(alpha = 0.70f),
+                                            background.value.copy(alpha = 0.20f),
+                                            Color.Transparent,
+                                        ),
+                                ),
+                            shape = RoundedCornerShape(32.dp),
                         ),
-                        shape = RoundedCornerShape(32.dp),
-                    )
             )
 
             // 2. Main Frosted Glass Card
@@ -367,8 +364,7 @@ fun MiniPlayer(
                         .graphicsLayer {
                             shape = miniPlayerShape
                             clip = true
-                        }
-                        .clip(miniPlayerShape)
+                        }.clip(miniPlayerShape)
                         .then(
                             if (hazeState != null) {
                                 Modifier
@@ -385,8 +381,7 @@ fun MiniPlayer(
                                                 blurRadius = 26.dp,
                                                 noiseFactor = 0.04f,
                                             ),
-                                    )
-                                    .border(
+                                    ).border(
                                         width = 1.dp,
                                         brush =
                                             Brush.verticalGradient(
@@ -416,7 +411,7 @@ fun MiniPlayer(
                                             if (offsetY.value + dragAmount > 0) {
                                                 coroutineScope.launch {
                                                     change.consume()
-                                                    offsetY.animateTo(offsetY.value + 2 * dragAmount)
+                                                    offsetY.animateTo(offsetY.value + dragAmount * 2)
                                                     Logger.w("MiniPlayer", "Dragged ${offsetY.value}")
                                                 }
                                             }
@@ -442,9 +437,7 @@ fun MiniPlayer(
                 Box(modifier = Modifier.fillMaxHeight()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier
-                                .fillMaxSize(),
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         Spacer(modifier = Modifier.size(8.dp))
                         Box(modifier = Modifier.weight(1F)) {
@@ -456,10 +449,7 @@ fun MiniPlayer(
                                             detectHorizontalDragGestures(
                                                 onDragStart = {
                                                 },
-                                                onHorizontalDrag = {
-                                                        change: PointerInputChange,
-                                                        dragAmount: Float,
-                                                    ->
+                                                onHorizontalDrag = { change: PointerInputChange, dragAmount: Float ->
                                                     coroutineScope.launch {
                                                         change.consume()
                                                         offsetX.animateTo(offsetX.value + dragAmount * 2)
@@ -503,16 +493,13 @@ fun MiniPlayer(
                                     contentDescription = null,
                                     contentScale = ContentScale.FillWidth,
                                     onSuccess = {
-                                        bitmap =
-                                            it.result.image.toImageBitmap()
+                                        bitmap = it.result.image.toImageBitmap()
                                     },
                                     modifier =
                                         Modifier
                                             .size(40.dp)
                                             .align(Alignment.CenterVertically)
-                                            .clip(
-                                                RoundedCornerShape(8.dp),
-                                            ),
+                                            .clip(RoundedCornerShape(8.dp)),
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 AnimatedContent(
@@ -522,17 +509,13 @@ fun MiniPlayer(
                                     transitionSpec = {
                                         if (targetState != initialState) {
                                             (
-                                                slideInHorizontally { width ->
-                                                    width
-                                                } + fadeIn()
+                                                slideInHorizontally { width -> width } + fadeIn()
                                                 ).togetherWith(
                                                     slideOutHorizontally { width -> +width } + fadeOut(),
                                                 )
                                         } else {
                                             (
-                                                slideInHorizontally { width ->
-                                                    +width
-                                                } + fadeIn()
+                                                slideInHorizontally { width -> +width } + fadeIn()
                                                 ).togetherWith(
                                                     slideOutHorizontally { width -> width } + fadeOut(),
                                                 )
@@ -555,9 +538,8 @@ fun MiniPlayer(
                                                 modifier =
                                                     Modifier
                                                         .fillMaxWidth()
-                                                        .wrapContentHeight(
-                                                            align = Alignment.CenterVertically,
-                                                        ).basicMarquee(
+                                                        .wrapContentHeight(align = Alignment.CenterVertically)
+                                                        .basicMarquee(
                                                             iterations = Int.MAX_VALUE,
                                                             animationMode = MarqueeAnimationMode.Immediately,
                                                         ).focusable(),
@@ -580,9 +562,8 @@ fun MiniPlayer(
                                                     modifier =
                                                         Modifier
                                                             .weight(1f)
-                                                            .wrapContentHeight(
-                                                                align = Alignment.CenterVertically,
-                                                            ).basicMarquee(
+                                                            .wrapContentHeight(align = Alignment.CenterVertically)
+                                                            .basicMarquee(
                                                                 iterations = Int.MAX_VALUE,
                                                                 animationMode = MarqueeAnimationMode.Immediately,
                                                             ).focusable(),
@@ -622,16 +603,14 @@ fun MiniPlayer(
                                 }
                             }
                         }
-
                         Spacer(modifier = Modifier.width(15.dp))
                     }
                     Box(
                         modifier =
                             Modifier
                                 .wrapContentSize(Alignment.Center)
-                                .padding(
-                                    horizontal = 10.dp,
-                                ).align(Alignment.BottomCenter),
+                                .padding(horizontal = 10.dp)
+                                .align(Alignment.BottomCenter),
                     ) {
                         LinearProgressIndicator(
                             progress = { animatedProgress },
@@ -654,7 +633,6 @@ fun MiniPlayer(
         }
     } else {
         val textColor = MaterialTheme.colorScheme.onBackground
-
         val sweepTransition = rememberInfiniteTransition(label = "miniPlayerCrossfadeSweep")
         val crossfadeSweep by sweepTransition.animateFloat(
             initialValue = 0f,
@@ -668,15 +646,10 @@ fun MiniPlayer(
         )
         val progressColor = textColor
 
-        var isSliding by rememberSaveable {
-            mutableStateOf(false)
-        }
-        var sliderValue by rememberSaveable {
-            mutableFloatStateOf(0f)
-        }
-        var showQueueBottomSheet by rememberSaveable {
-            mutableStateOf(false)
-        }
+        var isSliding by rememberSaveable { mutableStateOf(false) }
+        var sliderValue by rememberSaveable { mutableFloatStateOf(0f) }
+        var showQueueBottomSheet by rememberSaveable { mutableStateOf(false) }
+
         LaunchedEffect(key1 = timelineState, key2 = isSliding) {
             if (!isSliding) {
                 sliderValue =
@@ -689,29 +662,31 @@ fun MiniPlayer(
         }
         if (showQueueBottomSheet) {
             QueueBottomSheet(
-                onDismiss = {
-                    showQueueBottomSheet = false
-                },
+                onDismiss = { showQueueBottomSheet = false },
             )
         }
-        val capsuleShape = RoundedCornerShape(50)
+        val capsuleShape = RoundedCornerShape(32.dp)
         val density = LocalDensity.current
-        Box(
-            modifier
-                .liquidGlass(backdrop, layer, luminanceAnimation.value, capsuleShape, blurScale = 1.2f)
-                .clip(capsuleShape)
-                .clickable {
-                    onClick()
-                },
-            contentAlignment = Alignment.Center,
+
+        Surface(
+            modifier =
+                modifier
+                    .liquidGlass(backdrop, layer, luminanceAnimation.value, capsuleShape, blurScale = 1.2f)
+                    .clip(capsuleShape)
+                    .clickable { onClick() },
+            shape = capsuleShape,
+            color = Color.Black.copy(alpha = 0.45f),
+            shadowElevation = 8.dp,
         ) {
             Row(
                 Modifier
-                    .fillMaxHeight()
+                    .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Box(Modifier.width(200.dp)) {
+                // 1. Controls (Play, Prev, Next, Shuffle)
+                Box(Modifier.wrapContentWidth()) {
                     PlayerControlLayout(
                         controllerState,
                         isSmallSize = true,
@@ -724,16 +699,17 @@ fun MiniPlayer(
                     }
                 }
                 VerticalDivider(
-                    modifier = Modifier.height(28.dp).padding(horizontal = 14.dp),
+                    modifier = Modifier.height(28.dp).padding(horizontal = 10.dp),
                     color = textColor.copy(alpha = 0.2f),
                 )
+                // 2. Track Title, Artwork & Scrubber
                 val trackInteraction = remember { MutableInteractionSource() }
                 val isTrackHovered by trackInteraction.collectIsHoveredAsState()
                 val showScrubber = isTrackHovered || isSliding
                 Box(
                     modifier =
                         Modifier
-                            .width(300.dp)
+                            .weight(1f)
                             .fillMaxHeight()
                             .hoverable(trackInteraction),
                 ) {
@@ -760,8 +736,7 @@ fun MiniPlayer(
                     ) {
                         AsyncImage(
                             model =
-                                ImageRequest
-                                    .Builder(LocalPlatformContext.current)
+                                ImageRequest.Builder(LocalPlatformContext.current)
                                     .data(songEntity?.thumbnails)
                                     .crossfade(550)
                                     .build(),
@@ -769,16 +744,11 @@ fun MiniPlayer(
                             error = rememberHolderPainter(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            onSuccess = {
-                                bitmap =
-                                    it.result.image.toImageBitmap()
-                            },
+                            onSuccess = { bitmap = it.result.image.toImageBitmap() },
                             modifier =
                                 Modifier
-                                    .size(32.dp)
-                                    .clip(
-                                        RoundedCornerShape(6.dp),
-                                    ),
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
@@ -790,9 +760,8 @@ fun MiniPlayer(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .wrapContentHeight(
-                                            align = Alignment.CenterVertically,
-                                        ).basicMarquee(
+                                        .wrapContentHeight(align = Alignment.CenterVertically)
+                                        .basicMarquee(
                                             iterations = Int.MAX_VALUE,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
@@ -857,11 +826,7 @@ fun MiniPlayer(
                             maxLines = 1,
                         )
                         Text(
-                            text =
-                                "−" +
-                                    formatDuration(
-                                        (timelineState.total * (1f - sliderValue / 100f)).roundToLong(),
-                                    ),
+                            text = "−" + formatDuration((timelineState.total * (1f - sliderValue / 100f)).roundToLong()),
                             style = scrubberDigits,
                             color = textColor.copy(alpha = 0.7f),
                             maxLines = 1,
@@ -884,22 +849,20 @@ fun MiniPlayer(
                         },
                         onValueChangeFinished = {
                             isSliding = false
-                            sharedViewModel.onUIEvent(
-                                UIEvent.UpdateProgress(sliderValue),
-                            )
+                            sharedViewModel.onUIEvent(UIEvent.UpdateProgress(sliderValue))
                         },
                     )
                 }
                 VerticalDivider(
-                    modifier = Modifier.height(28.dp).padding(horizontal = 14.dp),
+                    modifier = Modifier.height(28.dp).padding(horizontal = 10.dp),
                     color = textColor.copy(alpha = 0.2f),
                 )
+                // 3. Right Action Tools (Heart, Queue, PiP, Volume, Close)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                        // Desktop Capsule Heart Button
+                    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
                         HeartCheckBox(
                             checked = isCurrentSongLiked,
-                            size = 32,
+                            size = 28,
                         ) {
                             if (isUserLoggedIn) {
                                 sharedViewModel.addToYouTubeLiked()
@@ -909,31 +872,27 @@ fun MiniPlayer(
                         }
                     }
                     IconButton(
-                        onClick = {
-                            showQueueBottomSheet = true
-                        },
+                        onClick = { showQueueBottomSheet = true },
+                        modifier = Modifier.size(36.dp),
                     ) {
                         Icon(
                             imageVector = SimpIcons.QueueMusic,
                             tint = textColor,
-                            contentDescription = "",
+                            contentDescription = "Queue",
                         )
                     }
-                    if (getPlatform() == Platform.Desktop) {
-                        IconButton(onClick = { toggleMiniPlayer() }) {
-                            Icon(
-                                imageVector = SimpIcons.PictureInPictureAlt,
-                                tint = textColor,
-                                contentDescription = "Mini Player",
-                            )
-                        }
+                    IconButton(
+                        onClick = { toggleMiniPlayer() },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = SimpIcons.PictureInPictureAlt,
+                            tint = textColor,
+                            contentDescription = "Mini Player",
+                        )
                     }
-                    var isVolumeSliding by rememberSaveable {
-                        mutableStateOf(false)
-                    }
-                    var volumeValue by rememberSaveable {
-                        mutableFloatStateOf(0f)
-                    }
+                    var isVolumeSliding by rememberSaveable { mutableStateOf(false) }
+                    var volumeValue by rememberSaveable { mutableFloatStateOf(0f) }
                     LaunchedEffect(key1 = controllerState, key2 = isVolumeSliding) {
                         if (!isVolumeSliding) {
                             volumeValue = controllerState.volume
@@ -962,14 +921,10 @@ fun MiniPlayer(
                                     )
                                 }
                             },
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
-                                imageVector =
-                                    if (controllerState.volume > 0f) {
-                                        SimpIcons.VolumeUp
-                                    } else {
-                                        SimpIcons.VolumeOff
-                                    },
+                                imageVector = if (controllerState.volume > 0f) SimpIcons.VolumeUp else SimpIcons.VolumeOff,
                                 tint = textColor,
                                 contentDescription = if (controllerState.volume > 0f) "Mute" else "Unmute",
                             )
@@ -1015,9 +970,7 @@ fun MiniPlayer(
                                                 value = volumeValue,
                                                 onValueChangeFinished = {
                                                     isVolumeSliding = false
-                                                    sharedViewModel.onUIEvent(
-                                                        UIEvent.UpdateVolume(volumeValue.coerceIn(0f, 1f)),
-                                                    )
+                                                    sharedViewModel.onUIEvent(UIEvent.UpdateVolume(volumeValue.coerceIn(0f, 1f)))
                                                 },
                                                 onValueChange = {
                                                     isVolumeSliding = true
@@ -1045,9 +998,7 @@ fun MiniPlayer(
                                                         }.width(VOLUME_SLIDER_LENGTH),
                                                 track = { sliderState ->
                                                     SliderDefaults.Track(
-                                                        modifier =
-                                                            Modifier
-                                                                .height(4.dp),
+                                                        modifier = Modifier.height(4.dp),
                                                         enabled = true,
                                                         sliderState = sliderState,
                                                         colors =
@@ -1061,19 +1012,12 @@ fun MiniPlayer(
                                                         drawStopIndicator = null,
                                                     )
                                                 },
-                                                thumb = {
-                                                    Spacer(Modifier.size(0.dp))
-                                                },
+                                                thumb = { Spacer(Modifier.size(0.dp)) },
                                             )
                                         }
                                     }
                                     Icon(
-                                        imageVector =
-                                            if (controllerState.volume > 0f) {
-                                                SimpIcons.VolumeUp
-                                            } else {
-                                                SimpIcons.VolumeOff
-                                            },
+                                        imageVector = if (controllerState.volume > 0f) SimpIcons.VolumeUp else SimpIcons.VolumeOff,
                                         tint = textColor.copy(alpha = 0.7f),
                                         contentDescription = null,
                                         modifier = Modifier.size(15.dp),
@@ -1082,7 +1026,10 @@ fun MiniPlayer(
                             }
                         }
                     }
-                    IconButton(onClick = { onClose() }) {
+                    IconButton(
+                        onClick = { onClose() },
+                        modifier = Modifier.size(36.dp),
+                    ) {
                         Icon(SimpIcons.Close, "", tint = textColor)
                     }
                 }

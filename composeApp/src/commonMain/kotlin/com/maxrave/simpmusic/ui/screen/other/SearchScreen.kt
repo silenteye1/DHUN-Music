@@ -1,6 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.other
 
-import androidx.activity.compose.BackHandler
+//import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -215,6 +215,7 @@ fun SearchScreen(
         }
     }
 
+    /*
     BackHandler(enabled = isSearchActive || isSearchSubmitted) {
         if (isSearchActive) {
             isSearchActive = false
@@ -226,6 +227,7 @@ fun SearchScreen(
             focusManager.clearFocus()
         }
     }
+    */
 
     val screenInfo = getScreenSizeInfo()
     val isMobilePortrait = getPlatform() == Platform.Android && screenInfo.wDP < screenInfo.hDP
@@ -687,7 +689,7 @@ fun SearchScreen(
                                             .padding(top = searchBarHeight),
                                     containerColor = PullToRefreshDefaults.indicatorContainerColor,
                                     color = PullToRefreshDefaults.indicatorColor,
-                                    maxDistance = PullToRefreshDefaults.PositionalThreshold * 5,
+                                    maxDistance = PullToRefreshDefaults.PositionalThreshold,
                                 )
                             },
                         ) {

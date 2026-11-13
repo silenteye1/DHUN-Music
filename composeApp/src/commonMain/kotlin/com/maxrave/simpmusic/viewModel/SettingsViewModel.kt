@@ -262,13 +262,6 @@ class SettingsViewModel(
     init {
         getYoutubeSubtitleLanguage()
         getHelpBuildLyricsDatabase()
-        viewModelScope.launch {
-            enableLiquidGlass.collect {
-                if (getPlatform() != Platform.Android && it) {
-                    setEnableLiquidGlass(false)
-                }
-            }
-        }
     }
 
     fun getData() {
@@ -512,9 +505,6 @@ class SettingsViewModel(
 
     fun setCrossfadeSkipAlbum(enabled: Boolean) {
         viewModelScope.launch {
-            // No re-read afterwards: the collector started in init never completes, so it already
-            // picks this up. Calling the getter again would leave a second collector running for
-            // the life of the ViewModel, one more per toggle.
             dataStoreManager.setCrossfadeSkipAlbum(enabled)
         }
     }
@@ -530,13 +520,9 @@ class SettingsViewModel(
     fun setAutoDownloadLikedSongs(enabled: Boolean) {
         viewModelScope.launch {
             dataStoreManager.setAutoDownloadLikedSongs(enabled)
-            // Switching it on also catches up on everything liked before now. Songs already
-            // downloaded are skipped, so toggling it off and on again queues nothing.
             if (enabled) {
                 val queued = songRepository.downloadAllLikedSongs()
                 if (queued > 0) {
-                    // Not BaseViewModel.getString: that one takes no format arguments and would
-                    // leave the placeholder in the text.
                     makeToast(formatString(Res.string.downloading_liked_songs, queued))
                 }
             }
@@ -567,9 +553,6 @@ class SettingsViewModel(
     fun logOutLastfm() {
         viewModelScope.launch {
             dataStoreManager.setLastfmSession(sessionKey = "", username = "")
-            // Scrobbling is gated on the session, so logging out must clear it here — the same
-            // teardown setSpotifyLogIn and logOutDiscord already do. Doing it from the Settings
-            // row instead only works if the user happens to open Settings and scroll to that row.
             dataStoreManager.setLastfmScrobbleEnabled(false)
         }
     }
@@ -591,9 +574,6 @@ class SettingsViewModel(
     fun logOutDiscord() {
         viewModelScope.launch {
             dataStoreManager.setDiscordToken("")
-            // Turn Rich Presence off on logout: without a token it can't run, and leaving the flag on
-            // would both strand the user (the toggle greys out when logged out) and let the player keep
-            // a dead RPC alive (issue #2157). The existing richPresenceEnabled collector refreshes the UI.
             dataStoreManager.setRichPresenceEnabled(false)
             delay(100)
             getDiscordLoggedIn()
@@ -845,8 +825,6 @@ class SettingsViewModel(
     fun setAIApiKey(apiKey: String) {
         viewModelScope.launch {
             dataStoreManager.setAIApiKey(apiKey)
-            // An empty key IS the sign-out here — isHasApiKey is derived from aiApiKey.isNotEmpty()
-            // — so AI translation, which is gated on it, has to come off with it.
             if (apiKey.isEmpty()) {
                 dataStoreManager.setUseAITranslation(false)
             }
@@ -883,17 +861,6 @@ class SettingsViewModel(
         _basicAlertData.value = alertData
     }
 
-    /**
-     * Asks before signing out of a linked account.
-     *
-     * Every one of these rows sits inside a long settings list and does its work on a single tap,
-     * with no undo — and getting back in is not symmetric with getting out: Last.fm sends the user
-     * through a browser again, YouTube and Spotify through a full web login. The confirmation is
-     * cheap next to that.
-     *
-     * @param confirmLabel names the service on the confirming button, because the dialog is the
-     * only thing on screen at that moment and "Log out" alone does not say out of what.
-     */
     fun confirmLogOut(
         confirmLabel: String,
         onConfirm: () -> Unit,
@@ -1073,20 +1040,11 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Fetches the Japanese romanization dictionary if this platform needs one and does not have
-     * it yet. Called from the settings screen every time a saved selection includes Japanese, so
-     * a FAILED attempt is retried by simply confirming the dialog again; READY and an already
-     * running download make this a no-op. Progress and outcome live in [japaneseDictionaryState],
-     * which the romanization row's subtitle watches.
-     */
     fun downloadJapaneseDictionaryIfNeeded() {
         val state = japaneseDictionaryState.value
         if (state == RomanizationDictionaryState.READY || state == RomanizationDictionaryState.DOWNLOADING) return
         viewModelScope.launch {
             lyricsRomanizerRepository.downloadJapaneseDictionary()
-            // The repository settles the state before returning, so reading it back here is the
-            // completion signal — no separate callback needed for the two toasts.
             when (japaneseDictionaryState.value) {
                 RomanizationDictionaryState.READY ->
                     makeToast(getString(Res.string.romanization_japanese_dict_ready))
@@ -1174,11 +1132,6 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * No re-collect after writing, unlike the settings above: [getRadioAudioOnly] already collects
-     * the DataStore flow, which emits again on every write. Calling the getter here would only
-     * stack a second collector on each toggle.
-     */
     fun setRadioAudioOnly(audioOnly: Boolean) {
         viewModelScope.launch {
             dataStoreManager.setRadioAudioOnly(audioOnly)
@@ -1282,28 +1235,16 @@ class SettingsViewModel(
 
     fun clearListeningHistory() {
         viewModelScope.launch {
-            // The sweep walks every container table and then the whole song table, and finishes with
-            // a VACUUM — seconds of work on a large library, and the screen would look frozen.
             showLoadingDialog(getString(Res.string.clear_listening_history))
             val removed =
                 try {
-                    // NonCancellable because the sweep is only coherent once it has finished: the
-                    // cached containers are deleted first and the songs they were holding alive
-                    // last, so a run stopped in between — the user leaving Settings is enough to do
-                    // it — has already dropped every cached playlist, album and artist and left the
-                    // songs behind. Nothing resumes it afterwards, so it has to run to the end.
                     withContext(NonCancellable) { songRepository.clearHistoryAndOrphanedSongs() }
                 } catch (e: CancellationException) {
-                    // Not a failure, and it must not be swallowed: catching it breaks structured
-                    // concurrency, and it would put the generic error toast in front of a user whose
-                    // sweep had in fact just completed, inviting them to run the whole thing again.
                     throw e
                 } catch (e: Throwable) {
                     Logger.e(tag, "clearHistoryAndOrphanedSongs failed: ${e.stackTraceToString()}")
                     null
                 } finally {
-                    // In a finally so a failure — or the user leaving the screen — cannot strand the
-                    // dialog on top of the app with no way to dismiss it.
                     hideLoadingDialog()
                 }
             if (removed == null) {
@@ -1311,8 +1252,6 @@ class SettingsViewModel(
                 return@launch
             }
             makeToast(formatString(Res.string.clear_listening_history_done, removed))
-            // Only the database slice of the storage bar moved; getData() would also restart every
-            // collecting getter it owns.
             calculateDataFraction(cacheRepository)?.let { _fraction.value = it }
         }
     }
@@ -1645,9 +1584,6 @@ class SettingsViewModel(
                 dataStoreManager.putString("AccountThumbUrl", "")
                 dataStoreManager.setLoggedIn(false)
                 dataStoreManager.setCookie("", null)
-                // Mirroring follows needs a session to write to, so signing out clears the flag
-                // here rather than from the Settings row — same teardown as setSpotifyLogIn and
-                // logOutDiscord. Only this branch: acc != null is switching account, not logout.
                 dataStoreManager.setSyncFollowToYouTube(false)
                 delay(500)
                 getAllGoogleAccount()
@@ -1701,9 +1637,6 @@ class SettingsViewModel(
             _spotifyLogIn.emit(loggedIn)
             if (!loggedIn) {
                 dataStoreManager.setSpdc("")
-                // Logging out of Spotify must also tear down everything gated behind it. Otherwise the
-                // lyrics/canvas flags stay stuck ON with no way to switch them off (the toggles grey out
-                // when logged out) and stale tokens linger — issue #2064, same family as Discord #2157.
                 dataStoreManager.setSpotifyLyrics(false)
                 dataStoreManager.setSpotifyCanvas(false)
                 dataStoreManager.setSpotifyClientToken("")
@@ -1735,16 +1668,6 @@ class SettingsViewModel(
     private var _equalizerAutoEqProfile: MutableStateFlow<String> = MutableStateFlow("")
     val equalizerAutoEqProfile: StateFlow<String> = _equalizerAutoEqProfile
 
-    /**
-     * Guards the collectors below against being started twice.
-     *
-     * Two callers ask for them: [getData], which every visit to the settings screen runs, and the
-     * equalizer block itself, which asks on its own so it keeps working if it is ever hosted
-     * anywhere else. Both land on this same view model, and the collectors live in
-     * [viewModelScope] rather than in a composition — so without this, toggling the switch off and
-     * on left another four behind every time, each re-reading the preference file for a value
-     * three others were already publishing.
-     */
     private var equalizerCollectorsStarted = false
 
     fun getEqualizer() {
@@ -1758,8 +1681,6 @@ class SettingsViewModel(
             }
             launch {
                 dataStoreManager.equalizerBands.collect { stored ->
-                    // Stored blank means flat. Short or malformed input is padded rather than
-                    // rejected, so a curve saved by a future build with more bands still loads.
                     val parsed = stored.split(",").mapNotNull { it.trim().toFloatOrNull() }
                     _equalizerBands.emit(
                         List(EQUALIZER_BAND_COUNT) { parsed.getOrElse(it) { 0f } },
@@ -1775,28 +1696,12 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Store a whole curve at once.
-     *
-     * The whole list rather than one band at a time because a single drag sweeps across several
-     * bands, and because the per-band version had to read [_equalizerBands] to rebuild the list —
-     * a value that only updates once the write has been through storage, so two edits in quick
-     * succession could reinstate the first band's old gain.
-     */
     fun setEqualizerBands(bandsDb: List<Float>) {
         viewModelScope.launch {
             dataStoreManager.setEqualizerBands(bandsDb)
         }
     }
 
-    /**
-     * Move the curve and its preamp together.
-     *
-     * These are two separate preference keys, so the player does briefly see one of them applied
-     * against the other's old value. The preamp goes first deliberately: that way the moment in
-     * between is the new headroom under the old curve — quieter — rather than a freshly boosted
-     * curve still running on the previous preset's headroom, which is the direction that clips.
-     */
     fun applyEqualizerPreset(
         bandsDb: List<Float>,
         preampDb: Float,
@@ -1841,14 +1746,6 @@ class SettingsViewModel(
     private var _reverbMix: MutableStateFlow<Float> = MutableStateFlow(DEFAULT_REVERB_MIX)
     val reverbMix: StateFlow<Float> = _reverbMix
 
-    /**
-     * Guards the effect collectors the same way [equalizerCollectorsStarted] guards the curve's.
-     *
-     * Same two callers, same trap: [getData] runs on every visit to the settings screen and the two
-     * effect blocks ask on their own so they keep working if they are ever hosted elsewhere. The
-     * collectors live in [viewModelScope] rather than in a composition, so without this every
-     * toggle of the switch would leave another seven behind.
-     */
     private var audioEffectCollectorsStarted = false
 
     fun getAudioEffects() {
@@ -1862,9 +1759,6 @@ class SettingsViewModel(
             launch { dataStoreManager.reverbEnabled.collect { _reverbEnabled.emit(it == DataStoreManager.TRUE) } }
             launch {
                 dataStoreManager.reverbPreset.collect { stored ->
-                    // The store hands the name back unresolved on purpose, so the fallback lives
-                    // here: a room named by a build newer than this one has to land on something
-                    // playable rather than throw out of a collector and kill the whole block.
                     _reverbPreset.emit(runCatching { ReverbPreset.valueOf(stored) }.getOrDefault(ReverbPreset.HALL))
                 }
             }
@@ -1900,15 +1794,6 @@ class SettingsViewModel(
         viewModelScope.launch { dataStoreManager.setReverbMix(mix) }
     }
 
-    /**
-     * Move all three delay values together, in one coroutine.
-     *
-     * Three separate preference keys, so the player does briefly see one of them applied against
-     * the others' old values — the same seam [applyEqualizerPreset] has. Writing them from one
-     * launch at least keeps that window to a single pass instead of three racing ones, and no
-     * ordering of these three is dangerous the way the equalizer's preamp is: an echo caught
-     * mid-change is a wrong echo for a few milliseconds, never a clipped one.
-     */
     fun applyDelayPreset(
         timeMs: Int,
         feedback: Float,
@@ -1935,14 +1820,7 @@ class SettingsViewModel(
     fun setSyncFollowToYouTube(enabled: Boolean) {
         viewModelScope.launch {
             dataStoreManager.setSyncFollowToYouTube(enabled)
-            // Turning it on is a statement about the whole library: artists followed before the
-            // switch would otherwise never reach the account. Turning it off deliberately does
-            // NOT unsubscribe — stopping the mirroring is not the same as asking us to undo it.
             if (enabled) {
-                // Runs silently. The only toast in this feature belongs to the Follow button on
-                // the artist screen, where the user performed the action and is waiting to see it
-                // take effect; a switch in Settings is not the place to report on a background
-                // sweep the user is not watching.
                 artistRepository.syncFollowedArtistsToYouTube().collect { }
             }
         }
@@ -2010,7 +1888,6 @@ class SettingsViewModel(
         }
     }
 
-    // Lấy giá trị của killServiceOnExit từ DataStore
     fun getKillServiceOnExit() {
         viewModelScope.launch {
             dataStoreManager.killServiceOnExit.collect { killServiceOnExit ->
@@ -2019,7 +1896,6 @@ class SettingsViewModel(
         }
     }
 
-    // Lưu giá trị killServiceOnExit vào DataStore
     fun setKillServiceOnExit(kill: Boolean) {
         viewModelScope.launch {
             dataStoreManager.setKillServiceOnExit(kill)
@@ -2082,12 +1958,10 @@ data class SettingAlertState(
     data class TextFieldData(
         val label: String,
         val value: String = "",
-        // User typing string -> (true or false, If false, show error message)
         val verifyCodeBlock: ((String) -> Pair<Boolean, String?>)? = null,
     )
 
     data class SelectData(
-        // Selected / Data
         val listSelect: List<Pair<Boolean, String>>,
     ) {
         fun getSelected(): String = listSelect.firstOrNull { it.first }?.second ?: ""
@@ -2123,25 +1997,14 @@ expect fun getFileDir(): String
 
 expect fun changeLanguageNative(code: String)
 
-/** Number of equalizer bands, matching the ISO centres the desktop backend installs. */
 const val EQUALIZER_BAND_COUNT = 10
 
-/** Band centre labels, for display only — the backend owns the actual frequencies. */
 val EQUALIZER_BAND_LABELS = listOf("31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k")
 
-// The three delay defaults and the reverb mix repeat what DataStoreManagerImpl falls back to. They
-// exist here so the StateFlows start on the stored default rather than on a placeholder the
-// collector then corrects — otherwise the sliders draw once at 0 and visibly jump the moment the
-// preference file is read, which reads as the app losing the user's settings.
-
-/** Quarter-note-ish spacing at 150 bpm; see `DataStoreManagerImpl.delayTimeMs`. */
 const val DEFAULT_DELAY_TIME_MS = 400
 
-/** See `DataStoreManagerImpl.delayFeedback`. */
 const val DEFAULT_DELAY_FEEDBACK = 0.45f
 
-/** See `DataStoreManagerImpl.delayMix`. */
 const val DEFAULT_DELAY_MIX = 0.3f
 
-/** See `DataStoreManagerImpl.reverbMix`. */
 const val DEFAULT_REVERB_MIX = 0.35f

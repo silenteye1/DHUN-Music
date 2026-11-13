@@ -84,7 +84,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -97,12 +96,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.common.LIMIT_CACHE_SIZE
 import com.maxrave.common.QUALITY
 import com.maxrave.common.SUPPORTED_LANGUAGE
@@ -117,7 +110,6 @@ import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.repository.ImportProgress
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.simpmusic.ImportState
-import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.clearDownloadedUpdateApks
 import com.maxrave.simpmusic.expect.ui.fileSaverResult
@@ -131,7 +123,6 @@ import com.maxrave.simpmusic.extension.bytesToMB
 import com.maxrave.simpmusic.extension.displayString
 import com.maxrave.simpmusic.extension.isTwoLetterCode
 import com.maxrave.simpmusic.extension.isValidProxyHost
-import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.ActionButton
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.EndOfPage
@@ -149,8 +140,6 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.DiscordLoginDestina
 import com.maxrave.simpmusic.ui.navigation.destination.login.LastfmLoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestination
-import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
-import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.utils.VersionManager
@@ -197,7 +186,6 @@ import simpmusic.composeapp.generated.resources.ai
 import simpmusic.composeapp.generated.resources.ai_api_key
 import simpmusic.composeapp.generated.resources.ai_provider
 import simpmusic.composeapp.generated.resources.animated_artwork_info
-import simpmusic.composeapp.generated.resources.anonymous
 import simpmusic.composeapp.generated.resources.app_name
 import simpmusic.composeapp.generated.resources.audio_delay
 import simpmusic.composeapp.generated.resources.audio_delay_description
@@ -213,7 +201,6 @@ import simpmusic.composeapp.generated.resources.auto_download_liked_songs_descri
 import simpmusic.composeapp.generated.resources.backup
 import simpmusic.composeapp.generated.resources.backup_downloaded
 import simpmusic.composeapp.generated.resources.backup_downloaded_description
-import simpmusic.composeapp.generated.resources.backup_frequency
 import simpmusic.composeapp.generated.resources.balance_media_loudness
 import simpmusic.composeapp.generated.resources.better_lyrics
 import simpmusic.composeapp.generated.resources.cancel
@@ -224,7 +211,6 @@ import simpmusic.composeapp.generated.resources.change_language_warning
 import simpmusic.composeapp.generated.resources.check_for_update
 import simpmusic.composeapp.generated.resources.checking
 import simpmusic.composeapp.generated.resources.clear
-import simpmusic.composeapp.generated.resources.clear_canvas_cache
 import simpmusic.composeapp.generated.resources.clear_downloaded_cache
 import simpmusic.composeapp.generated.resources.clear_listening_history
 import simpmusic.composeapp.generated.resources.clear_listening_history_confirm
@@ -233,8 +219,6 @@ import simpmusic.composeapp.generated.resources.clear_player_cache
 import simpmusic.composeapp.generated.resources.clear_thumbnail_cache
 import simpmusic.composeapp.generated.resources.content
 import simpmusic.composeapp.generated.resources.content_country
-import simpmusic.composeapp.generated.resources.contributor_email
-import simpmusic.composeapp.generated.resources.contributor_name
 import simpmusic.composeapp.generated.resources.crossfade
 import simpmusic.composeapp.generated.resources.crossfade_auto
 import simpmusic.composeapp.generated.resources.crossfade_description
@@ -246,11 +230,8 @@ import simpmusic.composeapp.generated.resources.crossfade_skip_album_description
 import simpmusic.composeapp.generated.resources.custom_ai_model_id
 import simpmusic.composeapp.generated.resources.custom_color
 import simpmusic.composeapp.generated.resources.custom_model_id_messages
-import simpmusic.composeapp.generated.resources.daily
-import simpmusic.composeapp.generated.resources.database
 import simpmusic.composeapp.generated.resources.default_models
 import simpmusic.composeapp.generated.resources.description_and_licenses
-import simpmusic.composeapp.generated.resources.discord_integration
 import simpmusic.composeapp.generated.resources.download_quality
 import simpmusic.composeapp.generated.resources.downloaded_cache
 import simpmusic.composeapp.generated.resources.enable_animated_artwork
@@ -263,7 +244,6 @@ import simpmusic.composeapp.generated.resources.enable_sponsor_block
 import simpmusic.composeapp.generated.resources.enable_spotify_lyrics
 import simpmusic.composeapp.generated.resources.equalizer
 import simpmusic.composeapp.generated.resources.equalizer_description
-import simpmusic.composeapp.generated.resources.free_space
 import simpmusic.composeapp.generated.resources.gemini
 import simpmusic.composeapp.generated.resources.guest
 import simpmusic.composeapp.generated.resources.help_build_lyrics_database
@@ -284,8 +264,6 @@ import simpmusic.composeapp.generated.resources.invalid_api_key
 import simpmusic.composeapp.generated.resources.invalid_host
 import simpmusic.composeapp.generated.resources.invalid_language_code
 import simpmusic.composeapp.generated.resources.invalid_port
-import simpmusic.composeapp.generated.resources.keep_backups
-import simpmusic.composeapp.generated.resources.keep_backups_format
 import simpmusic.composeapp.generated.resources.keep_service_alive
 import simpmusic.composeapp.generated.resources.keep_service_alive_description
 import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offline
@@ -293,13 +271,8 @@ import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offli
 import simpmusic.composeapp.generated.resources.kill_service_on_exit
 import simpmusic.composeapp.generated.resources.kill_service_on_exit_description
 import simpmusic.composeapp.generated.resources.language
-import simpmusic.composeapp.generated.resources.last_backup
 import simpmusic.composeapp.generated.resources.last_checked_at
-import simpmusic.composeapp.generated.resources.lastfm_integration
 import simpmusic.composeapp.generated.resources.limit_player_cache
-import simpmusic.composeapp.generated.resources.listening_history
-import simpmusic.composeapp.generated.resources.local_tracking_description
-import simpmusic.composeapp.generated.resources.local_tracking_title
 import simpmusic.composeapp.generated.resources.log_in_to_discord
 import simpmusic.composeapp.generated.resources.log_in_to_lastfm
 import simpmusic.composeapp.generated.resources.log_in_to_spotify
@@ -319,19 +292,12 @@ import simpmusic.composeapp.generated.resources.lyrics_style_apple_music
 import simpmusic.composeapp.generated.resources.lyrics_style_classic
 import simpmusic.composeapp.generated.resources.main_lyrics_provider
 import simpmusic.composeapp.generated.resources.manage_your_youtube_accounts
-import simpmusic.composeapp.generated.resources.monthly
-import simpmusic.composeapp.generated.resources.never
 import simpmusic.composeapp.generated.resources.no_account
 import simpmusic.composeapp.generated.resources.normalize_volume
 import simpmusic.composeapp.generated.resources.not_available_while_casting
-import simpmusic.composeapp.generated.resources.now_playing_style
-import simpmusic.composeapp.generated.resources.now_playing_style_apple_music
-import simpmusic.composeapp.generated.resources.now_playing_style_m3_expressive
-import simpmusic.composeapp.generated.resources.now_playing_style_spotify
 import simpmusic.composeapp.generated.resources.ok
 import simpmusic.composeapp.generated.resources.openai
 import simpmusic.composeapp.generated.resources.openai_api_compatible
-import simpmusic.composeapp.generated.resources.other_app
 import simpmusic.composeapp.generated.resources.play_explicit_content
 import simpmusic.composeapp.generated.resources.play_explicit_content_description
 import simpmusic.composeapp.generated.resources.play_video_for_video_track_instead_of_audio_only
@@ -385,10 +351,6 @@ import simpmusic.composeapp.generated.resources.skip_no_music_part
 import simpmusic.composeapp.generated.resources.skip_silent
 import simpmusic.composeapp.generated.resources.skip_sponsor_part_of_video
 import simpmusic.composeapp.generated.resources.socks
-import simpmusic.composeapp.generated.resources.sponsorBlock
-import simpmusic.composeapp.generated.resources.sponsor_block_intro
-import simpmusic.composeapp.generated.resources.spotify
-import simpmusic.composeapp.generated.resources.spotify_canvas_cache
 import simpmusic.composeapp.generated.resources.spotify_lyrícs_info
 import simpmusic.composeapp.generated.resources.storage
 import simpmusic.composeapp.generated.resources.such_as_music_video_lyrics_video_podcasts_and_more
@@ -408,7 +370,6 @@ import simpmusic.composeapp.generated.resources.translation_language
 import simpmusic.composeapp.generated.resources.translation_language_message
 import simpmusic.composeapp.generated.resources.translucent_bottom_navigation_bar
 import simpmusic.composeapp.generated.resources.unknown
-import simpmusic.composeapp.generated.resources.update_channel
 import simpmusic.composeapp.generated.resources.upload_your_listening_history_to_youtube_music_server_it_will_make_yt_music_recommendation_system_better_working_only_if_logged_in
 import simpmusic.composeapp.generated.resources.use_ai_translation
 import simpmusic.composeapp.generated.resources.use_ai_translation_description
@@ -418,7 +379,6 @@ import simpmusic.composeapp.generated.resources.version_format
 import simpmusic.composeapp.generated.resources.video_download_quality
 import simpmusic.composeapp.generated.resources.video_quality
 import simpmusic.composeapp.generated.resources.warning
-import simpmusic.composeapp.generated.resources.weekly
 import simpmusic.composeapp.generated.resources.what_segments_will_be_skipped
 import simpmusic.composeapp.generated.resources.you_can_see_the_content_below_the_bottom_bar
 import simpmusic.composeapp.generated.resources.youtube_account
@@ -441,32 +401,10 @@ fun Modifier.settingCleanLiquidGlass(
     backdrop: PlatformBackdrop,
     shape: Shape = RoundedCornerShape(22.dp),
 ): Modifier {
-    if (!LocalLiquidGlassEnabled.current) {
-        return this
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f))
-    }
-    val isDark = LocalIsDarkTheme.current
-    return this
-        .clip(shape)
-        .drawBackdrop(
-            backdrop = backdrop,
-            shape = { shape },
-            highlight = { Highlight.Plain },
-            effects = {
-                vibrancy()
-                colorControls(
-                    brightness = 0.05f,
-                    contrast = 1f,
-                    saturation = 1.4f,
-                )
-                blur(10.dp.toPx())
-                lens(14.dp.toPx(), 28.dp.toPx(), false)
-            },
-            onDrawSurface = {
-                drawRect((if (isDark) Color.Black else Color.White).copy(alpha = 0.16f))
-            },
-        )
+    return this.homeCleanLiquidGlass(
+        backdrop = backdrop,
+        shape = shape,
+    )
 }
 
 @OptIn(
@@ -676,7 +614,6 @@ fun SettingScreen(
             .fillMaxSize()
             .background(Color(0xFF030508))
     ) {
-        // ==================== 1. LIVE BACKDROP SOURCE CANVAS ====================
         key(customBackgroundUri) {
             Box(
                 modifier = Modifier
@@ -716,7 +653,6 @@ fun SettingScreen(
             }
         }
 
-        // ==================== 2. SCROLLABLE SETTINGS CONTENT ====================
         val calculatedHeaderSpacerHeight = if (topAppBarHeightPx > 0) {
             with(localDensity) { topAppBarHeightPx.toDp() + 14.dp }
         } else {
@@ -739,7 +675,6 @@ fun SettingScreen(
                 )
             }
 
-            // ==================== 1. ACCOUNTS & LINKED SERVICES ====================
             item(key = "accounts_section") {
                 val isExpanded = expandedSection == SettingSection.ACCOUNTS
                 ExpandableSettingGroupCard(
@@ -841,7 +776,6 @@ fun SettingScreen(
                 }
             }
 
-            // ==================== 2. USER INTERFACE ====================
             item(key = "user_interface") {
                 val isExpanded = expandedSection == SettingSection.USER_INTERFACE
                 ExpandableSettingGroupCard(
@@ -956,7 +890,6 @@ fun SettingScreen(
                         )
                     }
 
-                    // --- Custom Wallpaper Picker ---
                     SettingItem(
                         title = "Custom Wallpaper",
                         subtitle = if (customBackgroundUri != null) "Custom wallpaper active (Tap to change)" else "None (Using default ambient glow)",
@@ -1027,18 +960,15 @@ fun SettingScreen(
                         smallSubtitle = true,
                         switch = (enableTranslucentNavBar to { viewModel.setTranslucentBottomBar(it) }),
                     )
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = stringResource(Res.string.enable_liquid_glass_effect),
-                            subtitle = stringResource(Res.string.enable_liquid_glass_effect_description),
-                            smallSubtitle = true,
-                            switch = (enableLiquidGlass to { viewModel.setEnableLiquidGlass(it) }),
-                        )
-                    }
+                    SettingItem(
+                        title = stringResource(Res.string.enable_liquid_glass_effect),
+                        subtitle = stringResource(Res.string.enable_liquid_glass_effect_description),
+                        smallSubtitle = true,
+                        switch = (enableLiquidGlass to { viewModel.setEnableLiquidGlass(it) }),
+                    )
                 }
             }
 
-            // ==================== 3. CONTENT PREFERENCES ====================
             item(key = "content_preferences") {
                 val isExpanded = expandedSection == SettingSection.CONTENT_PREFERENCES
                 ExpandableSettingGroupCard(
@@ -1401,7 +1331,6 @@ fun SettingScreen(
                 }
             }
 
-            // ==================== 4. AUDIO & PLAYBACK ====================
             item(key = "audio_playback") {
                 val isExpanded = expandedSection == SettingSection.AUDIO_PLAYBACK
                 ExpandableSettingGroupCard(
@@ -1412,18 +1341,16 @@ fun SettingScreen(
                         expandedSection = if (isExpanded) null else SettingSection.AUDIO_PLAYBACK
                     },
                 ) {
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = stringResource(Res.string.normalize_volume),
-                            subtitle = stringResource(Res.string.balance_media_loudness),
-                            switch = (normalizeVolume to { viewModel.setNormalizeVolume(it) }),
-                        )
-                        SettingItem(
-                            title = stringResource(Res.string.skip_silent),
-                            subtitle = stringResource(Res.string.skip_no_music_part),
-                            switch = (skipSilent to { viewModel.setSkipSilent(it) }),
-                        )
-                    }
+                    SettingItem(
+                        title = stringResource(Res.string.normalize_volume),
+                        subtitle = stringResource(Res.string.balance_media_loudness),
+                        switch = (normalizeVolume to { viewModel.setNormalizeVolume(it) }),
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.skip_silent),
+                        subtitle = stringResource(Res.string.skip_no_music_part),
+                        switch = (skipSilent to { viewModel.setSkipSilent(it) }),
+                    )
                     SettingItem(
                         title = stringResource(Res.string.equalizer),
                         subtitle = stringResource(Res.string.equalizer_description),
@@ -1542,22 +1469,19 @@ fun SettingScreen(
                         subtitle = stringResource(Res.string.save_last_played_track_and_queue),
                         switch = (saveLastPlayed to { viewModel.setSaveLastPlayed(it) }),
                     )
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = stringResource(Res.string.kill_service_on_exit),
-                            subtitle = stringResource(Res.string.kill_service_on_exit_description),
-                            switch = (killServiceOnExit to { viewModel.setKillServiceOnExit(it) }),
-                        )
-                        SettingItem(
-                            title = stringResource(Res.string.keep_service_alive),
-                            subtitle = stringResource(Res.string.keep_service_alive_description),
-                            switch = (keepServiceAlive to { viewModel.setKeepServiceAlive(it) }),
-                        )
-                    }
+                    SettingItem(
+                        title = stringResource(Res.string.kill_service_on_exit),
+                        subtitle = stringResource(Res.string.kill_service_on_exit_description),
+                        switch = (killServiceOnExit to { viewModel.setKillServiceOnExit(it) }),
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.keep_service_alive),
+                        subtitle = stringResource(Res.string.keep_service_alive_description),
+                        switch = (keepServiceAlive to { viewModel.setKeepServiceAlive(it) }),
+                    )
                 }
             }
 
-            // ==================== 5. LYRICS & AI ====================
             item(key = "lyrics_ai") {
                 val isExpanded = expandedSection == SettingSection.LYRICS_AI
                 ExpandableSettingGroupCard(
@@ -1805,7 +1729,6 @@ fun SettingScreen(
                 }
             }
 
-            // ==================== 6. STORAGE & BACKUP ====================
             item(key = "storage_backup") {
                 val isExpanded = expandedSection == SettingSection.STORAGE_BACKUP
                 ExpandableSettingGroupCard(
@@ -1816,86 +1739,81 @@ fun SettingScreen(
                         expandedSection = if (isExpanded) null else SettingSection.STORAGE_BACKUP
                     },
                 ) {
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = stringResource(Res.string.player_cache),
-                            subtitle = "${playerCache.bytesToMB()} MB",
-                            onClick = {
-                                viewModel.setBasicAlertData(
-                                    SettingBasicAlertState(
-                                        title = runBlocking { getString(Res.string.clear_player_cache) },
-                                        message = null,
-                                        confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearPlayerCache() },
-                                        dismiss = runBlocking { getString(Res.string.cancel) },
-                                    ),
-                                )
-                            },
-                        )
-                        SettingItem(
-                            title = stringResource(Res.string.downloaded_cache),
-                            subtitle = "${downloadedCache.bytesToMB()} MB",
-                            onClick = {
-                                viewModel.setBasicAlertData(
-                                    SettingBasicAlertState(
-                                        title = runBlocking { getString(Res.string.clear_downloaded_cache) },
-                                        message = null,
-                                        confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearDownloadedCache() },
-                                        dismiss = runBlocking { getString(Res.string.cancel) },
-                                    ),
-                                )
-                            },
-                        )
-                        SettingItem(
-                            title = stringResource(Res.string.thumbnail_cache),
-                            subtitle = "${thumbnailCache.bytesToMB()} MB",
-                            onClick = {
-                                viewModel.setBasicAlertData(
-                                    SettingBasicAlertState(
-                                        title = runBlocking { getString(Res.string.clear_thumbnail_cache) },
-                                        message = null,
-                                        confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearThumbnailCache(platformContext) },
-                                        dismiss = runBlocking { getString(Res.string.cancel) },
-                                    ),
-                                )
-                            },
-                        )
-                        SettingItem(
-                            title = stringResource(Res.string.limit_player_cache),
-                            subtitle = LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache).toString(),
-                            onClick = {
-                                viewModel.setAlertData(
-                                    SettingAlertState(
-                                        title = runBlocking { getString(Res.string.limit_player_cache) },
-                                        selectOne =
-                                            SettingAlertState.SelectData(
-                                                listSelect =
-                                                    LIMIT_CACHE_SIZE.items.map { item ->
-                                                        (item == LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache)) to item.toString()
-                                                    },
-                                            ),
-                                        confirm =
-                                            runBlocking { getString(Res.string.change) } to { state ->
-                                                viewModel.setPlayerCacheLimit(LIMIT_CACHE_SIZE.getDataFromItem(state.selectOne?.getSelected()))
-                                            },
-                                        dismiss = runBlocking { getString(Res.string.cancel) },
-                                    ),
-                                )
-                            },
-                        )
-                    }
-
+                    SettingItem(
+                        title = stringResource(Res.string.player_cache),
+                        subtitle = "${playerCache.bytesToMB()} MB",
+                        onClick = {
+                            viewModel.setBasicAlertData(
+                                SettingBasicAlertState(
+                                    title = runBlocking { getString(Res.string.clear_player_cache) },
+                                    message = null,
+                                    confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearPlayerCache() },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.downloaded_cache),
+                        subtitle = "${downloadedCache.bytesToMB()} MB",
+                        onClick = {
+                            viewModel.setBasicAlertData(
+                                SettingBasicAlertState(
+                                    title = runBlocking { getString(Res.string.clear_downloaded_cache) },
+                                    message = null,
+                                    confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearDownloadedCache() },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.thumbnail_cache),
+                        subtitle = "${thumbnailCache.bytesToMB()} MB",
+                        onClick = {
+                            viewModel.setBasicAlertData(
+                                SettingBasicAlertState(
+                                    title = runBlocking { getString(Res.string.clear_thumbnail_cache) },
+                                    message = null,
+                                    confirm = runBlocking { getString(Res.string.clear) } to { viewModel.clearThumbnailCache(platformContext) },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.limit_player_cache),
+                        subtitle = LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache).toString(),
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.limit_player_cache) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect =
+                                                LIMIT_CACHE_SIZE.items.map { item ->
+                                                    (item == LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache)) to item.toString()
+                                                },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            viewModel.setPlayerCacheLimit(LIMIT_CACHE_SIZE.getDataFromItem(state.selectOne?.getSelected()))
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
                     SettingItem(
                         title = stringResource(Res.string.backup_downloaded),
                         subtitle = stringResource(Res.string.backup_downloaded_description),
                         switch = (backupDownloaded to { viewModel.setBackupDownloaded(it) }),
                     )
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = stringResource(Res.string.auto_backup),
-                            subtitle = stringResource(Res.string.auto_backup_description),
-                            switch = (autoBackupEnabled to { viewModel.setAutoBackupEnabled(it) }),
-                        )
-                    }
+                    SettingItem(
+                        title = stringResource(Res.string.auto_backup),
+                        subtitle = stringResource(Res.string.auto_backup_description),
+                        switch = (autoBackupEnabled to { viewModel.setAutoBackupEnabled(it) }),
+                    )
                     SettingItem(
                         title = stringResource(Res.string.backup),
                         subtitle = stringResource(Res.string.save_all_your_playlist_data),
@@ -1933,7 +1851,6 @@ fun SettingScreen(
                 }
             }
 
-            // ==================== 7. ABOUT SECTION ====================
             item(key = "about") {
                 val isExpanded = expandedSection == SettingSection.ABOUT
                 ExpandableSettingGroupCard(
@@ -1974,32 +1891,30 @@ fun SettingScreen(
                         subtitle = "silenteye1/DHUN-Music",
                         onClick = { uriHandler.openUri("https://github.com/silenteye1/DHUN-Music") },
                     )
-                    if (getPlatform() == Platform.Android) {
-                        SettingItem(
-                            title = "Supported Links",
-                            subtitle = "App linking settings",
-                            onClick = { openAppLinkingSettings(platformContext) },
-                        )
-                        SettingItem(
-                            title = "Clear Downloaded Update",
-                            subtitle = if (updateApkSize > 0L) "${updateApkSize.bytesToMB()} MB (Tap to clear)" else "No downloaded APK found",
-                            isEnable = updateApkSize > 0L,
-                            onClick = {
-                                viewModel.setBasicAlertData(
-                                    SettingBasicAlertState(
-                                        title = "Clear Downloaded Update",
-                                        message = "Are you sure you want to delete the downloaded APK file?",
-                                        confirm =
-                                            "Clear" to {
-                                                clearDownloadedUpdateApks(platformContext)
-                                                updateApkSize = getDownloadedUpdateApkSize(platformContext)
-                                            },
-                                        dismiss = "Cancel",
-                                    ),
-                                )
-                            },
-                        )
-                    }
+                    SettingItem(
+                        title = "Supported Links",
+                        subtitle = "App linking settings",
+                        onClick = { openAppLinkingSettings(platformContext) },
+                    )
+                    SettingItem(
+                        title = "Clear Downloaded Update",
+                        subtitle = if (updateApkSize > 0L) "${updateApkSize.bytesToMB()} MB (Tap to clear)" else "No downloaded APK found",
+                        isEnable = updateApkSize > 0L,
+                        onClick = {
+                            viewModel.setBasicAlertData(
+                                SettingBasicAlertState(
+                                    title = "Clear Downloaded Update",
+                                    message = "Are you sure you want to delete the downloaded APK file?",
+                                    confirm =
+                                        "Clear" to {
+                                            clearDownloadedUpdateApks(platformContext)
+                                            updateApkSize = getDownloadedUpdateApkSize(platformContext)
+                                        },
+                                    dismiss = "Cancel",
+                                ),
+                            )
+                        },
+                    )
                     SettingItem(
                         title = stringResource(Res.string.third_party_libraries),
                         subtitle = stringResource(Res.string.description_and_licenses),
@@ -2013,7 +1928,6 @@ fun SettingScreen(
             }
         }
 
-        // ==================== 3. FLOATING TOP LIQUID GLASS BAR ====================
         val headerCapsuleShape = RoundedCornerShape(26.dp)
 
         Box(

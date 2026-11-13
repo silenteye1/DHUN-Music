@@ -131,6 +131,7 @@ import com.maxrave.domain.utils.toListName
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.expect.copyToClipboard
 import com.maxrave.simpmusic.expect.shareUrl
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.persistPickedImage
 import com.maxrave.simpmusic.expect.ui.photoPickerResult
 import com.maxrave.simpmusic.extension.displayNameRes
@@ -168,6 +169,8 @@ import com.maxrave.simpmusic.ui.icon.Tune
 import com.maxrave.simpmusic.ui.icon.Update
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
+import com.maxrave.simpmusic.ui.screen.home.homeCleanLiquidGlass
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetUIEvent
@@ -175,7 +178,6 @@ import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import multiplatform.network.cmptoast.ToastGravity
@@ -298,9 +300,10 @@ fun InfoPlayerBottomSheet(
         )
 
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val songEntity by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(null)
-    val format by sharedViewModel.format.collectAsState(null)
-    val extractSource by sharedViewModel.extractSource.collectAsState()
+    val nowPlayingState by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
+    val songEntity = nowPlayingState?.songEntity
+    val format by sharedViewModel.format.collectAsStateWithLifecycle(initialValue = null)
+    val extractSource by sharedViewModel.extractSource.collectAsStateWithLifecycle()
     val downloadProgress by sharedViewModel.downloadFileProgress.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
@@ -922,6 +925,7 @@ fun InfoPlayerBottomSheet(
 @Composable
 fun QueueBottomSheet(
     onDismiss: () -> Unit,
+    backdrop: PlatformBackdrop? = null,
     sharedViewModel: SharedViewModel = koinInject(),
     musicServiceHandler: MediaPlayerHandler = koinInject<MediaPlayerHandler>(),
     dataStoreManager: DataStoreManager = koinInject(),
@@ -929,10 +933,6 @@ fun QueueBottomSheet(
     val coroutineScope = rememberCoroutineScope()
     val localDensity = LocalDensity.current
     val windowInsets = WindowInsets.systemBars
-    val sheetState =
-        rememberModalBottomSheetState(
-            skipPartiallyExpanded = true,
-        )
     val lazyListState = rememberLazyListState()
     val dragDropState =
         rememberDragDropState(lazyListState) { from, to ->
@@ -944,7 +944,8 @@ fun QueueBottomSheet(
     var shouldShowQueueItemBottomSheet by rememberSaveable { mutableStateOf(false) }
     var clickMoreIndex by rememberSaveable { mutableIntStateOf(0) }
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val songEntity by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(null)
+    val nowPlayingState by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
+    val songEntity = nowPlayingState?.songEntity
     val queueData by musicServiceHandler.queueData.collectAsStateWithLifecycle()
     val queue by remember {
         derivedStateOf {
@@ -956,7 +957,8 @@ fun QueueBottomSheet(
             queueData?.queueState ?: QueueData.StateSource.STATE_CREATED
         }
     }
-    val endlessQueueEnable by dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE }.collectAsState(false)
+    val endlessQueueRaw by dataStoreManager.endlessQueue.collectAsStateWithLifecycle(initialValue = DataStoreManager.FALSE)
+    val endlessQueueEnable = endlessQueueRaw == DataStoreManager.TRUE
 
     val shouldLoadMore =
         remember {
@@ -1003,226 +1005,219 @@ fun QueueBottomSheet(
         )
     }
 
-    ModalBottomSheet(
-        onDismissRequest = {
-            onDismiss()
-        },
-        containerColor = rememberSurfaceDarkColors().container,
-        contentColor = Color.Transparent,
-        dragHandle = {},
-        scrimColor = Color.Black.copy(alpha = .5f),
-        sheetState = sheetState,
-        modifier = Modifier.fillMaxHeight(),
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        shape = RectangleShape,
-    ) {
-        Card(
+    val useLiquidGlass = backdrop != null && LocalLiquidGlassEnabled.current
+    val glassContainerModifier = if (useLiquidGlass) {
+        Modifier
+            .fillMaxSize()
+            .homeCleanLiquidGlass(
+                backdrop = backdrop,
+                shape = RoundedCornerShape(0.dp),
+            )
+    } else {
+        Modifier
+            .fillMaxSize()
+            .background(rememberSurfaceDarkColors().container)
+    }
+
+    Box(modifier = glassContainerModifier) {
+        Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-            shape = RectangleShape,
-            colors = CardDefaults.cardColors().copy(containerColor = rememberSurfaceDarkColors().container),
-        ) {
-            Column(
-                modifier =
-                    Modifier.padding(
+                    .fillMaxSize()
+                    .padding(
                         top =
                             with(localDensity) {
                                 windowInsets.getTop(localDensity).toDp()
                             },
                     ),
-            ) {
-                TopAppBar(
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    colors =
-                        TopAppBarDefaults.topAppBarColors().copy(
-                            containerColor = Color.Transparent,
-                        ),
-                    title = {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.now_playing_upper),
-                                style = typo().bodyMedium,
-                                color = rememberSurfaceDarkColors().content,
-                            )
-                            Text(
-                                text = screenDataState.playlistName,
-                                style = typo().labelMedium,
-                                color = rememberSurfaceDarkColors().content,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .wrapContentHeight(align = Alignment.CenterVertically)
-                                        .basicMarquee(
-                                            iterations = Int.MAX_VALUE,
-                                            animationMode = MarqueeAnimationMode.Immediately,
-                                        ).focusable(),
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                onDismiss()
-                            }
-                        }) {
-                            Icon(
-                                imageVector = SimpIcons.KeyboardArrowDown,
-                                contentDescription = "",
-                                tint = rememberSurfaceDarkColors().content,
-                            )
-                        }
-                    },
-                    actions = {
-                        Box(
-                            modifier = Modifier.size(32.dp),
+        ) {
+            TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                colors =
+                    TopAppBarDefaults.topAppBarColors().copy(
+                        containerColor = Color.Transparent,
+                    ),
+                title = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.now_playing_upper),
+                            style = typo().bodyMedium,
+                            color = Color.White,
                         )
-                    },
-                )
+                        Text(
+                            text = screenDataState.playlistName,
+                            style = typo().labelMedium,
+                            color = Color.White.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .wrapContentHeight(align = Alignment.CenterVertically)
+                                    .basicMarquee(
+                                        iterations = Int.MAX_VALUE,
+                                        animationMode = MarqueeAnimationMode.Immediately,
+                                    ).focusable(),
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = SimpIcons.KeyboardArrowDown,
+                            contentDescription = "",
+                            tint = Color.White,
+                        )
+                    }
+                },
+                actions = {
+                    Box(
+                        modifier = Modifier.size(32.dp),
+                    )
+                },
+            )
 
-                Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(Res.string.now_playing),
+                style = typo().titleMedium,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            SongFullWidthItems(
+                songEntity = songEntity,
+                isPlaying = false,
+                onAddToQueue = null,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(Res.string.now_playing),
+                    text = stringResource(Res.string.queue),
                     style = typo().titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-                SongFullWidthItems(
-                    songEntity = songEntity,
-                    isPlaying = false,
-                    onAddToQueue = null,
+                    color = Color.White,
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
+                            .padding(horizontal = 20.dp)
+                            .weight(1f),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = stringResource(Res.string.queue),
-                        style = typo().titleMedium,
-                        modifier =
-                            Modifier
-                                .padding(horizontal = 20.dp)
-                                .weight(1f),
+                        text = stringResource(Res.string.endless_queue),
+                        style = typo().bodySmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(horizontal = 8.dp),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(Res.string.endless_queue),
-                            style = typo().bodySmall,
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                        )
-                        Switch(
-                            checked = endlessQueueEnable,
-                            onCheckedChange = {
-                                coroutineScope.launch {
-                                    dataStoreManager.setEndlessQueue(it)
-                                }
-                            },
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                LazyColumn(
-                    horizontalAlignment = Alignment.Start,
-                    state = lazyListState,
-                    modifier =
-                        Modifier
-                            .pointerInput(Unit) {
-                                detectDragGesturesAfterLongPress(
-                                    onDrag = { change, offset ->
-                                        Logger.d("QueueBottomSheet", "onDrag $offset")
-                                        change.consume()
-                                        dragDropState.onDrag(offset = offset)
-
-                                        if (overscrollJob?.isActive == true) {
-                                            return@detectDragGesturesAfterLongPress
-                                        }
-
-                                        dragDropState
-                                            .checkForOverScroll()
-                                            .takeIf { it != 0f }
-                                            ?.let {
-                                                overscrollJob =
-                                                    coroutineScope.launch {
-                                                        dragDropState.state.animateScrollBy(
-                                                            it * 1.3f,
-                                                            tween(easing = FastOutLinearInEasing),
-                                                        )
-                                                    }
-                                            }
-                                            ?: run { overscrollJob?.cancel() }
-                                    },
-                                    onDragStart = { offset ->
-                                        Logger.d("QueueBottomSheet", "onDragStart $offset")
-                                        dragDropState.onDragStart(offset)
-                                    },
-                                    onDragEnd = {
-                                        Logger.d("QueueBottomSheet", "onDragEnd")
-                                        dragDropState.onDragInterrupted(true)
-                                        overscrollJob?.cancel()
-                                    },
-                                    onDragCancel = {
-                                        Logger.d("QueueBottomSheet", "onDragCancel")
-                                        dragDropState.onDragInterrupted()
-                                        overscrollJob?.cancel()
-                                    },
-                                )
-                            },
-                ) {
-                    itemsIndexed(
-                        queue,
-                        key = { i, t -> i.toString() + t.videoId },
-                    ) { index, track ->
-                        if (index != -1) {
-                            DraggableItem(
-                                dragDropState = dragDropState,
-                                index = index,
-                                modifier = Modifier,
-                            ) { _ ->
-                                SongFullWidthItems(
-                                    track = track,
-                                    isPlaying = track.videoId == songEntity?.videoId,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth(),
-                                    onClickListener = { videoId ->
-                                        if (videoId == track.videoId) {
-                                            musicServiceHandler.playMediaItemInMediaSource(index)
-                                        }
-                                    },
-                                    onMoreClickListener = {
-                                        showQueueItemBottomSheet(index)
-                                    },
-                                    onAddToQueue = {
-                                        sharedViewModel.addListToQueue(
-                                            arrayListOf(track),
-                                        )
-                                    },
-                                )
+                    Switch(
+                        checked = endlessQueueEnable,
+                        onCheckedChange = {
+                            coroutineScope.launch {
+                                dataStoreManager.setEndlessQueue(it)
                             }
-                        }
-                    }
-                    item {
-                        if (loadMoreState == QueueData.StateSource.STATE_INITIALIZING) {
-                            CenterLoadingBox(
+                        },
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyColumn(
+                horizontalAlignment = Alignment.Start,
+                state = lazyListState,
+                modifier =
+                    Modifier
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDrag = { change, offset ->
+                                    Logger.d("QueueBottomSheet", "onDrag $offset")
+                                    change.consume()
+                                    dragDropState.onDrag(offset = offset)
+
+                                    if (overscrollJob?.isActive == true) {
+                                        return@detectDragGesturesAfterLongPress
+                                    }
+
+                                    dragDropState
+                                        .checkForOverScroll()
+                                        .takeIf { it != 0f }
+                                        ?.let {
+                                            overscrollJob =
+                                                coroutineScope.launch {
+                                                    dragDropState.state.animateScrollBy(
+                                                        it * 1.3f,
+                                                        tween(easing = FastOutLinearInEasing),
+                                                    )
+                                                }
+                                        }
+                                        ?: run { overscrollJob?.cancel() }
+                                },
+                                onDragStart = { offset ->
+                                    Logger.d("QueueBottomSheet", "onDragStart $offset")
+                                    dragDropState.onDragStart(offset)
+                                },
+                                onDragEnd = {
+                                    Logger.d("QueueBottomSheet", "onDragEnd")
+                                    dragDropState.onDragInterrupted(true)
+                                    overscrollJob?.cancel()
+                                },
+                                onDragCancel = {
+                                    Logger.d("QueueBottomSheet", "onDragCancel")
+                                    dragDropState.onDragInterrupted()
+                                    overscrollJob?.cancel()
+                                },
+                            )
+                        },
+            ) {
+                itemsIndexed(
+                    queue,
+                    key = { i, t -> i.toString() + t.videoId },
+                ) { index, track ->
+                    if (index != -1) {
+                        DraggableItem(
+                            dragDropState = dragDropState,
+                            index = index,
+                            modifier = Modifier,
+                        ) { _ ->
+                            SongFullWidthItems(
+                                track = track,
+                                isPlaying = track.videoId == songEntity?.videoId,
                                 modifier =
                                     Modifier
-                                        .fillMaxWidth()
-                                        .height(80.dp),
+                                        .fillMaxWidth(),
+                                onClickListener = { videoId ->
+                                    if (videoId == track.videoId) {
+                                        musicServiceHandler.playMediaItemInMediaSource(index)
+                                    }
+                                },
+                                onMoreClickListener = {
+                                    showQueueItemBottomSheet(index)
+                                },
+                                onAddToQueue = {
+                                    sharedViewModel.addListToQueue(
+                                        arrayListOf(track),
+                                    )
+                                },
                             )
                         }
                     }
-                    item {
-                        EndOfPage()
+                }
+                item {
+                    if (loadMoreState == QueueData.StateSource.STATE_INITIALIZING) {
+                        CenterLoadingBox(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(80.dp),
+                        )
                     }
+                }
+                item {
+                    EndOfPage()
                 }
             }
         }

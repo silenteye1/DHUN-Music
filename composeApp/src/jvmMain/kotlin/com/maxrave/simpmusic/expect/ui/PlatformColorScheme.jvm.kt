@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 @Composable
 actual fun platformDynamicColorScheme(isDark: Boolean): ColorScheme? = null
 
-actual fun isWallpaperDynamicColorSupported(): Boolean = false
+actual fun isWallpaperDynamicColorSupported(): Boolean = true
 
 @Composable
 actual fun SystemBarAppearanceEffect(isDark: Boolean) {

@@ -1,0 +1,1350 @@
+﻿Initialized native services in: C:\Users\mandl\.gradle\native
+Initialized jansi services in: C:\Users\mandl\.gradle\native
+The client will now receive all logging from the daemon (pid: 5832). The daemon log file: C:\Users\mandl\.gradle\daemon\9.5.1\daemon-5832.out.log
+Starting 20th build in daemon [uptime: 3 hrs 41 mins 58.319 secs, performance: 97%, GC rate: 0.00/s, heap usage: 7% of 3.3 GiB]
+Using 8 worker leases.
+Operational build model parameters: {cachingModelBuilding=false, configurationCache=false, configurationCacheDisabledReason=null, configurationCacheParallelLoad=false, configurationCacheParallelStore=false, configureOnDemand=false, invalidateCoupledProjects=false, isolatedProjects=false, modelAsProjectDependency=false, modelBuilding=false, parallelModelBuilding=false, parallelProjectConfiguration=false, parallelProjectExecution=false, resilientModelBuilding=false}
+Now considering [E:\music app\SimpMusic] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Resolved plugin [id: 'org.gradle.toolchains.foojay-resolver-convention', version: '1.0.0']
+Settings evaluated using settings file 'E:\music app\SimpMusic\settings.gradle.kts'.
+Type-safe project accessors is an incubating feature.
+Projects loaded. Root project using build file 'E:\music app\SimpMusic\build.gradle.kts'.
+Included projects: [root project 'SimpMusic', project ':aiService', project ':androidApp', project ':autoEqService', project ':cast', project ':cast-empty', project ':common', project ':composeApp', project ':crashlytics', project ':crashlytics-empty', project ':data', project ':desktopApp', project ':domain', project ':kizzy', project ':kotlinYtmusicScraper', project ':ktorExt', project ':lastfm', project ':lastfm-empty', project ':listenTogether', project ':lyricsService', project ':media-jvm', project ':media-jvm-ui', project ':media3', project ':media3-ui', project ':spotify']
+
+> Configure project :
+Evaluating root project 'SimpMusic' using build file 'E:\music app\SimpMusic\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.2.1', apply: false]
+Resolved plugin [id: 'com.android.library', version: '9.2.1', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.parcelize', version: '2.4.10', apply: false]
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.3.9', apply: false]
+Resolved plugin [id: 'com.mikepenz.aboutlibraries.plugin.android', version: '15.0.2', apply: false]
+Resolved plugin [id: 'com.mikepenz.aboutlibraries.plugin', version: '15.0.2', apply: false]
+Resolved plugin [id: 'androidx.room', version: '2.8.4', apply: false]
+Resolved plugin [id: 'com.android.lint', version: '9.2.1', apply: false]
+Resolved plugin [id: 'org.jetbrains.compose', version: '1.11.1', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10', apply: false]
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.4.10', apply: false]
+Resolved plugin [id: 'com.codingfeline.buildkonfig', version: '0.22.0', apply: false]
+Resolved plugin [id: 'com.google.osdetector', version: '1.7.3', apply: false]
+Resolved plugin [id: 'dev.hydraulic.conveyor', version: '2.0', apply: false]
+Resolved plugin [id: 'org.jetbrains.compose.hot-reload', version: '1.2.0', apply: false]
+
+> Configure project :aiService
+Evaluating project ':aiService' using build file 'E:\music app\SimpMusic\core\service\aiService\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Build ddad667b-6221-4566-89c7-2b0b24e26a82 is started
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+WARNING: The option setting 'android.usesSdkInManifest.disallowed=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.sdk.defaultTargetSdkToCompileSdkIfUnset=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.r8.optimizedResourceShrinking=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.defaults.buildfeatures.resvalues=true' is deprecated.
+The current default is 'false'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.nonFinalResIds=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+w: Native task 'iosSimulatorArm64Test' is disabled
+Task 'iosSimulatorArm64Test' for target 'ios_simulator_arm64' cannot run on the current host (windows-x86_64).
+Reason: simulator tests require macOS
+Solution: To suppress this warning, add 'kotlin.native.ignoreDisabledTargets=true' to gradle.properties.
+
+
+> Configure project :androidApp
+Evaluating project ':androidApp' using build file 'E:\music app\SimpMusic\androidApp\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+
+> Configure project :autoEqService
+Evaluating project ':autoEqService' using build file 'E:\music app\SimpMusic\core\service\autoEqService\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :cast
+Evaluating project ':cast' using build file 'E:\music app\SimpMusic\cast\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+
+> Configure project :cast-empty
+Evaluating project ':cast-empty' using build file 'E:\music app\SimpMusic\cast-empty\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+
+> Configure project :common
+Evaluating project ':common' using build file 'E:\music app\SimpMusic\core\common\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+WARNING: The 'androidHostTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.
+WARNING: The 'androidDeviceTest' source directory exists, but android device tests are not enabled. To enable android device tests, add `withDeviceTest {}` to your android target configuration in the Gradle build file.
+
+> Configure project :composeApp
+Evaluating project ':composeApp' using build file 'E:\music app\SimpMusic\composeApp\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.compose', version: '1.11.1']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Resolved plugin [id: 'com.mikepenz.aboutlibraries.plugin', version: '15.0.2']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Resolved plugin [id: 'com.codingfeline.buildkonfig', version: '0.22.0']
+Resolved plugin [id: 'com.google.osdetector', version: '1.7.3']
+Resolved plugin [id: 'io.github.kdroidfilter.compose.linux.packagedeps', version: '0.2.5']
+Using Kotlin Gradle Plugin gradle813 variant
+Configure multi-module compose resources
+Configure compose resources generation
+Configure Res object generation for commonMain
+Configure resource accessors generation for commonMain
+Configure resource accessors generation for commonTest
+Configure expect resource collectors generation for commonMain
+Created androidJvm target
+Configure resource accessors generation for androidMain
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Configure actual resource collectors generation for androidMain
+Using default execution profile
+Configure compose resources with KotlinMultiplatformAndroidComponentsExtension
+Configure resource accessors generation for jvmMain
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Configure resource accessors generation for jvmTest
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+Configure actual resource collectors generation for jvmMain
+Configure main resources for 'jvm' target
+Configure test resources for 'jvm' target
+Full build detected, enabling Sentry DSN
+Check that new 'org.jetbrains.kotlin.plugin.compose' was applied
+Configure resource accessors generation for jvmDev
+kotlin scripting plugin: created the scripting discovery configuration: devKotlinScriptDef
+Configure dev resources for 'jvm' target
+compileSdkVersion=android-37.0
+Configure androidMain resources for 'android' target
+
+> Configure project :crashlytics
+Evaluating project ':crashlytics' using build file 'E:\music app\SimpMusic\crashlytics\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+
+> Configure project :crashlytics-empty
+Evaluating project ':crashlytics-empty' using build file 'E:\music app\SimpMusic\crashlytics-empty\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+
+> Configure project :data
+Evaluating project ':data' using build file 'E:\music app\SimpMusic\core\data\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Resolved plugin [id: 'androidx.room', version: '2.8.4']
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.3.9']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :desktopApp
+Evaluating project ':desktopApp' using build file 'E:\music app\SimpMusic\desktopApp\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.compose', version: '1.11.1']
+Resolved plugin [id: 'dev.hydraulic.conveyor', version: '2.0']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.compose.hot-reload', version: '1.2.0']
+Using Kotlin Gradle Plugin gradle813 variant
+Configure multi-module compose resources
+Configure compose resources generation
+Configure Res object generation for commonMain
+Configure resource accessors generation for commonMain
+Configure resource accessors generation for commonTest
+Configure expect resource collectors generation for commonMain
+Configure resource accessors generation for jvmMain
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Configure resource accessors generation for jvmTest
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+Configure actual resource collectors generation for jvmMain
+Configure main resources for 'jvm' target
+Configure test resources for 'jvm' target
+Configure resource accessors generation for jvmDev
+kotlin scripting plugin: created the scripting discovery configuration: devKotlinScriptDef
+Configure dev resources for 'jvm' target
+Check that new 'org.jetbrains.kotlin.plugin.compose' was applied
+
+> Configure project :domain
+Evaluating project ':domain' using build file 'E:\music app\SimpMusic\core\domain\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.3.9']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.parcelize', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+WARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.
+
+> Configure project :kizzy
+Evaluating project ':kizzy' using build file 'E:\music app\SimpMusic\core\service\kizzy\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :kotlinYtmusicScraper
+Evaluating project ':kotlinYtmusicScraper' using build file 'E:\music app\SimpMusic\core\service\kotlinYtmusicScraper\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :ktorExt
+Evaluating project ':ktorExt' using build file 'E:\music app\SimpMusic\core\service\ktorExt\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :lastfm
+Evaluating project ':lastfm' using build file 'E:\music app\SimpMusic\lastfm\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :lastfm-empty
+Evaluating project ':lastfm-empty' using build file 'E:\music app\SimpMusic\lastfm-empty\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :listenTogether
+Evaluating project ':listenTogether' using build file 'E:\music app\SimpMusic\core\service\listenTogether\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+WARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.
+
+> Configure project :lyricsService
+Evaluating project ':lyricsService' using build file 'E:\music app\SimpMusic\core\service\lyricsService\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+
+> Configure project :media-jvm
+Evaluating project ':media-jvm' using build file 'E:\music app\SimpMusic\core\media\media-jvm\build.gradle.kts'.
+Resolved plugin [id: 'java-library']
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+
+> Configure project :media-jvm-ui
+Evaluating project ':media-jvm-ui' using build file 'E:\music app\SimpMusic\core\media\media-jvm-ui\build.gradle.kts'.
+Resolved plugin [id: 'java-library']
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.4.10']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+
+> Configure project :media3
+Evaluating project ':media3' using build file 'E:\music app\SimpMusic\core\media\media3\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+
+> Configure project :media3-ui
+Evaluating project ':media3-ui' using build file 'E:\music app\SimpMusic\core\media\media3-ui\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.10']
+Using default execution profile
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+
+> Configure project :spotify
+Evaluating project ':spotify' using build file 'E:\music app\SimpMusic\core\service\spotify\build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.multiplatform', version: '2.4.10']
+Resolved plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.2.1']
+Resolved plugin [id: 'com.android.lint', version: '9.2.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.4.10']
+Using Kotlin Gradle Plugin gradle813 variant
+Created androidJvm target
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+Created compile task: compileAndroidMain
+Using default execution profile
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+compileSdkVersion=android-37.0
+All projects evaluated.
+Task path ':composeApp:compileKotlinJvm' matched project ':composeApp'
+Task name matched 'compileKotlinJvm'
+Selected primary task 'compileKotlinJvm' from project :composeApp
+Tasks to be executed: [task ':common:kmpPartiallyResolvedDependenciesChecker', task ':common:checkKotlinGradlePluginConfigurationErrors', task ':common:compileKotlinJvm', task ':common:compileJvmMainJava', task ':common:jvmProcessResources', task ':common:processJvmMainResources', task ':common:jvmMainClasses', task ':common:jvmJar', task ':composeApp:checkJvmMainComposeLibrariesCompatibility', task ':composeApp:kmpPartiallyResolvedDependenciesChecker', task ':composeApp:checkKotlinGradlePluginConfigurationErrors', task ':composeApp:convertXmlValueResourcesForCommonMain', task ':composeApp:copyNonXmlValueResourcesForCommonMain', task ':composeApp:prepareComposeResourcesTaskForCommonMain', task ':composeApp:generateResourceAccessorsForCommonMain', task ':composeApp:convertXmlValueResourcesForJvmMain', task ':composeApp:copyNonXmlValueResourcesForJvmMain', task ':composeApp:prepareComposeResourcesTaskForJvmMain', task ':composeApp:generateResourceAccessorsForJvmMain', task ':composeApp:generateActualResourceCollectorsForJvmMain', task ':composeApp:generateBuildKonfig', task ':composeApp:generateComposeResClass', task ':composeApp:generateExpectResourceCollectorsForCommonMain', task ':aiService:kmpPartiallyResolvedDependenciesChecker', task ':aiService:checkKotlinGradlePluginConfigurationErrors', task ':domain:kmpPartiallyResolvedDependenciesChecker', task ':domain:checkKotlinGradlePluginConfigurationErrors', task ':domain:kspKotlinJvm', task ':domain:compileKotlinJvm', task ':domain:compileJvmMainJava', task ':domain:jvmProcessResources', task ':domain:processJvmMainResources', task ':domain:jvmMainClasses', task ':domain:jvmJar', task ':aiService:compileKotlinJvm', task ':aiService:compileJvmMainJava', task ':aiService:jvmProcessResources', task ':aiService:processJvmMainResources', task ':aiService:jvmMainClasses', task ':aiService:jvmJar', task ':autoEqService:kmpPartiallyResolvedDependenciesChecker', task ':autoEqService:checkKotlinGradlePluginConfigurationErrors', task ':ktorExt:kmpPartiallyResolvedDependenciesChecker', task ':ktorExt:checkKotlinGradlePluginConfigurationErrors', task ':ktorExt:compileKotlinJvm', task ':ktorExt:compileJvmMainJava', task ':ktorExt:jvmProcessResources', task ':ktorExt:processJvmMainResources', task ':ktorExt:jvmMainClasses', task ':ktorExt:jvmJar', task ':autoEqService:compileKotlinJvm', task ':autoEqService:compileJvmMainJava', task ':autoEqService:jvmProcessResources', task ':autoEqService:processJvmMainResources', task ':autoEqService:jvmMainClasses', task ':autoEqService:jvmJar', task ':data:kmpPartiallyResolvedDependenciesChecker', task ':data:checkKotlinGradlePluginConfigurationErrors', task ':kizzy:kmpPartiallyResolvedDependenciesChecker', task ':kizzy:checkKotlinGradlePluginConfigurationErrors', task ':kizzy:compileKotlinJvm', task ':kizzy:compileJvmMainJava', task ':kizzy:jvmProcessResources', task ':kizzy:processJvmMainResources', task ':kizzy:jvmMainClasses', task ':kizzy:jvmJar', task ':kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker', task ':kotlinYtmusicScraper:checkKotlinGradlePluginConfigurationErrors', task ':kotlinYtmusicScraper:compileKotlinJvm', task ':kotlinYtmusicScraper:compileJvmMainJava', task ':kotlinYtmusicScraper:jvmProcessResources', task ':kotlinYtmusicScraper:processJvmMainResources', task ':kotlinYtmusicScraper:jvmMainClasses', task ':kotlinYtmusicScraper:jvmJar', task ':lastfm:kmpPartiallyResolvedDependenciesChecker', task ':lastfm:checkKotlinGradlePluginConfigurationErrors', task ':lastfm:compileKotlinJvm', task ':lastfm:compileJvmMainJava', task ':lastfm:jvmProcessResources', task ':lastfm:processJvmMainResources', task ':lastfm:jvmMainClasses', task ':lastfm:jvmJar', task ':listenTogether:kmpPartiallyResolvedDependenciesChecker', task ':listenTogether:checkKotlinGradlePluginConfigurationErrors', task ':listenTogether:compileKotlinJvm', task ':listenTogether:compileJvmMainJava', task ':listenTogether:jvmProcessResources', task ':listenTogether:processJvmMainResources', task ':listenTogether:jvmMainClasses', task ':listenTogether:jvmJar', task ':lyricsService:kmpPartiallyResolvedDependenciesChecker', task ':lyricsService:checkKotlinGradlePluginConfigurationErrors', task ':lyricsService:compileKotlinJvm', task ':lyricsService:compileJvmMainJava', task ':lyricsService:jvmProcessResources', task ':lyricsService:processJvmMainResources', task ':lyricsService:jvmMainClasses', task ':lyricsService:jvmJar', task ':media-jvm:checkKotlinGradlePluginConfigurationErrors', task ':media-jvm:compileKotlin', task ':media-jvm:compileJava', task ':media-jvm:processResources', task ':media-jvm:classes', task ':media-jvm:jar', task ':spotify:kmpPartiallyResolvedDependenciesChecker', task ':spotify:checkKotlinGradlePluginConfigurationErrors', task ':spotify:compileKotlinJvm', task ':spotify:compileJvmMainJava', task ':spotify:jvmProcessResources', task ':spotify:processJvmMainResources', task ':spotify:jvmMainClasses', task ':spotify:jvmJar', task ':data:kspKotlinJvm', task ':data:compileKotlinJvm', task ':data:copyRoomSchemas', task ':data:compileJvmMainJava', task ':data:jvmProcessResources', task ':data:processJvmMainResources', task ':data:jvmMainClasses', task ':data:jvmJar', task ':media-jvm-ui:checkKotlinGradlePluginConfigurationErrors', task ':media-jvm-ui:compileKotlin', task ':media-jvm-ui:compileJava', task ':media-jvm-ui:processResources', task ':media-jvm-ui:classes', task ':media-jvm-ui:jar', task ':composeApp:compileKotlinJvm']
+Tasks that were excluded: []
+Resolve mutations for :common:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+:common:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':common:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':common:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :common:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+:common:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':common:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :common:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+:common:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':common:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':common:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :common:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+:common:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:compileJvmMainJava NO-SOURCE
+Skipping task ':common:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :common:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+:common:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:jvmProcessResources NO-SOURCE
+Skipping task ':common:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :common:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+:common:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:processJvmMainResources SKIPPED
+Skipping task ':common:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :common:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+:common:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:jvmMainClasses UP-TO-DATE
+Skipping task ':common:jvmMainClasses' as it has no actions.
+Resolve mutations for :common:jvmJar (Thread[#854,Execution worker,5,main]) started.
+:common:jvmJar (Thread[#854,Execution worker,5,main]) started.
+
+> Task :common:jvmJar UP-TO-DATE
+Caching disabled for task ':common:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':common:jvmJar' as it is up-to-date.
+work action resolve common-jvm.jar (project :common) (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :composeApp:checkJvmMainComposeLibrariesCompatibility (Thread[#854,Execution worker,5,main]) started.
+:composeApp:checkJvmMainComposeLibrariesCompatibility (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:checkJvmMainComposeLibrariesCompatibility
+Caching disabled for task ':composeApp:checkJvmMainComposeLibrariesCompatibility' because:
+  Build cache is disabled
+Task ':composeApp:checkJvmMainComposeLibrariesCompatibility' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+w: Compose Multiplatform runtime dependencies' versions don't match with plugin version.
+    expected: 'org.jetbrains.compose.foundation:foundation:1.11.1'
+    actual:   'org.jetbrains.compose.foundation:foundation:1.12.0-alpha01'
+
+    expected: 'org.jetbrains.compose.ui:ui:1.11.1'
+    actual:   'org.jetbrains.compose.ui:ui:1.12.0-alpha01'
+
+This may lead to compilation errors or unexpected behavior at runtime.
+Such version mismatch might be caused by dependency constraints in one of the included libraries.
+You can inspect resulted dependencies tree via `./gradlew :composeApp:dependencies  --configuration jvmRuntimeClasspath`.
+See more details in Gradle documentation: https://docs.gradle.org/current/userguide/viewing_debugging_dependencies.html#sec:listing-dependencies
+
+Please update Compose Multiplatform Gradle plugin's version or align dependencies' versions to match the current plugin version.
+
+w: Skiko dependencies' versions are incompatible.
+    io.coil-kt.coil3:coil-core-jvm:3.5.0
+    \--- org.jetbrains.skiko:skiko:0.144.6 -> 0.148.1
+
+This may lead to compilation errors or unexpected behavior at runtime.
+Such version mismatch might be caused by dependency constraints in one of the included libraries.
+You can inspect resulted dependencies tree via `./gradlew :composeApp:dependencies  --configuration jvmRuntimeClasspath`.
+See more details in Gradle documentation: https://docs.gradle.org/current/userguide/viewing_debugging_dependencies.html#sec:listing-dependencies
+
+Note: Skiko is considered implementation detail in Compose Multiplatform and might be incompatible across versions.
+Please align Skiko dependencies to the same version. If possible, avoid direct Skiko references and use Compose APIs instead.
+
+Resolve mutations for :composeApp:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+:composeApp:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':composeApp:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':composeApp:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :composeApp:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+:composeApp:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':composeApp:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :composeApp:convertXmlValueResourcesForCommonMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:convertXmlValueResourcesForCommonMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:convertXmlValueResourcesForCommonMain UP-TO-DATE
+Caching disabled for task ':composeApp:convertXmlValueResourcesForCommonMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:convertXmlValueResourcesForCommonMain' as it is up-to-date.
+Resolve mutations for :composeApp:copyNonXmlValueResourcesForCommonMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:copyNonXmlValueResourcesForCommonMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:copyNonXmlValueResourcesForCommonMain UP-TO-DATE
+Caching disabled for task ':composeApp:copyNonXmlValueResourcesForCommonMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:copyNonXmlValueResourcesForCommonMain' as it is up-to-date.
+Resolve mutations for :composeApp:prepareComposeResourcesTaskForCommonMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:prepareComposeResourcesTaskForCommonMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:prepareComposeResourcesTaskForCommonMain UP-TO-DATE
+Caching disabled for task ':composeApp:prepareComposeResourcesTaskForCommonMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:prepareComposeResourcesTaskForCommonMain' as it is up-to-date.
+Resolve mutations for :composeApp:generateResourceAccessorsForCommonMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateResourceAccessorsForCommonMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateResourceAccessorsForCommonMain UP-TO-DATE
+Caching disabled for task ':composeApp:generateResourceAccessorsForCommonMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:generateResourceAccessorsForCommonMain' as it is up-to-date.
+Resolve mutations for :composeApp:convertXmlValueResourcesForJvmMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:convertXmlValueResourcesForJvmMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:convertXmlValueResourcesForJvmMain NO-SOURCE
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\preparedResources\jvmMain\composeResources', not found
+Skipping task ':composeApp:convertXmlValueResourcesForJvmMain' as it has no source files and no previous output files.
+Resolve mutations for :composeApp:copyNonXmlValueResourcesForJvmMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:copyNonXmlValueResourcesForJvmMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\preparedResources\jvmMain\composeResources', not found
+Skipping task ':composeApp:copyNonXmlValueResourcesForJvmMain' as it has no source files and no previous output files.
+Resolve mutations for :composeApp:prepareComposeResourcesTaskForJvmMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:prepareComposeResourcesTaskForJvmMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+Skipping task ':composeApp:prepareComposeResourcesTaskForJvmMain' as it has no source files and no previous output files.
+Resolve mutations for :composeApp:generateResourceAccessorsForJvmMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateResourceAccessorsForJvmMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateResourceAccessorsForJvmMain NO-SOURCE
+Skipping task ':composeApp:generateResourceAccessorsForJvmMain' as it has no source files and no previous output files.
+Resolve mutations for :composeApp:generateActualResourceCollectorsForJvmMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateActualResourceCollectorsForJvmMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateActualResourceCollectorsForJvmMain UP-TO-DATE
+Caching disabled for task ':composeApp:generateActualResourceCollectorsForJvmMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:generateActualResourceCollectorsForJvmMain' as it is up-to-date.
+Resolve mutations for :composeApp:generateBuildKonfig (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateBuildKonfig (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateBuildKonfig UP-TO-DATE
+Caching disabled for task ':composeApp:generateBuildKonfig' because:
+  Build cache is disabled
+Skipping task ':composeApp:generateBuildKonfig' as it is up-to-date.
+Resolve mutations for :composeApp:generateComposeResClass (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateComposeResClass (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateComposeResClass UP-TO-DATE
+Caching disabled for task ':composeApp:generateComposeResClass' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:generateComposeResClass' as it is up-to-date.
+Resolve mutations for :composeApp:generateExpectResourceCollectorsForCommonMain (Thread[#854,Execution worker,5,main]) started.
+:composeApp:generateExpectResourceCollectorsForCommonMain (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:generateExpectResourceCollectorsForCommonMain UP-TO-DATE
+Caching disabled for task ':composeApp:generateExpectResourceCollectorsForCommonMain' because:
+  Build cache is disabled
+  Caching has not been enabled for the task
+Skipping task ':composeApp:generateExpectResourceCollectorsForCommonMain' as it is up-to-date.
+Resolve mutations for :aiService:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+:aiService:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+
+> Task :aiService:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':aiService:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':aiService:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :aiService:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+:aiService:checkKotlinGradlePluginConfigurationErrors (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :aiService:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':aiService:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :domain:kmpPartiallyResolvedDependenciesChecker (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:kmpPartiallyResolvedDependenciesChecker (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':domain:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':domain:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :domain:checkKotlinGradlePluginConfigurationErrors (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:checkKotlinGradlePluginConfigurationErrors (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':domain:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :domain:kspKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:kspKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:kspKotlinJvm SKIPPED
+Skipping task ':domain:kspKotlinJvm' as task onlyIf 'Task satisfies onlyIf spec' is false.
+Resolve mutations for :domain:compileKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:compileKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':domain:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':domain:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :domain:compileJvmMainJava (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:compileJvmMainJava (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:compileJvmMainJava NO-SOURCE
+Skipping task ':domain:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :domain:jvmProcessResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:jvmProcessResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:jvmProcessResources NO-SOURCE
+Skipping task ':domain:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :domain:processJvmMainResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:processJvmMainResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:processJvmMainResources SKIPPED
+Skipping task ':domain:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :domain:jvmMainClasses (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:jvmMainClasses (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:jvmMainClasses UP-TO-DATE
+Skipping task ':domain:jvmMainClasses' as it has no actions.
+Resolve mutations for :domain:jvmJar (Thread[#856,Execution worker Thread 3,5,main]) started.
+:domain:jvmJar (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :domain:jvmJar UP-TO-DATE
+Caching disabled for task ':domain:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':domain:jvmJar' as it is up-to-date.
+work action resolve domain-jvm.jar (project :domain) (Thread[#856,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :aiService:compileKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+:aiService:compileKotlinJvm (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :aiService:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':aiService:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':aiService:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :aiService:compileJvmMainJava (Thread[#856,Execution worker Thread 3,5,main]) started.
+:aiService:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+
+> Task :aiService:compileJvmMainJava NO-SOURCE
+Skipping task ':aiService:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :aiService:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+:aiService:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :aiService:jvmProcessResources NO-SOURCE
+Skipping task ':aiService:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :aiService:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+:aiService:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :aiService:processJvmMainResources SKIPPED
+Skipping task ':aiService:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :aiService:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+:aiService:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+
+> Task :aiService:jvmMainClasses UP-TO-DATE
+Skipping task ':aiService:jvmMainClasses' as it has no actions.
+Resolve mutations for :aiService:jvmJar (Thread[#854,Execution worker,5,main]) started.
+:aiService:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :aiService:jvmJar UP-TO-DATE
+Caching disabled for task ':aiService:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':aiService:jvmJar' as it is up-to-date.
+work action resolve aiService-jvm.jar (project :aiService) (Thread[#857,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :autoEqService:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+:autoEqService:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :autoEqService:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':autoEqService:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':autoEqService:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :autoEqService:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+:autoEqService:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :autoEqService:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':autoEqService:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :ktorExt:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':ktorExt:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':ktorExt:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :ktorExt:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':ktorExt:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :ktorExt:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':ktorExt:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':ktorExt:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :ktorExt:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:compileJvmMainJava NO-SOURCE
+Skipping task ':ktorExt:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :ktorExt:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:jvmProcessResources NO-SOURCE
+Skipping task ':ktorExt:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :ktorExt:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:ktorExt:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :ktorExt:processJvmMainResources SKIPPED
+Skipping task ':ktorExt:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :ktorExt:jvmMainClasses (Thread[#853,included builds,5,main]) started.
+:ktorExt:jvmMainClasses (Thread[#853,included builds,5,main]) started.
+
+> Task :ktorExt:jvmMainClasses UP-TO-DATE
+Skipping task ':ktorExt:jvmMainClasses' as it has no actions.
+Resolve mutations for :ktorExt:jvmJar (Thread[#853,included builds,5,main]) started.
+:ktorExt:jvmJar (Thread[#853,included builds,5,main]) started.
+
+> Task :ktorExt:jvmJar UP-TO-DATE
+Caching disabled for task ':ktorExt:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':ktorExt:jvmJar' as it is up-to-date.
+work action resolve ktorExt-jvm.jar (project :ktorExt) (Thread[#853,included builds,5,main]) started.
+Resolve mutations for :autoEqService:compileKotlinJvm (Thread[#853,included builds,5,main]) started.
+:autoEqService:compileKotlinJvm (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':autoEqService:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':autoEqService:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :autoEqService:compileJvmMainJava (Thread[#853,included builds,5,main]) started.
+:autoEqService:compileJvmMainJava (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:compileJvmMainJava NO-SOURCE
+Skipping task ':autoEqService:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :autoEqService:jvmProcessResources (Thread[#853,included builds,5,main]) started.
+:autoEqService:jvmProcessResources (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:jvmProcessResources NO-SOURCE
+Skipping task ':autoEqService:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :autoEqService:processJvmMainResources (Thread[#853,included builds,5,main]) started.
+:autoEqService:processJvmMainResources (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:processJvmMainResources SKIPPED
+Skipping task ':autoEqService:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :autoEqService:jvmMainClasses (Thread[#853,included builds,5,main]) started.
+:autoEqService:jvmMainClasses (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:jvmMainClasses UP-TO-DATE
+Skipping task ':autoEqService:jvmMainClasses' as it has no actions.
+Resolve mutations for :autoEqService:jvmJar (Thread[#853,included builds,5,main]) started.
+:autoEqService:jvmJar (Thread[#853,included builds,5,main]) started.
+
+> Task :autoEqService:jvmJar UP-TO-DATE
+Caching disabled for task ':autoEqService:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':autoEqService:jvmJar' as it is up-to-date.
+work action resolve autoEqService-jvm.jar (project :autoEqService) (Thread[#853,included builds,5,main]) started.
+Resolve mutations for :data:kmpPartiallyResolvedDependenciesChecker (Thread[#853,included builds,5,main]) started.
+:data:kmpPartiallyResolvedDependenciesChecker (Thread[#853,included builds,5,main]) started.
+
+> Task :data:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':data:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':data:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :data:checkKotlinGradlePluginConfigurationErrors (Thread[#853,included builds,5,main]) started.
+:data:checkKotlinGradlePluginConfigurationErrors (Thread[#853,included builds,5,main]) started.
+
+> Task :data:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':data:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :kizzy:kmpPartiallyResolvedDependenciesChecker (Thread[#853,included builds,5,main]) started.
+:kizzy:kmpPartiallyResolvedDependenciesChecker (Thread[#853,included builds,5,main]) started.
+
+> Task :kizzy:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':kizzy:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':kizzy:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :kizzy:checkKotlinGradlePluginConfigurationErrors (Thread[#853,included builds,5,main]) started.
+:kizzy:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':kizzy:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :kizzy:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':kizzy:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':kizzy:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :kizzy:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:compileJvmMainJava NO-SOURCE
+Skipping task ':kizzy:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :kizzy:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:jvmProcessResources NO-SOURCE
+Skipping task ':kizzy:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :kizzy:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:processJvmMainResources SKIPPED
+Skipping task ':kizzy:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :kizzy:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:jvmMainClasses UP-TO-DATE
+Skipping task ':kizzy:jvmMainClasses' as it has no actions.
+Resolve mutations for :kizzy:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kizzy:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kizzy:jvmJar UP-TO-DATE
+Caching disabled for task ':kizzy:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':kizzy:jvmJar' as it is up-to-date.
+work action resolve kizzy-jvm.jar (project :kizzy) (Thread[#857,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':kotlinYtmusicScraper:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :kotlinYtmusicScraper:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':kotlinYtmusicScraper:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :kotlinYtmusicScraper:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':kotlinYtmusicScraper:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':kotlinYtmusicScraper:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :kotlinYtmusicScraper:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:compileJvmMainJava NO-SOURCE
+Skipping task ':kotlinYtmusicScraper:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :kotlinYtmusicScraper:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:jvmProcessResources NO-SOURCE
+Skipping task ':kotlinYtmusicScraper:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :kotlinYtmusicScraper:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:processJvmMainResources SKIPPED
+Skipping task ':kotlinYtmusicScraper:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :kotlinYtmusicScraper:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:jvmMainClasses UP-TO-DATE
+Skipping task ':kotlinYtmusicScraper:jvmMainClasses' as it has no actions.
+Resolve mutations for :kotlinYtmusicScraper:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+:kotlinYtmusicScraper:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :kotlinYtmusicScraper:jvmJar UP-TO-DATE
+Caching disabled for task ':kotlinYtmusicScraper:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':kotlinYtmusicScraper:jvmJar' as it is up-to-date.
+work action resolve kotlinYtmusicScraper-jvm.jar (project :kotlinYtmusicScraper) (Thread[#857,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :lastfm:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+:lastfm:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :lastfm:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':lastfm:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':lastfm:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :lastfm:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':lastfm:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :lastfm:compileKotlinJvm (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:compileKotlinJvm (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':lastfm:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':lastfm:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :lastfm:compileJvmMainJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:compileJvmMainJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:compileJvmMainJava NO-SOURCE
+Skipping task ':lastfm:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :lastfm:jvmProcessResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:jvmProcessResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:jvmProcessResources NO-SOURCE
+Skipping task ':lastfm:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :lastfm:processJvmMainResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:processJvmMainResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:processJvmMainResources SKIPPED
+Skipping task ':lastfm:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :lastfm:jvmMainClasses (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:jvmMainClasses (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:jvmMainClasses UP-TO-DATE
+Skipping task ':lastfm:jvmMainClasses' as it has no actions.
+Resolve mutations for :lastfm:jvmJar (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lastfm:jvmJar (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lastfm:jvmJar UP-TO-DATE
+Caching disabled for task ':lastfm:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':lastfm:jvmJar' as it is up-to-date.
+work action resolve lastfm-jvm.jar (project :lastfm) (Thread[#859,Execution worker Thread 6,5,main]) started.
+Resolve mutations for :listenTogether:kmpPartiallyResolvedDependenciesChecker (Thread[#859,Execution worker Thread 6,5,main]) started.
+:listenTogether:kmpPartiallyResolvedDependenciesChecker (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :listenTogether:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':listenTogether:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':listenTogether:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :listenTogether:checkKotlinGradlePluginConfigurationErrors (Thread[#860,Execution worker Thread 7,5,main]) started.
+:listenTogether:checkKotlinGradlePluginConfigurationErrors (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':listenTogether:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :listenTogether:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:compileKotlinJvm (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':listenTogether:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':listenTogether:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :listenTogether:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:compileJvmMainJava (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:compileJvmMainJava NO-SOURCE
+Skipping task ':listenTogether:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :listenTogether:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:jvmProcessResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:jvmProcessResources NO-SOURCE
+Skipping task ':listenTogether:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :listenTogether:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:processJvmMainResources (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:processJvmMainResources SKIPPED
+Skipping task ':listenTogether:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :listenTogether:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:jvmMainClasses (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:jvmMainClasses UP-TO-DATE
+Skipping task ':listenTogether:jvmMainClasses' as it has no actions.
+Resolve mutations for :listenTogether:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+:listenTogether:jvmJar (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :listenTogether:jvmJar UP-TO-DATE
+Caching disabled for task ':listenTogether:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':listenTogether:jvmJar' as it is up-to-date.
+work action resolve listenTogether-jvm.jar (project :listenTogether) (Thread[#857,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :lyricsService:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+:lyricsService:kmpPartiallyResolvedDependenciesChecker (Thread[#857,Execution worker Thread 4,5,main]) started.
+
+> Task :lyricsService:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':lyricsService:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':lyricsService:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :lyricsService:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':lyricsService:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :lyricsService:compileKotlinJvm (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:compileKotlinJvm (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':lyricsService:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':lyricsService:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :lyricsService:compileJvmMainJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:compileJvmMainJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:compileJvmMainJava NO-SOURCE
+Skipping task ':lyricsService:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :lyricsService:jvmProcessResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:jvmProcessResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:jvmProcessResources NO-SOURCE
+Skipping task ':lyricsService:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :lyricsService:processJvmMainResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:processJvmMainResources (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:processJvmMainResources SKIPPED
+Skipping task ':lyricsService:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :lyricsService:jvmMainClasses (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:jvmMainClasses (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:jvmMainClasses UP-TO-DATE
+Skipping task ':lyricsService:jvmMainClasses' as it has no actions.
+Resolve mutations for :lyricsService:jvmJar (Thread[#859,Execution worker Thread 6,5,main]) started.
+:lyricsService:jvmJar (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :lyricsService:jvmJar UP-TO-DATE
+Caching disabled for task ':lyricsService:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':lyricsService:jvmJar' as it is up-to-date.
+work action resolve lyricsService-jvm.jar (project :lyricsService) (Thread[#859,Execution worker Thread 6,5,main]) started.
+Resolve mutations for :media-jvm:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+:media-jvm:checkKotlinGradlePluginConfigurationErrors (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :media-jvm:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':media-jvm:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :media-jvm:compileKotlin (Thread[#859,Execution worker Thread 6,5,main]) started.
+:media-jvm:compileKotlin (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :media-jvm:compileKotlin UP-TO-DATE
+Caching disabled for task ':media-jvm:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':media-jvm:compileKotlin' as it is up-to-date.
+Resolve mutations for :media-jvm:compileJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+:media-jvm:compileJava (Thread[#859,Execution worker Thread 6,5,main]) started.
+
+> Task :media-jvm:compileJava NO-SOURCE
+Skipping task ':media-jvm:compileJava' as it has no source files and no previous output files.
+work action resolve main (project :media-jvm) (Thread[#859,Execution worker Thread 6,5,main]) started.
+work action resolve main (project :media-jvm) (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :media-jvm:processResources (Thread[#854,Execution worker,5,main]) started.
+:media-jvm:processResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :media-jvm:processResources NO-SOURCE
+Skipping task ':media-jvm:processResources' as it has no source files and no previous output files.
+Resolve mutations for :media-jvm:classes (Thread[#854,Execution worker,5,main]) started.
+:media-jvm:classes (Thread[#854,Execution worker,5,main]) started.
+
+> Task :media-jvm:classes UP-TO-DATE
+Skipping task ':media-jvm:classes' as it has no actions.
+Resolve mutations for :media-jvm:jar (Thread[#854,Execution worker,5,main]) started.
+:media-jvm:jar (Thread[#854,Execution worker,5,main]) started.
+
+> Task :media-jvm:jar UP-TO-DATE
+Caching disabled for task ':media-jvm:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':media-jvm:jar' as it is up-to-date.
+work action resolve media-jvm.jar (project :media-jvm) (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :spotify:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+:spotify:kmpPartiallyResolvedDependenciesChecker (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:kmpPartiallyResolvedDependenciesChecker
+Caching disabled for task ':spotify:kmpPartiallyResolvedDependenciesChecker' because:
+  Build cache is disabled
+Task ':spotify:kmpPartiallyResolvedDependenciesChecker' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Execution stopped by some action with message: null
+Resolve mutations for :spotify:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+:spotify:checkKotlinGradlePluginConfigurationErrors (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':spotify:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :spotify:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+:spotify:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':spotify:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':spotify:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :spotify:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+:spotify:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:compileJvmMainJava NO-SOURCE
+Skipping task ':spotify:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :spotify:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+:spotify:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:jvmProcessResources NO-SOURCE
+Skipping task ':spotify:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :spotify:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+:spotify:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:processJvmMainResources SKIPPED
+Skipping task ':spotify:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :spotify:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+:spotify:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:jvmMainClasses UP-TO-DATE
+Skipping task ':spotify:jvmMainClasses' as it has no actions.
+Resolve mutations for :spotify:jvmJar (Thread[#854,Execution worker,5,main]) started.
+:spotify:jvmJar (Thread[#854,Execution worker,5,main]) started.
+
+> Task :spotify:jvmJar UP-TO-DATE
+Caching disabled for task ':spotify:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':spotify:jvmJar' as it is up-to-date.
+work action resolve spotify-jvm.jar (project :spotify) (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :data:kspKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+:data:kspKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :media-jvm-ui:checkKotlinGradlePluginConfigurationErrors (Thread[#856,Execution worker Thread 3,5,main]) started.
+:media-jvm-ui:checkKotlinGradlePluginConfigurationErrors (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :media-jvm-ui:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':media-jvm-ui:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :media-jvm-ui:compileKotlin (Thread[#856,Execution worker Thread 3,5,main]) started.
+:media-jvm-ui:compileKotlin (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :media-jvm-ui:compileKotlin UP-TO-DATE
+Caching disabled for task ':media-jvm-ui:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':media-jvm-ui:compileKotlin' as it is up-to-date.
+Resolve mutations for :media-jvm-ui:compileJava (Thread[#856,Execution worker Thread 3,5,main]) started.
+:media-jvm-ui:compileJava (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :media-jvm-ui:compileJava NO-SOURCE
+Skipping task ':media-jvm-ui:compileJava' as it has no source files and no previous output files.
+Resolve mutations for :media-jvm-ui:processResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+:media-jvm-ui:processResources (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :media-jvm-ui:processResources NO-SOURCE
+Skipping task ':media-jvm-ui:processResources' as it has no source files and no previous output files.
+Resolve mutations for :media-jvm-ui:classes (Thread[#856,Execution worker Thread 3,5,main]) started.
+:media-jvm-ui:classes (Thread[#856,Execution worker Thread 3,5,main]) started.
+
+> Task :media-jvm-ui:classes UP-TO-DATE
+Skipping task ':media-jvm-ui:classes' as it has no actions.
+Resolve mutations for :media-jvm-ui:jar (Thread[#853,included builds,5,main]) started.
+:media-jvm-ui:jar (Thread[#853,included builds,5,main]) started.
+
+> Task :media-jvm-ui:jar UP-TO-DATE
+Caching disabled for task ':media-jvm-ui:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':media-jvm-ui:jar' as it is up-to-date.
+work action resolve media-jvm-ui.jar (project :media-jvm-ui) (Thread[#853,included builds,5,main]) started.
+
+> Task :data:kspKotlinJvm
+Caching disabled for task ':data:kspKotlinJvm' because:
+  Build cache is disabled
+Task ':data:kspKotlinJvm' is not up-to-date because:
+  Value of input property 'kspConfig.logLevel' has changed for task ':data:kspKotlinJvm'
+The input changes require a full rebuild for incremental task ':data:kspKotlinJvm'.
+file or directory 'E:\music app\SimpMusic\core\data\src\jvmMain\java', not found
+file or directory 'E:\music app\SimpMusic\core\data\src\jvmMain\java', not found
+i: [ksp] loaded provider(s): [androidx.room.RoomKspProcessor$Provider]
+Resolve mutations for :data:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+:data:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:compileKotlinJvm UP-TO-DATE
+Caching disabled for task ':data:compileKotlinJvm' because:
+  Build cache is disabled
+Skipping task ':data:compileKotlinJvm' as it is up-to-date.
+Resolve mutations for :data:copyRoomSchemas (Thread[#854,Execution worker,5,main]) started.
+:data:copyRoomSchemas (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:copyRoomSchemas NO-SOURCE
+Skipping task ':data:copyRoomSchemas' as it has no source files and no previous output files.
+Resolve mutations for :data:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+:data:compileJvmMainJava (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:compileJvmMainJava NO-SOURCE
+Skipping task ':data:compileJvmMainJava' as it has no source files and no previous output files.
+Resolve mutations for :data:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+:data:jvmProcessResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:jvmProcessResources NO-SOURCE
+Skipping task ':data:jvmProcessResources' as it has no source files and no previous output files.
+Resolve mutations for :data:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+:data:processJvmMainResources (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:processJvmMainResources SKIPPED
+Skipping task ':data:processJvmMainResources' as task onlyIf 'Task is enabled' is false.
+Resolve mutations for :data:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+:data:jvmMainClasses (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:jvmMainClasses UP-TO-DATE
+Skipping task ':data:jvmMainClasses' as it has no actions.
+Resolve mutations for :data:jvmJar (Thread[#854,Execution worker,5,main]) started.
+:data:jvmJar (Thread[#854,Execution worker,5,main]) started.
+
+> Task :data:jvmJar UP-TO-DATE
+Caching disabled for task ':data:jvmJar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':data:jvmJar' as it is up-to-date.
+work action resolve data-jvm.jar (project :data) (Thread[#854,Execution worker,5,main]) started.
+Resolve mutations for :composeApp:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+:composeApp:compileKotlinJvm (Thread[#854,Execution worker,5,main]) started.
+
+> Task :composeApp:compileKotlinJvm
+Caching disabled for task ':composeApp:compileKotlinJvm' because:
+  Build cache is disabled
+Task ':composeApp:compileKotlinJvm' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':composeApp:compileKotlinJvm'.
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+Kotlin source files: E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\CrashDialog.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\DesktopApp.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\DesktopDeepLinkHandler.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\CopyToClipboard.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\FolderPath.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\OpenUrl.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\Orientation.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ShareImage.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ToggleMiniPlayer.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\Bitmap.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\CastButton.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\Cookies.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\DeviceVolumeController.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\FilePicker.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\ImageIo.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\MediaPlayerView.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\PhotoPicker.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\PlatformBlur.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\PlatformColorScheme.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\SaveImagePermission.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\expect\ui\Scrollbar.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\extension\UIExt.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\Platform.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\component\CustomTitleBar.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\component\LiquidGlassAppBottomNavigationBar.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\mini_player\MiniPlayerLayout.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\mini_player\MiniPlayerManager.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\mini_player\MiniPlayerRoot.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\mini_player\MiniPlayerWindow.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\ui\screen\player\FullscreenPlayer.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\viewModel\SettingsViewModel.jvm.kt, E:\music app\SimpMusic\composeApp\src\jvmMain\kotlin\com\maxrave\simpmusic\WindowsProtocolRegistrar.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceCollectors\simpmusic\composeapp\generated\resources\ActualResourceCollectors.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\App.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\di\ViewModelModule.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\CopyToClipboard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\FolderPath.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\LocalAudio.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\OpenUrl.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\Orientation.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ShareImage.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ToggleMiniPlayer.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\Bitmap.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\CastButton.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\Cookies.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\DeviceVolumeController.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\FilePicker.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\ImageIo.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\LiquidGlass.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\MediaPlayerView.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\PhotoPicker.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\PlatformBlur.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\PlatformColorScheme.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\SaveImagePermission.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\expect\ui\Scrollbar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\extension\AllExt.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\extension\RichSyncParser.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\extension\StringMatcher.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\extension\UIExt.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\extension\YouTubeLinkExt.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\pagination\PagingActions.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\pagination\RecentPagingSource.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\Platform.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\SpotifyPlaylistImporter.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\AdapterItems.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\AmbientThemeGlow.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\AnimationComponents.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\AppBottomNavigationBar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\AppleMusicLyricsLines.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\Badge.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\BlogPromoDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\capture\Capturable.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\CenterLoadingBox.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ChipGroup.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\CollapsingToolbar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\DescriptionView.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\DropdownButton.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\DynamicAmbientBackground.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\EndOfPage.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ExpandableText.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\FiveImagesComponent.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\FootgunsStarDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\FrostedBackground.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\FullWidthItems.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\GlassmorphismModifier.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\GridLibraryPlaylist.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\HeartBurstEffect.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\HolderPainter.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ImageCropperDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LibraryItem.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LibraryTilingBox.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LiquidGlassAppBottomNavigationBar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LiquidGlassContainer.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ListenTogetherIconButton.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LoadingDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\lyrics\ShareLyricsCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\lyrics\ShareLyricsLines.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\lyrics\ShareLyricsSelection.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\lyrics\ShareLyricsSheet.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\LyricsView.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ModalBottomSheet.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\MoodCategoryCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\NormalAppBar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\OfflineErrorState.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\PlayerControlLayout.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\PlaylistThumbnail.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\PodcastEpisodeItem.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\RememberDragDropState.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ReviewDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\RippleIconButton.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\SearchBarTransition.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\selection\SelectedSongsBottomSheet.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\selection\SongSelectionState.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\selection\SongSelectionTopAppBar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\SettingItem.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\ShareSavedLyricsDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\Shimmer.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\SurfaceDarkColors.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\VoteLyricsDialog.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\component\WrappedEntryCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\AccessAlarm.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Add.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\AddCircleOutline.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\AddPhotoAlternate.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Album.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ArrowBackIosNew.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ArrowForwardIos.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ArrowOutward.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\AutoGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\CalendarToday.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Check.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\CheckCircle.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Close.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\CloudOff.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ContentCopy.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Cookie.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Delete.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Done.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Download.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\DownloadForOffline.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\DownloadForOfflineOutlined.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Downloading.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\DragHandle.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Edit.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Error.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Explicit.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\FastForward.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\FastRewind.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Favorite.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\FavoriteBorder.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Forward5.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Fullscreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\FullscreenExit.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\GraphicEq.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Groups.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Help.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\History.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Home.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Info.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Insights.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\KeyboardArrowDown.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\KeyboardDoubleArrowDown.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\KeyboardDoubleArrowLeft.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\KeyboardDoubleArrowRight.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\KeyboardDoubleArrowUp.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\LibraryMusic.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\LogoDev.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Logout.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Lyrics.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\MoreVert.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Notifications.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\OpenInFull.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\OpenInNew.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Pause.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PauseCircle.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PeopleAlt.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PersonAdd.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PictureInPictureAlt.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PlayArrow.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PlayCircle.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PlaylistAdd.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\PushPin.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\QueueMusic.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Remove.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Repeat.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\RepeatOne.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Replay5.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\RssFeed.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Search.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SelectAll.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Sensors.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Settings.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Share.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Shuffle.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SimpIcons.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SkipNext.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SkipPrevious.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Sort.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Speed.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Star.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\StarBorder.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Subtitles.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SubtitlesOff.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Sync.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\SyncDisabled.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ThumbDown.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ThumbsUpDown.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\ThumbUp.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\TipsAndUpdates.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\TrendingUp.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Tune.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\UnfoldLess.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\UnfoldMore.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\Update.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\VolumeDown.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\VolumeOff.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\icon\VolumeUp.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\AnalyticsDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\CreditDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\HomeDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\ListenTogetherDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\ListenTogetherSettingsDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\MoodDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\NotificationDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\RecentlySongsDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\SettingsDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\home\WrappedDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\library\LibraryDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\library\LibraryDynamicPlaylistDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\library\MixForYouDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\AlbumDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\ArtistDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\LocalPlaylistDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\MoreAlbumsDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\PlaylistDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\list\PodcastDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\login\DiscordLoginDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\login\LastfmLoginDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\login\LoginDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\login\SpotifyLoginDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\player\FullscreenDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\destination\search\SearchDestination.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\graph\AppNavigationGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\graph\HomeScreenGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\graph\LibraryScreenGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\graph\ListScreenGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\navigation\graph\LoginScreenGraph.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\analytics\AnalyticsCharts.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\analytics\AnalyticsFormat.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\analytics\AnalyticsScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\AudioEffectsSection.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\AutoEqPicker.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\EqualizerPresets.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\EqualizerSection.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\HomeScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\ListenTogetherScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\ListenTogetherSettingsScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\MoodScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\NotificationScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\RecentlySongsScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\SettingScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedBiggestDayCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedCardVocabulary.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedClockCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedDecadesCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedMinutesCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedOpeningCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedShareCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedTopAlbumsCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedTopArtistsCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedTopTracksCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\cards\WrappedTypeCard.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\WrappedFormat.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\WrappedNotEnoughDataScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\WrappedScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\home\wrapped\WrappedTokens.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\library\LibraryDynamicPlaylistScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\library\LibraryScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\library\LibraryWrappedTab.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\library\LocalPlaylistScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\library\MixForYouScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\login\DiscordLoginScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\login\LastfmLoginScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\login\LogInScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\login\SpotifyLoginScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\MiniPlayer.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\AlbumScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\ArtistScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\CreditScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\MoreAlbumsScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\PlaylistScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\PodcastsScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\other\SearchScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\ArtworkPagerLogic.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\applemusic\AppleMusicLyricsView.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\applemusic\AppleMusicQueueView.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\applemusic\AppleMusicShared.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\expressive\ExpressiveTransportRow.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\expressive\WavySeekBar.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\NowPlayingContentAppleMusic.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\NowPlayingContentM3Expressive.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\NowPlayingContentSpotify.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\NowPlayingContentState.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\content\NowPlayingExpressiveCards.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\FullscreenPlayer.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\screen\player\NowPlayingScreen.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\theme\Color.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\theme\Theme.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\ui\theme\Typo.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\utils\ComposeResUtils.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\utils\LocalAudioScanner.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\utils\SpotifyHelper.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\utils\VersionManager.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\AlbumViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\AnalyticsViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\ArtistViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\AutoEqViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\base\BaseViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\HomeViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\ImportViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\LibraryDynamicPlaylistViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\LibraryViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\ListenTogetherSettingsViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\ListenTogetherViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\LocalPlaylistViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\LogInViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\MoodViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\MoreAlbumsViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\NotificationViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\NowPlayingBottomSheetViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\PlaylistViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\PodcastViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\RecentlySongsViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\SearchViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\SettingsViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\SharedViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\SongSelectionViewModel.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\WrappedUiState.kt, E:\music app\SimpMusic\composeApp\src\commonMain\kotlin\com\maxrave\simpmusic\viewModel\WrappedViewModel.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonResClass\simpmusic\composeapp\generated\resources\Res.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\Array0.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\Drawable0.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\Font0.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\Plurals0.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String0.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String1.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String2.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String3.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String4.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String5.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String6.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String7.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceAccessors\simpmusic\composeapp\generated\resources\String8.commonMain.kt, E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceCollectors\simpmusic\composeapp\generated\resources\ExpectResourceCollectors.kt, E:\music app\SimpMusic\composeApp\build\generated\source\buildkonfig\commonMain\com\maxrave\simpmusic\BuildKonfig.kt
+Java source files: 
+Script source files: 
+Script file extensions: 
+file or directory 'E:\music app\SimpMusic\composeApp\build\generated\compose\resourceGenerator\kotlin\jvmMainResourceAccessors', not found
+file or directory 'E:\music app\SimpMusic\composeApp\src\jvmMain\java', not found
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: C:\Users\mandl\.gradle\jdks\microsoft-21-amd64-windows.2
+i: Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[], generateCompilerRefIndex=false), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Unknown@65edb2f4, classpathChanges=NotAvailableDueToMissingClasspathSnapshot, workingDir=E:\music app\SimpMusic\composeApp\build\kotlin\compileKotlinJvm\cacheable, multiModuleICSettings=null, icFeatures=IncrementalCompilationFeatures(usePreciseJavaTracking=true, withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false, enableMonotonousIncrementalCompileSetExpansion=true), outputFiles=[E:\music app\SimpMusic\composeApp\build\classes\kotlin\jvm\main, E:\music app\SimpMusic\composeApp\build\kotlin\compileKotlinJvm\cacheable, E:\music app\SimpMusic\composeApp\build\kotlin\compileKotlinJvm\local-state])
+w: The argument '-Xcontext-parameters' is redundant for the current language version 2.4.
+w: The argument '-Xmulti-dollar-interpolation' is redundant for the current language version 2.4.
+w: The argument '-Xwhen-guards' is redundant for the current language version 2.4.
+.\gradlew : e: file:///E:/music%20app/SimpMusic/composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/expect/LocalAudio.kt:6:1 Expected fetchDeviceLocalTracks has no 
+actual declaration in module <commonMain> for JVM
+At line:1 char:1
++ .\gradlew :composeApp:compileKotlinJvm --no-configuration-cache --inf ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (e: file:///E:/m...onMain> for JVM:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+e: file:///E:/music%20app/SimpMusic/composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/expect/LocalAudio.kt:9:1 Expected rememberStoragePermissionLauncher has no actual 
+declaration in module <commonMain> for JVM
+i: Finished executing kotlin compiler using DAEMON strategy
+
+> Task :composeApp:compileKotlinJvm FAILED
+Build ddad667b-6221-4566-89c7-2b0b24e26a82 is closed
+
+[Incubating] Problems report is available at: file:///E:/music%20app/SimpMusic/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':composeApp:compileKotlinJvm' (registered in build file 'composeApp\build.gradle.kts').
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 47s
+52 actionable tasks: 16 executed, 36 up-to-date
+Watched directory hierarchies: [E:\music app\SimpMusic]

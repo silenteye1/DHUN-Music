@@ -2,12 +2,20 @@ package com.maxrave.simpmusic.utils
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.regex.Pattern
 
 object SpotifyHelper {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     fun isSpotifyUrl(url: String): Boolean {
         return url.contains("spotify.com") || url.contains("spotify.link")
@@ -43,8 +51,8 @@ object SpotifyHelper {
             val encodedUrl = java.net.URLEncoder.encode(finalUrl, "UTF-8")
             val endpoint = "https://open.spotify.com/oembed?url=$encodedUrl"
             val responseText = fetchHttp(endpoint) ?: return@withContext null
-            val json = JSONObject(responseText)
-            val title = json.optString("title", "")
+            val root = json.parseToJsonElement(responseText).jsonObject
+            val title = root["title"]?.jsonPrimitive?.content ?: ""
             if (title.isNotBlank()) title else null
         } catch (e: Exception) {
             e.printStackTrace()
@@ -65,22 +73,24 @@ object SpotifyHelper {
             val matcher = pattern.matcher(html)
             if (matcher.find()) {
                 val jsonString = matcher.group(1) ?: ""
-                val rootJson = JSONObject(jsonString)
-                val entityState = rootJson
-                    .getJSONObject("props")
-                    .getJSONObject("pageProps")
-                    .getJSONObject("state")
-                    .getJSONObject("data")
-                    .getJSONObject("entity")
+                val rootJson = json.parseToJsonElement(jsonString).jsonObject
+                val entityState = rootJson["props"]?.jsonObject
+                    ?.get("pageProps")?.jsonObject
+                    ?.get("state")?.jsonObject
+                    ?.get("data")?.jsonObject
+                    ?.get("entity")?.jsonObject
 
-                val trackListArray = entityState.optJSONObject("trackList")?.optJSONArray("items")
-                    ?: entityState.optJSONArray("trackList")
+                val trackListElement = entityState?.get("trackList")
+                val trackListArray = trackListElement?.jsonObject?.get("items")?.jsonArray
+                    ?: trackListElement?.jsonArray
 
                 if (trackListArray != null) {
-                    for (i in 0 until trackListArray.length()) {
-                        val item = trackListArray.getJSONObject(i)
-                        val title = item.optString("title", item.optString("name", ""))
-                        val subtitle = item.optString("subtitle", "")
+                    for (itemElement in trackListArray) {
+                        val item = itemElement.jsonObject
+                        val title = item["title"]?.jsonPrimitive?.content
+                            ?: item["name"]?.jsonPrimitive?.content
+                            ?: ""
+                        val subtitle = item["subtitle"]?.jsonPrimitive?.content ?: ""
                         if (title.isNotBlank()) {
                             val query = if (subtitle.isNotBlank()) "$title $subtitle" else title
                             tracksList.add(query.trim())

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -390,7 +392,7 @@ fun App(
         themeMode = themeMode,
         themeColorSource = themeColorSource,
         customThemeColor = parseThemeColorHex(customThemeColorHex),
-        liquidGlassEnabled = isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop,
+        liquidGlassEnabled = isLiquidGlassEnabled == TRUE,
     ) {
         val isLightScheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
         val backdrop = rememberBackdrop(if (isLightScheme) Color.White else Color.Black)
@@ -503,7 +505,7 @@ fun App(
                                 Modifier
                                     .fillMaxSize()
                                     .then(
-                                        if ((isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop) &&
+                                        if (isLiquidGlassEnabled == TRUE &&
                                             isTablet &&
                                             !isInFullscreen
                                         ) {
@@ -534,27 +536,30 @@ fun App(
                                 modifier =
                                     Modifier
                                         .padding(innerPadding)
-                                        .align(Alignment.BottomCenter),
+                                        .align(Alignment.BottomCenter)
+                                        .zIndex(50f),
                                 visible = isShowMiniPlayer && isTablet && !isInFullscreen,
                                 enter = fadeIn() + slideInHorizontally(),
                                 exit = fadeOut(),
                             ) {
                                 MiniPlayer(
-                                    if (getPlatform() == Platform.Android) {
-                                        Modifier
-                                            .height(56.dp)
-                                            .fillMaxWidth(0.8f)
-                                            .padding(
-                                                horizontal = 12.dp,
-                                            ).padding(
-                                                bottom = 4.dp,
-                                            )
-                                    } else {
-                                        Modifier
-                                            .wrapContentWidth()
-                                            .padding(bottom = 20.dp)
-                                            .height(60.dp)
-                                    },
+                                    modifier =
+                                        if (getPlatform() == Platform.Android) {
+                                            Modifier
+                                                .height(56.dp)
+                                                .fillMaxWidth(0.8f)
+                                                .padding(
+                                                    horizontal = 12.dp,
+                                                ).padding(
+                                                    bottom = 4.dp,
+                                                )
+                                        } else {
+                                            Modifier
+                                                .fillMaxWidth(0.88f)
+                                                .widthIn(min = 460.dp, max = 920.dp)
+                                                .height(68.dp)
+                                                .padding(bottom = 10.dp)
+                                        },
                                     backdrop = backdrop,
                                     hazeState = hazeState,
                                     onClick = {
@@ -567,7 +572,9 @@ fun App(
                                 )
                             }
                         }
-                        if (isTablet && isTabletLandscape && !isInFullscreen) {
+
+                        // Android Tablets: Side-panel split view (Desktop bypasses this)
+                        if (isTablet && isTabletLandscape && !isInFullscreen && !isDesktopShell) {
                             AnimatedVisibility(
                                 isShowNowPlaylistScreen,
                                 enter = expandHorizontally() + fadeIn(),
@@ -618,14 +625,35 @@ fun App(
                             }
                         }
                     }
+
+                    // Desktop Shell: Fullscreen Window Overlay
+                    if (isDesktopShell && isShowNowPlaylistScreen) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .zIndex(100f)
+                                .background(desktopWindow)
+                        ) {
+                            ForceDarkContent {
+                                NowPlayingScreen(
+                                    navController = navController,
+                                ) {
+                                    isShowNowPlaylistScreen = false
+                                }
+                            }
+                        }
+                    }
                 }
 
-                if (isShowNowPlaylistScreen && !isTabletLandscape) {
-                    ForceDarkContent {
-                        NowPlayingScreen(
-                            navController = navController,
-                        ) {
-                            isShowNowPlaylistScreen = false
+                // Android Phone / Non-Landscape Tablet: BottomSheet Player
+                if (isShowNowPlaylistScreen && (!isTabletLandscape || isDesktopShell.not())) {
+                    if (!isDesktopShell) {
+                        ForceDarkContent {
+                            NowPlayingScreen(
+                                navController = navController,
+                            ) {
+                                isShowNowPlaylistScreen = false
+                            }
                         }
                     }
                 }
