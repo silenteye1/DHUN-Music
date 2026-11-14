@@ -66,12 +66,13 @@ import com.maxrave.simpmusic.viewModel.LibraryViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.getString
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
+import simpmusic.composeapp.generated.resources.mix_for_you
 import simpmusic.composeapp.generated.resources.most_played
+import simpmusic.composeapp.generated.resources.no_YouTube_playlists
 import simpmusic.composeapp.generated.resources.no_favorite_playlists
 import simpmusic.composeapp.generated.resources.no_playlists_downloaded
 import simpmusic.composeapp.generated.resources.radio
@@ -85,8 +86,6 @@ fun LibraryItem(
     viewModel: LibraryViewModel = koinViewModel(),
     sharedViewModel: SharedViewModel = koinInject(),
     navController: NavController,
-    // Null means this row does not take part in multi-selection; the selection bar lives on the
-    // hosting screen, so only a screen that shows one passes a state down.
     selectionState: SongSelectionState? = null,
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -95,12 +94,14 @@ fun LibraryItem(
         when (state.type) {
             is LibraryItemType.RecentlyAdded -> stringResource(Res.string.recently_added)
             is LibraryItemType.CanvasSong -> stringResource(Res.string.most_played)
+            is LibraryItemType.YouTubeMixedForYou -> stringResource(Res.string.mix_for_you)
             else -> return
         }
     val noPlaylistTitle =
         when (state.type) {
             LibraryItemType.DownloadedPlaylist -> stringResource(Res.string.no_playlists_downloaded)
             LibraryItemType.FavoritePlaylist -> stringResource(Res.string.no_favorite_playlists)
+            is LibraryItemType.YouTubeMixedForYou -> stringResource(Res.string.no_YouTube_playlists)
             is LibraryItemType.RecentlyAdded -> stringResource(Res.string.recently_added)
             is LibraryItemType.CanvasSong -> stringResource(Res.string.most_played)
             else -> return
@@ -359,7 +360,7 @@ fun LibraryItem(
                                                         navController.navigate(
                                                             PlaylistDestination(
                                                                 item.browseId,
-                                                                isYourYouTubePlaylist = true,
+                                                                isYourYouTubePlaylist = state.type !is LibraryItemType.YouTubeMixedForYou,
                                                             ),
                                                         )
                                                     }
@@ -431,8 +432,11 @@ sealed class LibraryItemType {
         val onReload: () -> Unit = {},
     ) : LibraryItemType()
 
+    data class YouTubeMixedForYou(
+        val loggedIn: Boolean,
+    ) : LibraryItemType()
+
     data class LocalPlaylist(
-        // Create new local playlist
         val onAddClick: (String) -> Unit,
     ) : LibraryItemType()
 

@@ -9,7 +9,11 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,10 +32,13 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,6 +50,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -51,13 +59,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import com.maxrave.simpmusic.ui.component.rememberHolderPainter
-import com.maxrave.simpmusic.expect.ui.toImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -65,11 +73,12 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import coil3.toBitmap
 import com.kmpalette.rememberPaletteState
 import com.maxrave.domain.data.model.browse.album.Track
+import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
+import com.maxrave.simpmusic.expect.ui.toImageBitmap
 import com.maxrave.simpmusic.extension.angledGradientBackground
 import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.getColorFromPalette
@@ -80,6 +89,7 @@ import com.maxrave.simpmusic.ui.component.HeartCheckBox
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.PodcastEpisodeFullWidthItem
 import com.maxrave.simpmusic.ui.component.RippleIconButton
+import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.Share
@@ -90,25 +100,35 @@ import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.PodcastUIEvent
 import com.maxrave.simpmusic.viewModel.PodcastUIState
 import com.maxrave.simpmusic.viewModel.PodcastViewModel
+import com.maxrave.simpmusic.viewModel.SharedViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import org.jetbrains.compose.resources.painterResource
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.album_length
 import simpmusic.composeapp.generated.resources.no_description
 import simpmusic.composeapp.generated.resources.podcasts
 
+private val PODCAST_SPEEDS = listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastScreen(
     viewModel: PodcastViewModel = koinViewModel(),
+    sharedViewModel: SharedViewModel = koinInject(),
+    dataStoreManager: DataStoreManager = koinInject(),
     podcastId: String,
     navController: NavController,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
+    val playbackSpeed by dataStoreManager.playbackSpeed.collectAsStateWithLifecycle(initialValue = 1.0f)
+    val nowPlayingState by sharedViewModel.nowPlayingState.collectAsStateWithLifecycle()
+    val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
 
     val lazyState = rememberLazyListState()
     val firstItemVisible by remember {
@@ -127,7 +147,6 @@ fun PodcastScreen(
         shouldHideTopBar = !firstItemVisible
     }
 
-    // Theo dõi gradient cho background
     var gradientColors by remember { mutableStateOf(listOf(Color.Black, Color.Black)) }
 
     val paletteState = rememberPaletteState()
@@ -315,7 +334,6 @@ fun PodcastScreen(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
-                                                // Play button
                                                 RippleIconButton(
                                                     imageVector = SimpIcons.PlayCircle,
                                                     fillMaxSize = true,
@@ -324,7 +342,6 @@ fun PodcastScreen(
                                                     viewModel.onUIEvent(PodcastUIEvent.PlayAll(id))
                                                 }
 
-                                                // Favorite
                                                 HeartCheckBox(
                                                     size = 32,
                                                     checked = isFavorite,
@@ -340,7 +357,6 @@ fun PodcastScreen(
 
                                                 Spacer(Modifier.weight(1f))
 
-                                                // Shuffle
                                                 RippleIconButton(
                                                     modifier = Modifier.size(36.dp),
                                                     imageVector = SimpIcons.Shuffle,
@@ -351,7 +367,6 @@ fun PodcastScreen(
 
                                                 Spacer(Modifier.size(5.dp))
 
-                                                // More options
                                                 RippleIconButton(
                                                     modifier = Modifier.size(36.dp),
                                                     imageVector = SimpIcons.Share,
@@ -361,10 +376,53 @@ fun PodcastScreen(
                                                 }
                                             }
 
-                                            // Description
+                                            // Podcast Playback Speed Selector (0.5x – 2.0x)
+                                            Row(
+                                                modifier =
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(top = 12.dp)
+                                                        .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                PODCAST_SPEEDS.forEach { speed ->
+                                                    val isSelected = kotlin.math.abs(playbackSpeed - speed) < 0.05f
+                                                    val label = if (speed % 1f == 0f) "${speed.toInt()}.0x" else "${speed}x"
+                                                    Box(
+                                                        modifier =
+                                                            Modifier
+                                                                .clip(RoundedCornerShape(50))
+                                                                .background(
+                                                                    if (isSelected) Color.White else Color.White.copy(alpha = 0.12f),
+                                                                )
+                                                                .border(
+                                                                    width = 1.dp,
+                                                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.25f),
+                                                                    shape = RoundedCornerShape(50),
+                                                                )
+                                                                .clickable {
+                                                                    coroutineScope.launch {
+                                                                        dataStoreManager.setPlaybackSpeed(speed)
+                                                                    }
+                                                                }
+                                                                .padding(horizontal = 12.dp, vertical = 5.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = label,
+                                                            style = typo().labelSmall.copy(
+                                                                fontSize = 11.sp,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            ),
+                                                            color = if (isSelected) Color.Black else Color.White,
+                                                        )
+                                                    }
+                                                }
+                                            }
+
                                             val uriHandler = LocalUriHandler.current
                                             DescriptionView(
-                                                modifier = Modifier.padding(top = 8.dp),
+                                                modifier = Modifier.padding(top = 10.dp),
                                                 text = data.description ?: stringResource(Res.string.no_description),
                                                 limitLine = 3,
                                                 onTimeClicked = {},
@@ -391,28 +449,53 @@ fun PodcastScreen(
                         }
                     }
 
-                    // Podcast episodes
+                    // Podcast episodes with live episode progress indicator
                     items(count = data.listEpisode.size, key = { index ->
                         val item = data.listEpisode.getOrNull(index)
                         (item?.videoId ?: "") + "item_$index"
                     }) { index ->
                         val episode = data.listEpisode.getOrNull(index)
                         if (episode != null) {
-                            PodcastEpisodeFullWidthItem(
-                                episode = episode,
-                                onClick = {
-                                    viewModel.onUIEvent(
-                                        PodcastUIEvent.EpisodeClick(
-                                            episode.videoId,
-                                            id,
-                                        ),
+                            val isCurrentEpisode = nowPlayingState?.track?.videoId == episode.videoId
+                            val episodeProgress =
+                                if (isCurrentEpisode && timelineState.total > 0L) {
+                                    (timelineState.current.toFloat() / timelineState.total.toFloat()).coerceIn(0f, 1f)
+                                } else {
+                                    0f
+                                }
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                PodcastEpisodeFullWidthItem(
+                                    episode = episode,
+                                    onClick = {
+                                        viewModel.onUIEvent(
+                                            PodcastUIEvent.EpisodeClick(
+                                                episode.videoId,
+                                                id,
+                                            ),
+                                        )
+                                    },
+                                    onMoreClickListener = {
+                                        currentTrack = episode.toTrack()
+                                        shouldShowMoreBottomSheet = true
+                                    },
+                                )
+                                if (isCurrentEpisode && episodeProgress > 0f) {
+                                    LinearProgressIndicator(
+                                        progress = { episodeProgress },
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp)
+                                                .height(3.dp)
+                                                .clip(RoundedCornerShape(50)),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        trackColor = Color.White.copy(alpha = 0.15f),
+                                        strokeCap = StrokeCap.Round,
+                                        drawStopIndicator = {},
                                     )
-                                },
-                                onMoreClickListener = {
-                                    currentTrack = episode.toTrack()
-                                    shouldShowMoreBottomSheet = true
-                                },
-                            )
+                                }
+                            }
                         }
                     }
 
@@ -420,7 +503,7 @@ fun PodcastScreen(
                         EndOfPage()
                     }
                 }
-                // Animated TopAppBar when scrolling
+
                 AnimatedVisibility(
                     visible = shouldHideTopBar,
                     enter = fadeIn() + slideInVertically(),

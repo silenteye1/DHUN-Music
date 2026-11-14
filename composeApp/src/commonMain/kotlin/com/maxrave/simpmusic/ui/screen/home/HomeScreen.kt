@@ -44,9 +44,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,8 +78,11 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -91,7 +97,6 @@ import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
-import com.maxrave.common.CHART_SUPPORTED_COUNTRY
 import com.maxrave.common.Config
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.home.HomeItem
@@ -122,6 +127,7 @@ import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Notifications
+import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.Settings
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.HomeDestination
@@ -130,6 +136,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.home.MoodDestination
 import com.maxrave.simpmusic.ui.navigation.destination.home.NotificationDestination
 import com.maxrave.simpmusic.ui.navigation.destination.home.RecentlySongsDestination
 import com.maxrave.simpmusic.ui.navigation.destination.home.SettingsDestination
+import com.maxrave.simpmusic.ui.navigation.destination.home.WrappedDestination
 import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
@@ -152,7 +159,6 @@ import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_WORKO
 import com.maxrave.simpmusic.viewModel.ListState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import java.io.File
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -203,9 +209,29 @@ private val listOfHomeChip =
     )
 
 /**
- * True Full-Screen Smooth Ambient Wallpaper:
- * Smooth gradient mesh fills the canvas evenly without any circular spotlight cutoff.
+ * Checks whether the monthly Dhun Wrapped popup should be shown:
+ * - Only between the 1st and 7th day of the month (dayOfMonth in 1..7)
+ * - Only if not yet seen/dismissed for the current YYYY-MM
  */
+private fun shouldShowMonthlyWrappedPopup(): Boolean {
+    val today = now().date
+    if (today.dayOfMonth !in 1..7) return false
+    val monthKey = "${today.year}-${today.monthNumber.toString().padStart(2, '0')}"
+    val markerFile = File(System.getProperty("java.io.tmpdir"), "dhun_wrapped_seen_$monthKey.flag")
+    return !markerFile.exists()
+}
+
+private fun markMonthlyWrappedPopupSeen() {
+    val today = now().date
+    val monthKey = "${today.year}-${today.monthNumber.toString().padStart(2, '0')}"
+    val markerFile = File(System.getProperty("java.io.tmpdir"), "dhun_wrapped_seen_$monthKey.flag")
+    runCatching {
+        if (!markerFile.exists()) {
+            markerFile.createNewFile()
+        }
+    }
+}
+
 @Composable
 fun DynamicAmbientBackground(
     modifier: Modifier = Modifier,
@@ -253,11 +279,6 @@ fun DynamicAmbientBackground(
     }
 }
 
-/**
- * Liquid Glass Shader for HomeScreen:
- * - Highlight.Plain avoids harsh diagonal corner artifacts[cite: 4]
- * - Instant load without GPU buffer readback
- */
 @Composable
 fun Modifier.homeCleanLiquidGlass(
     backdrop: PlatformBackdrop,
@@ -327,6 +348,11 @@ fun HomeScreen(
 
     val backdrop = rememberBackdrop(Color.Transparent)
 
+    // Monthly Dhun Wrapped Auto-Popup state (active 1st - 7th of each month)
+    var showMonthlyWrappedPopup by rememberSaveable {
+        mutableStateOf(shouldShowMonthlyWrappedPopup())
+    }
+
     LaunchedEffect(scrollState) {
         snapshotFlow { scrollState.firstVisibleItemIndex }
             .collect {
@@ -383,6 +409,119 @@ fun HomeScreen(
         }
     }
 
+    // Monthly Dhun Wrapped Auto-Popup Dialog (1st to 7th of every month)
+    if (showMonthlyWrappedPopup) {
+        val currentDate = remember { now().date }
+        val monthName = remember(currentDate) {
+            currentDate.month.name.lowercase().replaceFirstChar { it.uppercase() }
+        }
+        Dialog(
+            onDismissRequest = {
+                markMonthlyWrappedPopupSeen()
+                showMonthlyWrappedPopup = false
+            },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1A2234).copy(alpha = 0.96f),
+                                Color(0xFF0C101A).copy(alpha = 0.98f),
+                            ),
+                        ),
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.38f),
+                                Color.White.copy(alpha = 0.10f),
+                            ),
+                        ),
+                        shape = RoundedCornerShape(26.dp),
+                    )
+                    .padding(24.dp),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.14f))
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = "$monthName ${currentDate.year} Recap",
+                            style = typo().labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                            color = Color.White.copy(alpha = 0.9f),
+                        )
+                    }
+
+                    Text(
+                        text = "Your Dhun Wrapped is Ready!",
+                        style = typo().titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    Text(
+                        text = "Relive your top tracks, favorite artists, and listening vibes in an interactive story reel.",
+                        style = typo().bodyMedium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        textAlign = TextAlign.Center,
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Button(
+                        onClick = {
+                            markMonthlyWrappedPopupSeen()
+                            showMonthlyWrappedPopup = false
+                            navController.navigate(WrappedDestination)
+                        },
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                    ) {
+                        Icon(
+                            imageVector = SimpIcons.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Watch Wrapped",
+                            style = typo().titleSmall.copy(fontWeight = FontWeight.Bold),
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            markMonthlyWrappedPopupSeen()
+                            showMonthlyWrappedPopup = false
+                        },
+                    ) {
+                        Text(
+                            text = "Maybe Later",
+                            style = typo().labelMedium,
+                            color = Color.White.copy(alpha = 0.65f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     if (shouldShowLogInAlert) {
         var doNotShowAgain by rememberSaveable { mutableStateOf(false) }
         AlertDialog(
@@ -431,15 +570,14 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF030508))
+            .background(Color(0xFF030508)),
     ) {
         // ==================== 1. LIVE BACKDROP SOURCE CANVAS ====================
-        // key(customBackgroundUri) guarantees that the entire backdrop canvas is rebuilt instantly when wallpaper path changes
         key(customBackgroundUri) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop)
+                    .layerBackdrop(backdrop),
             ) {
                 val context = LocalPlatformContext.current
 
@@ -458,7 +596,7 @@ fun HomeScreen(
                                 .data(wallpaperFile)
                                 .memoryCacheKey("${customBackgroundUri}_$lastModified")
                                 .diskCacheKey("${customBackgroundUri}_$lastModified")
-                                .memoryCachePolicy(CachePolicy.WRITE_ONLY) // Purana cached bitmap bypass karega
+                                .memoryCachePolicy(CachePolicy.WRITE_ONLY)
                                 .crossfade(true)
                                 .build()
                         },
@@ -467,7 +605,6 @@ fun HomeScreen(
                         contentScale = ContentScale.Crop,
                     )
                 } else {
-                    // DEFAULT WALLPAPER: Smooth Multi-Stop Ambient Flow
                     DynamicAmbientBackground(
                         modifier = Modifier.fillMaxSize(),
                         primaryColor = MaterialTheme.colorScheme.primary,

@@ -52,7 +52,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.kmpalette.rememberPaletteState
+import com.maxrave.common.Config
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
+import com.maxrave.domain.mediaservice.handler.PlaylistType
+import com.maxrave.domain.mediaservice.handler.QueueData
+import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
@@ -106,7 +110,6 @@ fun NowPlayingScreen(
     navController: NavController,
     onDismiss: () -> Unit = {},
 ) {
-    // Desktop: Same Android NowPlayingScreenContent UI, direct fullscreen overlay mein
     if (getPlatform() == Platform.Desktop) {
         NowPlayingScreenContent(
             sharedViewModel = sharedViewModel,
@@ -118,7 +121,6 @@ fun NowPlayingScreen(
         return
     }
 
-    // Android: Standard BottomSheet
     val coroutineScope = rememberCoroutineScope()
     val sheetState =
         rememberModalBottomSheetState(
@@ -582,6 +584,26 @@ fun NowPlayingScreenContent(
                 coroutineScope.launch { mediaPlayerHandler.swap(from, to) }
             },
             onRemoveQueueItem = { index -> mediaPlayerHandler.removeMediaItem(index) },
+            onStartMusicFlow = {
+                val currentTrack = sharedViewModel.nowPlayingState.value?.track
+                    ?: sharedViewModel.nowPlayingState.value?.songEntity?.toTrack()
+                if (currentTrack != null && currentTrack.videoId.isNotEmpty()) {
+                    sharedViewModel.setQueueData(
+                        QueueData.Data(
+                            listTracks = arrayListOf(currentTrack),
+                            firstPlayedTrack = currentTrack,
+                            playlistId = "RDAMVM${currentTrack.videoId}",
+                            playlistName = "\"${currentTrack.title}\" Music Flow",
+                            playlistType = PlaylistType.RADIO,
+                            continuation = null,
+                        ),
+                    )
+                    sharedViewModel.loadMediaItem(
+                        currentTrack,
+                        type = Config.SONG_CLICK,
+                    )
+                }
+            },
         )
 
     val ambientMotion = rememberInfiniteTransition(label = "ambientMotionTransition")

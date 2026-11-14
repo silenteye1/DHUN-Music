@@ -1,15 +1,21 @@
 package com.maxrave.simpmusic.ui.screen.other
 
-//import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -44,12 +50,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -68,19 +76,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -133,6 +147,9 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.utils.SongRecognitionState
+import com.maxrave.simpmusic.utils.SongRecognitionTrigger
+import com.maxrave.simpmusic.utils.rememberSongRecognitionController
 import com.maxrave.simpmusic.viewModel.SearchScreenUIState
 import com.maxrave.simpmusic.viewModel.SearchType
 import com.maxrave.simpmusic.viewModel.SearchViewModel
@@ -171,7 +188,6 @@ fun SearchScreen(
     sharedViewModel: SharedViewModel = koinInject(),
     navController: NavController,
 ) {
-    val uriHandler = LocalUriHandler.current
     val focusManager = LocalFocusManager.current
     val searchScreenState by searchViewModel.searchScreenState.collectAsStateWithLifecycle()
     val uiState by searchViewModel.searchScreenUIState.collectAsStateWithLifecycle()
@@ -208,26 +224,34 @@ fun SearchScreen(
         }
     }
 
+    val songRecognitionController = rememberSongRecognitionController { recognizedQuery ->
+        searchText = recognizedQuery
+        performSearch(recognizedQuery, SearchType.ALL)
+    }
+
+    val shouldListenFromTile by SongRecognitionTrigger.shouldListen.collectAsStateWithLifecycle()
+    LaunchedEffect(shouldListenFromTile) {
+        if (shouldListenFromTile) {
+            SongRecognitionTrigger.consumeListenRequest()
+            focusManager.clearFocus()
+            isSearchActive = false
+            songRecognitionController.startListening()
+        }
+    }
+
+    LaunchedEffect(songRecognitionController.state) {
+        if (songRecognitionController.state is SongRecognitionState.Success) {
+            delay(850)
+            songRecognitionController.reset()
+        }
+    }
+
     LaunchedEffect(isInputFocused) {
         if (isInputFocused) {
             isSearchActive = true
             isSearchSubmitted = false
         }
     }
-
-    /*
-    BackHandler(enabled = isSearchActive || isSearchSubmitted) {
-        if (isSearchActive) {
-            isSearchActive = false
-            focusManager.clearFocus()
-        } else if (isSearchSubmitted) {
-            isSearchSubmitted = false
-            searchText = ""
-            isSearchActive = false
-            focusManager.clearFocus()
-        }
-    }
-    */
 
     val screenInfo = getScreenSizeInfo()
     val isMobilePortrait = getPlatform() == Platform.Android && screenInfo.wDP < screenInfo.hDP
@@ -338,6 +362,15 @@ fun SearchScreen(
             searchText.isEmpty() -> SearchUIType.EMPTY
             else -> SearchUIType.SEARCH_RESULTS
         }
+    }
+
+    if (songRecognitionController.state !is SongRecognitionState.Idle) {
+        SongRecognitionLiquidModal(
+            state = songRecognitionController.state,
+            amplitude = songRecognitionController.amplitude,
+            onRetry = { songRecognitionController.startListening() },
+            onDismiss = { songRecognitionController.cancel() },
+        )
     }
 
     if (showSelectionSheet) {
@@ -1014,6 +1047,21 @@ fun SearchScreen(
                                             contentDescription = "Clear search",
                                         )
                                     }
+                                } else {
+                                    IconButton(
+                                        modifier = Modifier.clip(CircleShape),
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            isSearchActive = false
+                                            songRecognitionController.startListening()
+                                        },
+                                    ) {
+                                        Icon(
+                                            imageVector = rememberMicIcon(),
+                                            contentDescription = "Identify Song",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
                                 }
                             },
                         )
@@ -1066,6 +1114,308 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SongRecognitionLiquidModal(
+    state: SongRecognitionState,
+    amplitude: Float,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "liquid_glass_pulse")
+    val outerWave by infiniteTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.18f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "outer_wave",
+    )
+    val innerWave by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "inner_wave",
+    )
+    val smoothAmp by animateFloatAsState(
+        targetValue = amplitude.coerceIn(0f, 1f),
+        animationSpec = tween(120),
+        label = "smooth_amp",
+    )
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier =
+                Modifier
+                    .padding(horizontal = 24.dp)
+                    .fillMaxWidth()
+                    .widthIn(max = 380.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
+            border =
+                BorderStroke(
+                    width = 1.dp,
+                    brush =
+                        Brush.linearGradient(
+                            colors =
+                                listOf(
+                                    Color.White.copy(alpha = 0.35f),
+                                    primaryColor.copy(alpha = 0.30f),
+                                    Color.White.copy(alpha = 0.12f),
+                                ),
+                        ),
+                ),
+            shadowElevation = 24.dp,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                colors =
+                                    listOf(
+                                        primaryColor.copy(alpha = 0.14f),
+                                        tertiaryColor.copy(alpha = 0.06f),
+                                        Color.Transparent,
+                                    ),
+                            ),
+                        ).padding(horizontal = 24.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier.size(136.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (state is SongRecognitionState.Listening) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(126.dp)
+                                    .scale(outerWave + smoothAmp * 0.25f)
+                                    .clip(CircleShape)
+                                    .background(primaryColor.copy(alpha = 0.12f)),
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(98.dp)
+                                    .scale(innerWave + smoothAmp * 0.18f)
+                                    .clip(CircleShape)
+                                    .background(primaryColor.copy(alpha = 0.22f)),
+                        )
+                    }
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(74.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(primaryColor, tertiaryColor),
+                                    ),
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (state is SongRecognitionState.Processing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(32.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 3.dp,
+                            )
+                        } else {
+                            AnimatedEqualizerBars(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                amplitude = smoothAmp,
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                when (state) {
+                    is SongRecognitionState.Listening -> {
+                        Text(
+                            text = "Listening for music...",
+                            style = typo().titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Hold your device close to the speaker",
+                            style = typo().bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    is SongRecognitionState.Processing -> {
+                        Text(
+                            text = "Identifying song...",
+                            style = typo().titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Matching audio fingerprint",
+                            style = typo().bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    is SongRecognitionState.Success -> {
+                        Text(
+                            text = state.title,
+                            style = typo().titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (state.artist.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = state.artist,
+                                style = typo().bodyMedium,
+                                color = primaryColor,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+
+                    is SongRecognitionState.Error -> {
+                        Text(
+                            text = "Couldn't Identify",
+                            style = typo().titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = state.message,
+                            style = typo().bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    SongRecognitionState.Idle -> Unit
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (state is SongRecognitionState.Error) {
+                        Button(
+                            onClick = onRetry,
+                            shape = CircleShape,
+                        ) {
+                            Text("Try Again")
+                        }
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = if (state is SongRecognitionState.Success) "Done" else "Cancel",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimatedEqualizerBars(
+    color: Color,
+    amplitude: Float,
+) {
+    val transition = rememberInfiniteTransition(label = "eq_bars")
+    val bar1 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(420), RepeatMode.Reverse),
+        label = "b1",
+    )
+    val bar2 by transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(340), RepeatMode.Reverse),
+        label = "b2",
+    )
+    val bar3 by transition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(480), RepeatMode.Reverse),
+        label = "b3",
+    )
+    val bar4 by transition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 0.4f,
+        animationSpec = infiniteRepeatable(tween(380), RepeatMode.Reverse),
+        label = "b4",
+    )
+
+    val boost = (1f + amplitude * 0.4f).coerceIn(1f, 1.35f)
+    val heights = listOf(bar1, bar2, bar3, bar4)
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(32.dp),
+    ) {
+        heights.forEach { h ->
+            Box(
+                modifier =
+                    Modifier
+                        .width(4.dp)
+                        .height((28.dp * h * boost).coerceIn(8.dp, 32.dp))
+                        .clip(CircleShape)
+                        .background(color),
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberMicIcon(): ImageVector {
+    return remember {
+        ImageVector.Builder(
+            name = "Mic",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            addPath(
+                pathData = PathParser().parsePathString(
+                    "M12,14c1.66,0 3,-1.34 3,-3V5c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5v6c0,1.66 1.34,3 3,3z" +
+                        "M17,11c0,2.76 -2.24,5 -5,5s-5,-2.24 -5,-5H5c0,3.53 2.61,6.43 6,6.92V21h2v-3.08c3.39,-0.49 6,-3.39 6,-6.92h-2z",
+                ).toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
     }
 }
 

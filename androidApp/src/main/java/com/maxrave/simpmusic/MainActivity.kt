@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -42,8 +41,10 @@ import com.maxrave.domain.mediaservice.handler.ToastType
 import com.maxrave.logger.Logger
 import com.maxrave.media3.di.setServiceActivitySession
 import com.maxrave.simpmusic.di.viewModelModule
+import com.maxrave.simpmusic.service.SongRecognitionTileService
 import com.maxrave.simpmusic.service.test.notification.NotifyWork
 import com.maxrave.simpmusic.utils.ComposeResUtils
+import com.maxrave.simpmusic.utils.SongRecognitionTrigger
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import kotlinx.coroutines.launch
@@ -97,6 +98,10 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Logger.d("MainActivity", "onNewIntent: $intent")
+        if (intent.action == SongRecognitionTileService.ACTION_RECOGNIZE_SONG) {
+            SongRecognitionTrigger.requestListen()
+            return
+        }
         viewModel.setIntent(
             GenericIntent(
                 action = intent.action,
@@ -124,6 +129,9 @@ class MainActivity : AppCompatActivity() {
             startMusicService()
         }
         Logger.d("MainActivity", "onCreate: ")
+        if (intent?.action == SongRecognitionTileService.ACTION_RECOGNIZE_SONG) {
+            SongRecognitionTrigger.requestListen()
+        }
         val data = (intent?.data ?: intent?.getStringExtra(Intent.EXTRA_TEXT)?.toUri())?.toKmpUriOrNull()
         if (data != null) {
             viewModel.setIntent(

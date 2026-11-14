@@ -30,7 +30,6 @@ import com.maxrave.domain.utils.Resource
 import com.maxrave.domain.utils.isRadioPlaylistId
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.simpmusic.ui.screen.home.analytics.monthFullNameResource
-import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -75,6 +74,7 @@ class LibraryViewModel(
 
     private val _currentScreen: MutableStateFlow<LibraryChipType> = MutableStateFlow(LibraryChipType.YOUR_LIBRARY)
     val currentScreen: StateFlow<LibraryChipType> get() = _currentScreen.asStateFlow()
+
     private val _recentlyAdded: MutableStateFlow<LocalResource<List<RecentlyType>>> =
         MutableStateFlow(LocalResource.Loading())
     val recentlyAdded: StateFlow<LocalResource<List<RecentlyType>>> get() = _recentlyAdded.asStateFlow()
@@ -137,7 +137,8 @@ class LibraryViewModel(
             val cookieJob =
                 launch {
                     dataStoreManager.cookie.distinctUntilChanged().collect {
-                        _accountThumbnail.value = dataStoreManager.getString("AccountThumbUrl").first().takeIf { !it.isNullOrEmpty() }
+                        _accountThumbnail.value =
+                            dataStoreManager.getString("AccountThumbUrl").first().takeIf { !it.isNullOrEmpty() }
                     }
                 }
             currentScreenJob.join()
@@ -186,7 +187,10 @@ class LibraryViewModel(
         _youTubePlaylist.value = LocalResource.Loading()
         viewModelScope.launch {
             playlistRepository.getLibraryPlaylist().collect { data ->
-                _youTubePlaylist.value = LocalResource.Success(data ?: emptyList())
+                val rawList = data ?: emptyList()
+                val likedPinned = rawList.filter { it.browseId == "LM" || it.browseId == "VLLM" }
+                val rest = rawList.filterNot { it.browseId == "LM" || it.browseId == "VLLM" }
+                _youTubePlaylist.value = LocalResource.Success(likedPinned + rest)
             }
         }
     }
@@ -264,7 +268,12 @@ class LibraryViewModel(
         _yourLocalPlaylist.value = LocalResource.Loading()
         viewModelScope.launch {
             localPlaylistRepository.getAllLocalPlaylists().collect { values ->
-                _yourLocalPlaylist.value = LocalResource.Success(values.reversed())
+                val reversed = values.reversed()
+                // Pin Liked Songs & Spotify-synced playlists cleanly after user-created playlists
+                val likedPinned = reversed.filter { it.title.equals("Liked Songs", ignoreCase = true) }
+                val userOwned = reversed.filter { it.youtubePlaylistId == null && !it.title.equals("Liked Songs", ignoreCase = true) }
+                val syncedPlaylists = reversed.filter { it.youtubePlaylistId != null && !it.title.equals("Liked Songs", ignoreCase = true) }
+                _yourLocalPlaylist.value = LocalResource.Success(likedPinned + userOwned + syncedPlaylists)
             }
         }
     }

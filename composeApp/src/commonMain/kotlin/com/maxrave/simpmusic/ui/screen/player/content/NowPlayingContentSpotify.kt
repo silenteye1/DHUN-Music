@@ -310,7 +310,7 @@ fun NowPlayingContentSpotify(
     }
 
     // =========================================================================
-    // DESKTOP WIDESCREEN TWO-COLUMN LAYOUT (Option B)
+    // DESKTOP WIDESCREEN TWO-COLUMN LAYOUT
     // =========================================================================
     if (isDesktop) {
         val rightColumnScrollState = rememberScrollState()
@@ -320,7 +320,6 @@ fun NowPlayingContentSpotify(
                 .background(Color.Transparent)
                 .padding(horizontal = 24.dp, vertical = 12.dp),
         ) {
-            // Top Bar (Back button, Now Playing title, More options)
             CenterAlignedTopAppBar(
                 modifier = Modifier.fillMaxWidth(),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -373,7 +372,6 @@ fun NowPlayingContentSpotify(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Main Two-Column Content
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -381,7 +379,6 @@ fun NowPlayingContentSpotify(
                 horizontalArrangement = Arrangement.spacedBy(28.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // LEFT COLUMN (45%): Artwork + Track Info + Liquid Glass Controls Pod
                 Column(
                     modifier = Modifier
                         .weight(0.45f)
@@ -390,7 +387,6 @@ fun NowPlayingContentSpotify(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    // Artwork / Video Box
                     var artworkUrl by remember(state.screenData.thumbnailURL) {
                         mutableStateOf(state.screenData.thumbnailURL)
                     }
@@ -450,7 +446,6 @@ fun NowPlayingContentSpotify(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Title, Artist & Like Button
                     NowPlayingTrackInfoRow(
                         state = state,
                         actions = actions,
@@ -458,7 +453,6 @@ fun NowPlayingContentSpotify(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Liquid Glass Player Controls Pod
                     val glassPodShape = RoundedCornerShape(26.dp)
                     Box(
                         modifier = Modifier
@@ -473,7 +467,6 @@ fun NowPlayingContentSpotify(
                             .padding(top = 10.dp, bottom = 12.dp),
                     ) {
                         Column {
-                            // Seek Slider + Buffered Bar
                             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 Box(
                                     modifier = Modifier
@@ -551,7 +544,6 @@ fun NowPlayingContentSpotify(
                                 }
                             }
 
-                            // Timestamps
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -575,14 +567,12 @@ fun NowPlayingContentSpotify(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            // Play / Pause / Next / Prev / Shuffle / Repeat
                             PlayerControlLayout(state.controllerState) {
                                 actions.onUIEvent(it)
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Bottom Action Icons (Info, Cast, Add to Playlist, Queue)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -640,7 +630,6 @@ fun NowPlayingContentSpotify(
                     }
                 }
 
-                // RIGHT COLUMN (55%): Synced Lyrics + Artist Info + Description
                 Column(
                     modifier = Modifier
                         .weight(0.55f)
@@ -649,7 +638,6 @@ fun NowPlayingContentSpotify(
                         .padding(end = 12.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    // Synced Lyrics Card
                     if (state.screenData.lyricsData != null) {
                         val lyricsCardShape = RoundedCornerShape(22.dp)
                         Box(
@@ -760,7 +748,6 @@ fun NowPlayingContentSpotify(
                         }
                     }
 
-                    // Artist Card
                     if (state.screenData.songInfoData != null) {
                         val artistCardShape = RoundedCornerShape(20.dp)
                         Box(
@@ -818,7 +805,6 @@ fun NowPlayingContentSpotify(
                             }
                         }
 
-                        // Metadata & Description Card
                         val metaCardShape = RoundedCornerShape(20.dp)
                         Box(
                             modifier = Modifier
@@ -890,7 +876,7 @@ fun NowPlayingContentSpotify(
     }
 
     // =========================================================================
-    // ANDROID MOBILE VERTICAL LAYOUT (UNCHANGED)
+    // ANDROID MOBILE VERTICAL LAYOUT
     // =========================================================================
     Box {
         Column(

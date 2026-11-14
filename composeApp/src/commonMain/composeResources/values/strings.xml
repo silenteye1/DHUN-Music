@@ -282,7 +282,7 @@
     <string name="older_first">Older First</string>
     <string name="newer_first">Newer First</string>
     <string name="added_date">Added date</string>
-    <string name="credit_app">A simple music app using YouTube Music for backend \n\nSimpMusic is an open source project to stream music from YouTube and YouTube Music without ads and tracking. SimpMusic provides many features:\n\n - Streaming music \n - Synced lyrics\n - Personalize data\n - etc… \n\nSimpMusic is always free and no ads\n\nBuild with ❤️ from Tuan Minh Nguyen Duc (maxrave-dev)</string>
+    <string name="credit_app">A simple music app using YouTube Music for backend \n\nSimpMusic is an open source project to stream music from YouTube and YouTube Music without ads and tracking. SimpMusic provides many features:\n\n Streaming music \n Synced lyrics\n Personalize data\n etc… \n\nSimpMusic is always free and no ads\n\nBuild with ❤️ from Tuan Minh Nguyen Duc (maxrave-dev)</string>
     <string name="issue_tracker">Issue Tracker</string>
     <string name="copyright" translatable="false">©2023-2025 Tuan Minh Nguyen Duc (maxrave-dev)</string>
     <string name="featured_playlists">Featured Playlists</string>
@@ -789,14 +789,14 @@
     <string name="share_lyrics_background">Background</string>
     <string name="share_lyrics_permission_denied">Storage permission is needed to save the image</string>
     <string name="share_lyrics_no_lyrics">This song has no lyrics to share</string>
-    <string name="wrapped" translatable="false">Wrapped</string>
-    <string name="wrapped_year" translatable="false">Wrapped %1$s</string>
+    <string name="wrapped" translatable="false">Dhun Wrapped</string>
+    <string name="wrapped_year" translatable="false">Dhun Wrapped %1$s</string>
     <string name="wrapped_tap_to_begin">Tap to begin</string>
     <string name="wrapped_tap_to_continue">Tap to continue</string>
     <string name="wrapped_share">Share</string>
     <string name="wrapped_save">Save</string>
     <string name="wrapped_opening_title">Your year in music</string>
-    <string name="wrapped_opening_lead">You opened SimpMusic on</string>
+    <string name="wrapped_opening_lead">You opened Dhun Music on</string>
     <string name="wrapped_opening_days">%1$s of %2$s days</string>
     <string name="wrapped_opening_tracks">%1$s tracks went past.</string>
     <string name="wrapped_minutes_title">You spent this much of the year listening</string>
@@ -841,7 +841,7 @@
     <string name="wrapped_share_minutes">MINUTES</string>
     <string name="wrapped_share_artists">ARTISTS</string>
     <string name="wrapped_share_days">DAYS</string>
-    <string name="wrapped_entry_title">Your %1$s Wrapped is ready</string>
+    <string name="wrapped_entry_title">Your Dhun Wrapped %1$s is ready</string>
     <string name="wrapped_entry_subtitle">%1$s minutes, %2$s artists, and one very obvious favourite.</string>
     <string name="wrapped_not_enough_title">Not enough of the year yet</string>
     <string name="wrapped_not_enough_body">Wrapped needs about a month of listening before it says anything true. You have %1$s so far.</string>

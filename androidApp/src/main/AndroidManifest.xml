@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -36,6 +37,9 @@
         android:required="false" />
     <uses-feature
         android:name="android.software.car.templates_host.media"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
         android:required="false" />
 
     <queries>
@@ -88,8 +92,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- Car App Library: host asks to surface the media playback screen
-                 (minimized control panel tap, system media surfaces) -->
+            <!-- Car App Library: host asks to surface the media playback screen -->
             <intent-filter>
                 <action android:name="androidx.car.app.media.action.SHOW_MEDIA_PLAYBACK" />
 
@@ -111,15 +114,12 @@
                 <data android:host="m.youtube.com" />
                 <data android:host="www.youtube.com" />
                 <data android:host="music.youtube.com" />
-                <!-- video prefix -->
                 <data android:pathPrefix="/v/" />
                 <data android:pathPrefix="/embed/" />
                 <data android:pathPrefix="/watch" />
-                <!-- channel prefix -->
                 <data android:pathPrefix="/channel/" />
                 <data android:pathPrefix="/user/" />
                 <data android:pathPrefix="/c/" />
-                <!-- playlist prefix -->
                 <data android:pathPrefix="/playlist" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
@@ -209,6 +209,21 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Quick Settings Tile for Song Recognition -->
+        <service
+            android:name=".service.SongRecognitionTileService"
+            android:exported="true"
+            android:icon="@drawable/monochrome"
+            android:label="Identify Song"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
+        </service>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

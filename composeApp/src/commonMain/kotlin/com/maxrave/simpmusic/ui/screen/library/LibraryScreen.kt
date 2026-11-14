@@ -98,18 +98,22 @@ import com.maxrave.simpmusic.ui.component.LibraryItemState
 import com.maxrave.simpmusic.ui.component.LibraryItemType
 import com.maxrave.simpmusic.ui.component.LibraryTilingBox
 import com.maxrave.simpmusic.ui.component.ListenTogetherIconButton
+import com.maxrave.simpmusic.ui.component.WrappedEntryCard
 import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
 import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
 import com.maxrave.simpmusic.ui.icon.PeopleAlt
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
+import com.maxrave.simpmusic.ui.navigation.destination.home.WrappedDestination
 import com.maxrave.simpmusic.ui.screen.home.DynamicAmbientBackground
 import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LibraryViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
+import com.maxrave.simpmusic.viewModel.WrappedUiState
+import com.maxrave.simpmusic.viewModel.WrappedViewModel
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -138,9 +142,6 @@ import simpmusic.composeapp.generated.resources.your_library
 import simpmusic.composeapp.generated.resources.your_playlists
 import simpmusic.composeapp.generated.resources.your_youtube_playlists
 
-/**
- * Fast & Clean Liquid Glass Shader for LibraryScreen
- */
 @Composable
 fun Modifier.libraryCleanLiquidGlass(
     backdrop: PlatformBackdrop,
@@ -253,6 +254,7 @@ fun iOSGlassLibraryChip(
 fun LibraryScreen(
     innerPadding: PaddingValues,
     viewModel: LibraryViewModel = koinViewModel(),
+    wrappedViewModel: WrappedViewModel = koinViewModel(),
     dataStoreManager: DataStoreManager = koinInject(),
     navController: NavController,
     onScrolling: (onTop: Boolean) -> Unit = {},
@@ -261,10 +263,13 @@ fun LibraryScreen(
     val customBackgroundUri by dataStoreManager.customBackgroundUri.collectAsStateWithLifecycle(initialValue = null)
 
     val loggedIn by viewModel.youtubeLoggedIn.collectAsStateWithLifecycle(initialValue = false)
-    val localTrackingEnabled by viewModel.localTrackingEnabled.collectAsStateWithLifecycle(initialValue = false)
     val monthlyRecaps by viewModel.monthlyRecaps.collectAsStateWithLifecycle()
+    val wrappedState by wrappedViewModel.uiState.collectAsStateWithLifecycle()
+    val readyWrapped = (wrappedState as? WrappedUiState.Ready)?.wrapped
+
     val nowPlaying by viewModel.nowPlayingVideoId.collectAsStateWithLifecycle()
     val youTubePlaylist by viewModel.youTubePlaylist.collectAsStateWithLifecycle()
+    val youTubeMixForYou by viewModel.youTubeMixForYou.collectAsStateWithLifecycle()
     val listCanvasSong by viewModel.listCanvasSong.collectAsStateWithLifecycle()
     val yourLocalPlaylist by viewModel.yourLocalPlaylist.collectAsStateWithLifecycle()
     val favoritePlaylist by viewModel.favoritePlaylist.collectAsStateWithLifecycle()
@@ -308,6 +313,12 @@ fun LibraryScreen(
         viewModel.getRecentlyAdded()
     }
 
+    LaunchedEffect(loggedIn) {
+        if (loggedIn && youTubeMixForYou.data.isNullOrEmpty()) {
+            viewModel.getYouTubeMixedForYou()
+        }
+    }
+
     LaunchedEffect(isShowingDeviceTracks) {
         if (isShowingDeviceTracks && deviceTracks.isEmpty()) {
             isScanningTracks = true
@@ -330,11 +341,16 @@ fun LibraryScreen(
                 }
             }
             LibraryChipType.YOUTUBE_MIX_FOR_YOU -> {
-                viewModel.setCurrentScreen(LibraryChipType.YOUR_LIBRARY)
+                if (youTubeMixForYou.data.isNullOrEmpty()) {
+                    viewModel.getYouTubeMixedForYou()
+                }
             }
             LibraryChipType.YOUR_LIBRARY -> {
                 viewModel.getCanvasSong()
                 viewModel.getRecentlyAdded()
+                if (loggedIn && youTubeMixForYou.data.isNullOrEmpty()) {
+                    viewModel.getYouTubeMixedForYou()
+                }
             }
             LibraryChipType.LOCAL_PLAYLIST -> {
                 viewModel.getLocalPlaylist()
@@ -484,7 +500,6 @@ fun LibraryScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            // Header Spacer: Stops capsule from overlapping the top cards
                             item {
                                 Spacer(
                                     modifier = Modifier
@@ -502,7 +517,37 @@ fun LibraryScreen(
                                 }
                             }
 
-                            // Section 2: Canvas Song Glass Card
+                            // Section 2: Always-accessible Dhun Wrapped Entry Card
+                            if (readyWrapped != null) {
+                                item {
+                                    Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                                        WrappedEntryCard(
+                                            wrapped = readyWrapped,
+                                            onClick = { navController.navigate(WrappedDestination) },
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Section 3: Taste Mix (YouTube Mix For You) directly in Library when no filter selected
+                            if (loggedIn && !youTubeMixForYou.data.isNullOrEmpty()) {
+                                item {
+                                    Box(modifier = Modifier.padding(horizontal = 14.dp)) {
+                                        LibrarySectionCard(backdrop = backdrop) {
+                                            LibraryItem(
+                                                state = LibraryItemState(
+                                                    type = LibraryItemType.YouTubeMixedForYou(loggedIn = loggedIn),
+                                                    data = youTubeMixForYou.data ?: emptyList(),
+                                                    isLoading = youTubeMixForYou is LocalResource.Loading,
+                                                ),
+                                                navController = navController,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Section 4: Canvas Song Glass Card
                             if (!listCanvasSong.data.isNullOrEmpty()) {
                                 item {
                                     Box(modifier = Modifier.padding(horizontal = 14.dp)) {
@@ -520,7 +565,7 @@ fun LibraryScreen(
                                 }
                             }
 
-                            // Section 3: Recently Added Glass Card
+                            // Section 5: Recently Added Glass Card
                             item {
                                 Box(modifier = Modifier.padding(horizontal = 14.dp)) {
                                     LibrarySectionCard(backdrop = backdrop) {
@@ -560,7 +605,18 @@ fun LibraryScreen(
                         }
                     }
 
-                    LibraryChipType.YOUTUBE_MIX_FOR_YOU -> Unit
+                    LibraryChipType.YOUTUBE_MIX_FOR_YOU -> {
+                        GridLibraryPlaylist(
+                            navController = navController,
+                            contentPadding = PaddingValues(top = calculatedHeaderSpacerHeight + 35.dp, bottom = 140.dp),
+                            data = youTubeMixForYou,
+                            emptyText = Res.string.no_YouTube_playlists,
+                            backdrop = backdrop,
+                            onScrolling = onScrolling,
+                        ) {
+                            viewModel.getYouTubeMixedForYou()
+                        }
+                    }
 
                     LibraryChipType.LOCAL_PLAYLIST -> {
                         GridLibraryPlaylist(
@@ -625,6 +681,7 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(top = calculatedHeaderSpacerHeight + 35.dp, bottom = 140.dp),
                             recaps = monthlyRecaps,
                             onScrolling = onScrolling,
+                            wrappedViewModel = wrappedViewModel,
                         ) {
                             viewModel.getMonthlyRecaps()
                         }
@@ -730,10 +787,8 @@ fun LibraryScreen(
                     }
 
                     LibraryChipType.entries.forEach { type ->
-                        if (type == LibraryChipType.YOUTUBE_MIX_FOR_YOU ||
-                            type == LibraryChipType.CHART ||
-                            (type == LibraryChipType.YOUTUBE_MUSIC_PLAYLIST && !loggedIn) ||
-                            (type == LibraryChipType.WRAPPED && !localTrackingEnabled)
+                        if (type == LibraryChipType.CHART ||
+                            ((type == LibraryChipType.YOUTUBE_MUSIC_PLAYLIST || type == LibraryChipType.YOUTUBE_MIX_FOR_YOU) && !loggedIn)
                         ) {
                             return@forEach
                         }

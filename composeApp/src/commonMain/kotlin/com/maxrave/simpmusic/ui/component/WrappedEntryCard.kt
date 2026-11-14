@@ -35,27 +35,7 @@ import com.maxrave.simpmusic.viewModel.WrappedYear
 import org.jetbrains.compose.resources.stringResource
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.wrapped_entry_subtitle
-import simpmusic.composeapp.generated.resources.wrapped_entry_title
 
-/**
- * The one entry point into the Wrapped reel, shown on the Analytics screen and at the top of the
- * Library Wrapped tab.
- *
- * **One card, not two.** It shipped once as two separate cards saying two different things in two
- * places; there is exactly one now, and both hosts call it.
- *
- * It is a row, at row height: one cover, two lines, and a play disc. An earlier version led with a
- * five-cover mosaic and the year set as a display figure, which made the card taller than half a
- * phone screen — a banner competing with the page it sits on rather than an invitation into it.
- *
- * Built from the app's own vocabulary rather than a shape of its own: the shell is [ElevatedCard]
- * with `CardDefaults`, exactly as [LibraryTilingItem] draws a tappable card in Library; the cover
- * is a plain `AsyncImage` clipped the way every list row in the app clips one; colours are
- * `MaterialTheme.colorScheme` roles and type comes off [typo].
- *
- * The disc carries a play triangle, not a chevron: a chevron promises a page of details, and this
- * opens something that runs.
- */
 @Composable
 fun WrappedEntryCard(
     wrapped: WrappedYear,
@@ -66,9 +46,6 @@ fun WrappedEntryCard(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(CARD_RADIUS),
         elevation = CardDefaults.elevatedCardElevation(),
-        // `elevatedCardColors`' own container is `surfaceContainerLow`, which on the Analytics page
-        // sits almost on top of the artwork-tinted background it is drawn over. One step up keeps
-        // the card reading as an object there, and still as a card on the flat Library page.
         colors = CardDefaults.elevatedCardColors().copy(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Row(
@@ -87,7 +64,7 @@ fun WrappedEntryCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stringResource(Res.string.wrapped_entry_title, wrapped.year.toString()),
+                    text = "Dhun Wrapped ${wrapped.year}",
                     style = typo().titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -125,14 +102,6 @@ fun WrappedEntryCard(
     }
 }
 
-/**
- * One cover, and the most-played one the year has.
- *
- * Falls through tracks → albums → artists because a year can be short on any one of them, and a
- * card with a blank square reads as broken rather than as sparse. `null` is still a possible
- * answer — [AsyncImage] then simply leaves the card's own container showing, which at this size is
- * a rounded blank the layout already accounts for.
- */
 private fun WrappedYear.entryCover(): String? {
     val cover =
         topTracks.firstOrNull()?.song?.thumbnails
@@ -142,14 +111,8 @@ private fun WrappedYear.entryCover(): String? {
 }
 
 private val GUTTER = 14.dp
-
-/** Row height, not banner height — the whole card lands near 96dp with the gutter. */
 private val COVER_SIZE = 68.dp
-
 private val COVER_RADIUS = 8.dp
-
 private val CARD_RADIUS = 12.dp
-
 private val DISC_SIZE = 44.dp
-
 private val DISC_GLYPH_SIZE = 22.dp
