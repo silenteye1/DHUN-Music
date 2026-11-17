@@ -55,18 +55,14 @@ import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.repository.StreamRepository
 import com.maxrave.domain.repository.UpdateRepository
 import com.maxrave.domain.utils.Resource
-import com.maxrave.domain.utils.toListName
 import com.maxrave.domain.utils.toLyrics
 import com.maxrave.domain.utils.toLyricsEntity
 import com.maxrave.domain.utils.toSongEntity
-import com.maxrave.domain.utils.toSyncedLyrics
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.LogLevel
 import com.maxrave.logger.Logger
-import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.getDownloadFolderPath
 import com.maxrave.simpmusic.expect.ui.toByteArray
-import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.utils.SpotifyHelper
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
@@ -197,9 +193,19 @@ class SharedViewModel(
     private val _getVideo: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val getVideo: StateFlow<Boolean> = _getVideo
 
-    // Lock UI timeline at this timestamp during Song <-> Video switch so 0:00 never flashes
     @Volatile
     private var pendingResumePositionMs: Long? = null
+
+    @Volatile
+    private var isCurrentTrackPodcast: Boolean = false
+
+    @Volatile
+    private var lastSavedPodcastWriteMs: Long = 0L
+
+    @Volatile
+    private var shouldAutoStartAfterPodcastSeek: Boolean = false
+
+    private var podcastResumeJob: Job? = null
 
     private var _timeline =
         MutableStateFlow<TimeLine>(
@@ -228,6 +234,122 @@ class SharedViewModel(
         _lastPlayerViewTab.value = tabName
     }
 
+    private fun isPodcastTrackInfo(track: Track, playlistName: String = ""): Boolean {
+        val durationSec = track.durationSeconds ?: 0
+        return track.videoType?.contains("PODCAST", ignoreCase = true) == true ||
+            track.videoType?.contains("EPISODE", ignoreCase = true) == true ||
+            track.videoType?.contains("VIDEO", ignoreCase = true) == true ||
+            playlistName.contains("podcast", ignoreCase = true) ||
+            playlistName.contains("episode", ignoreCase = true) ||
+            track.title.contains("podcast", ignoreCase = true) ||
+            track.title.contains("episode", ignoreCase = true) ||
+            track.title.contains("ep.", ignoreCase = true) ||
+            durationSec >= 900
+    }
+
+    private fun isPodcastTrack(state: NowPlayingTrackState): Boolean {
+        val song = state.songEntity
+        val track = state.track
+        val playlistName = mediaPlayerHandler.queueData.value?.data?.playlistName.orEmpty()
+        val durationSec = song?.durationSeconds ?: track?.durationSeconds ?: 0
+        return state.mediaItem.isVideo() ||
+            track?.videoType?.contains("PODCAST", ignoreCase = true) == true ||
+            track?.videoType?.contains("EPISODE", ignoreCase = true) == true ||
+            playlistName.contains("podcast", ignoreCase = true) ||
+            playlistName.contains("episode", ignoreCase = true) ||
+            song?.title?.contains("podcast", ignoreCase = true) == true ||
+            song?.title?.contains("episode", ignoreCase = true) == true ||
+            song?.title?.contains("ep.", ignoreCase = true) == true ||
+            durationSec >= 900
+    }
+
+    private fun persistPodcastProgress(videoId: String, positionMs: Long, totalMs: Long) {
+        if (videoId.isBlank()) return
+        val now = System.currentTimeMillis()
+        if (totalMs > 0L && positionMs >= (totalMs * 0.95).toLong()) {
+            lastSavedPodcastWriteMs = now
+            viewModelScope.launch(Dispatchers.IO) {
+                dataStoreManager.putString("podcast_pos_$videoId", "0")
+            }
+            return
+        }
+        if (positionMs < 3000L) return
+        if (now - lastSavedPodcastWriteMs < 2000L) return
+        lastSavedPodcastWriteMs = now
+        viewModelScope.launch(Dispatchers.IO) {
+            dataStoreManager.putString("podcast_pos_$videoId", positionMs.toString())
+        }
+    }
+
+    private fun schedulePodcastAutoResume(state: NowPlayingTrackState) {
+        podcastResumeJob?.cancel()
+        val videoId = state.songEntity?.videoId ?: state.mediaItem.mediaId
+        if (videoId.isBlank()) return
+
+        podcastResumeJob = viewModelScope.launch {
+            val savedMs = withContext(Dispatchers.IO) {
+                dataStoreManager.getString("podcast_pos_$videoId").firstOrNull()?.toLongOrNull() ?: 0L
+            }
+            if (savedMs <= 3000L) {
+                shouldAutoStartAfterPodcastSeek = false
+                return@launch
+            }
+
+            pendingResumePositionMs = savedMs
+            _timeline.update { it.copy(current = savedMs, loading = true) }
+
+            withTimeoutOrNull(12000L) {
+                mediaPlayerHandler.simpleMediaState.first { mediaState ->
+                    (mediaState is SimpleMediaState.Ready && mediaState.duration > 0L) ||
+                        (mediaState is SimpleMediaState.Progress && mediaState.progress > 0L)
+                }
+            }
+
+            delay(150)
+
+            var attempts = 0
+            while (attempts < 10) {
+                val activeTotalMs = mediaPlayerHandler.getPlayerDuration().takeIf { it > 0L }
+                    ?: _timeline.value.total.takeIf { it > 0L }
+                    ?: ((state.songEntity?.durationSeconds ?: 0) * 1000L)
+
+                if (activeTotalMs > 0L && savedMs < activeTotalMs - 3000L) {
+                    val percent = ((savedMs.toFloat() / activeTotalMs.toFloat()) * 100f).coerceIn(0f, 99.5f)
+                    withContext(Dispatchers.Main) {
+                        mediaPlayerHandler.onPlayerEvent(PlayerEvent.UpdateProgress(percent))
+                    }
+                } else if (activeTotalMs > 0L) {
+                    break
+                }
+
+                delay(300)
+                val currentPlayerPos = mediaPlayerHandler.getProgress()
+                if (currentPlayerPos >= (savedMs - 3000L).coerceAtLeast(0L)) {
+                    break
+                }
+                attempts++
+            }
+
+            pendingResumePositionMs = null
+            val finalPos = mediaPlayerHandler.getProgress().takeIf { p -> p > 0L } ?: savedMs
+            _timeline.update {
+                it.copy(
+                    current = finalPos,
+                    loading = false,
+                )
+            }
+
+            if (shouldAutoStartAfterPodcastSeek && !_controllerState.value.isPlaying) {
+                shouldAutoStartAfterPodcastSeek = false
+                withContext(Dispatchers.Main) {
+                    mediaPlayerHandler.onPlayerEvent(PlayerEvent.PlayPause)
+                }
+            } else {
+                shouldAutoStartAfterPodcastSeek = false
+            }
+        }
+    }
+
     fun toggleVideoMode(enableVideo: Boolean) {
         viewModelScope.launch {
             val currentWatchVideo = dataStoreManager.watchVideoInsteadOfPlayingAudio.first() == TRUE
@@ -235,7 +357,6 @@ class SharedViewModel(
                 return@launch
             }
 
-            // 1. Capture current playback timestamp BEFORE any change
             val savedPositionMs = maxOf(
                 mediaPlayerHandler.getProgress(),
                 _timeline.value.current,
@@ -243,18 +364,14 @@ class SharedViewModel(
             val savedTotalMs = _timeline.value.total
             val wasPlaying = _controllerState.value.isPlaying
 
-            // Write preference first & give MediaPlayerHandler collector time to receive TRUE
             dataStoreManager.setWatchVideoInsteadOfPlayingAudio(enableVideo)
             _getVideo.value = enableVideo
             delay(120)
 
-            // Case 1: Switching FROM Video TO Song while video stream is already loaded
-            // Audio is already playing inside the video stream -> just hide video view, ZERO reload!
             if (!enableVideo && _nowPlayingScreenData.value.isVideo) {
                 return@launch
             }
 
-            // Case 2: Switching TO Video -> lock timeline at savedPositionMs & reload current track
             if (savedPositionMs > 1000L) {
                 pendingResumePositionMs = savedPositionMs
                 _timeline.update {
@@ -290,14 +407,12 @@ class SharedViewModel(
             }
 
             if (savedPositionMs > 1000L) {
-                // Wait for the new video stream to finish resolving & become Ready/Playing
                 withTimeoutOrNull(10000L) {
                     mediaPlayerHandler.simpleMediaState.first { state ->
                         state is SimpleMediaState.Ready || state is SimpleMediaState.Progress
                     }
                 }
 
-                // Retry seek up to 8 times until ExoPlayer actually moves to savedPositionMs
                 var attempts = 0
                 while (attempts < 8) {
                     val activeTotalMs = mediaPlayerHandler.getPlayerDuration().takeIf { it > 0L }
@@ -448,6 +563,17 @@ class SharedViewModel(
                             )
                         }
                     }
+
+                    val podcast = isPodcastTrack(state)
+                    isCurrentTrackPodcast = podcast
+                    lastSavedPodcastWriteMs = 0L
+                    if (podcast) {
+                        schedulePodcastAutoResume(state)
+                    } else {
+                        podcastResumeJob?.cancel()
+                        shouldAutoStartAfterPodcastSeek = false
+                    }
+
                     state.songEntity?.let { song ->
                         _liked.value = song.liked == true
                         _nowPlayingScreenData.update {
@@ -483,6 +609,15 @@ class SharedViewModel(
                             }
 
                             SimpleMediaState.Ended -> {
+                                if (isCurrentTrackPodcast) {
+                                    val endedId = _nowPlayingState.value?.songEntity?.videoId
+                                        ?: _nowPlayingState.value?.mediaItem?.mediaId
+                                    if (!endedId.isNullOrBlank()) {
+                                        viewModelScope.launch(Dispatchers.IO) {
+                                            dataStoreManager.putString("podcast_pos_$endedId", "0")
+                                        }
+                                    }
+                                }
                                 if (lockedPos == null) {
                                     _timeline.update {
                                         it.copy(
@@ -496,11 +631,21 @@ class SharedViewModel(
 
                             is SimpleMediaState.Progress -> {
                                 if (lockedPos != null) {
-                                    // Unlock automatically once ExoPlayer seeks near lockedPos
                                     if (mediaState.progress >= (lockedPos - 2500L).coerceAtLeast(0L)) {
                                         pendingResumePositionMs = null
                                     } else {
                                         return@collect
+                                    }
+                                }
+                                if (isCurrentTrackPodcast && pendingResumePositionMs == null && mediaState.progress > 3000L) {
+                                    val activeId = _nowPlayingState.value?.songEntity?.videoId
+                                        ?: _nowPlayingState.value?.mediaItem?.mediaId
+                                    if (!activeId.isNullOrBlank()) {
+                                        persistPodcastProgress(
+                                            videoId = activeId,
+                                            positionMs = mediaState.progress,
+                                            totalMs = _timeline.value.total,
+                                        )
                                     }
                                 }
                                 if (mediaState.progress >= 0L && mediaState.progress != _timeline.value.current) {
@@ -913,6 +1058,29 @@ class SharedViewModel(
         index: Int? = null,
     ) {
         viewModelScope.launch {
+            val playlistName = mediaPlayerHandler.queueData.value?.data?.playlistName.orEmpty()
+            val savedPodcastMs = if (isPodcastTrackInfo(track, playlistName)) {
+                withContext(Dispatchers.IO) {
+                    dataStoreManager.getString("podcast_pos_${track.videoId}").firstOrNull()?.toLongOrNull() ?: 0L
+                }
+            } else {
+                0L
+            }
+
+            if (savedPodcastMs > 3000L) {
+                pendingResumePositionMs = savedPodcastMs
+                shouldAutoStartAfterPodcastSeek = (type != RECOVER_TRACK_QUEUE)
+                _timeline.update {
+                    it.copy(
+                        current = savedPodcastMs,
+                        loading = true,
+                    )
+                }
+            } else {
+                pendingResumePositionMs = null
+                shouldAutoStartAfterPodcastSeek = false
+            }
+
             mediaPlayerHandler.clearMediaItems()
             songRepository.insertSong(track.toSongEntity()).lastOrNull()?.let {
                 println("insertSong: $it")
@@ -931,8 +1099,13 @@ class SharedViewModel(
                     track.videoId,
                 )
             }
+
+            val shouldAutoPlayImmediately = (type != RECOVER_TRACK_QUEUE) && (savedPodcastMs <= 3000L)
             withContext(Dispatchers.Main) {
-                mediaPlayerHandler.addMediaItem(track.toGenericMediaItem(), playWhenReady = type != RECOVER_TRACK_QUEUE)
+                mediaPlayerHandler.addMediaItem(
+                    track.toGenericMediaItem(),
+                    playWhenReady = shouldAutoPlayImmediately,
+                )
             }
 
             when (type) {
@@ -1301,7 +1474,6 @@ class SharedViewModel(
         duration: Int,
     ) {
         viewModelScope.launch {
-            val videoId = song.videoId
             val artistName = song.artistName
             val artist =
                 if (artistName?.firstOrNull() != null &&
