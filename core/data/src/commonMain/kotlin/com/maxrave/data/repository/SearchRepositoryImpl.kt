@@ -20,6 +20,7 @@ import com.maxrave.domain.utils.Resource
 import com.maxrave.kotlinytmusicscraper.YouTube
 import com.maxrave.logger.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -52,7 +53,6 @@ internal class SearchRepositoryImpl(
                     cleanQuery.contains("latest", ignoreCase = true) ||
                     cleanQuery.contains("recent", ignoreCase = true)
 
-                // Agar query me 'new' ya 'latest' hai, toh backend se targeted candidates laane ke liye current year tag lagana
                 val targetQuery = if (isFreshness && !cleanQuery.contains("2026") && !cleanQuery.contains("2025")) {
                     "$cleanQuery 2026"
                 } else {
@@ -68,7 +68,6 @@ internal class SearchRepositoryImpl(
                             listSongs.addAll(list)
                         }
                         var count = 0
-                        // Freshness intent ke liye 3 pages tak scan taaki naye gaane missing na hon
                         val maxContinuation = if (isFreshness) 3 else 2
                         while (count < maxContinuation && countinueParam != null) {
                             youTube
@@ -321,9 +320,6 @@ internal class SearchRepositoryImpl(
             }
         }.flowOn(Dispatchers.IO)
 
-    /**
-     * Universal Smart Search Filter & Relevance Ranker
-     */
     private fun filterAndRankSongs(
         query: String,
         songs: List<SongsResult>,
@@ -343,7 +339,6 @@ internal class SearchRepositoryImpl(
             queryTokens
         }
 
-        // 1. Blacklist Junk Filters (Shorts, Reels, Status videos, fan-edits, spam)
         val junkKeywords = listOf(
             "whatsapp status", "status video", "fullscreen status",
             "shorts", "tiktok", "reels", "ringtone", "callertune",
@@ -356,7 +351,6 @@ internal class SearchRepositoryImpl(
             junkKeywords.any { junk -> titleLower.contains(junk) }
         }
 
-        // Deduplication (Title + primary artist base name)
         val seenSignatures = HashSet<String>()
         val deduplicatedList = mutableListOf<SongsResult>()
 
@@ -373,13 +367,11 @@ internal class SearchRepositoryImpl(
             }
         }
 
-        // 2. Score Calculation & Sorting
         val scoredList = deduplicatedList.map { song ->
             val titleLower = song.title?.lowercase().orEmpty()
             val artistsLower = song.artists?.joinToString(" ") { it.name.lowercase() }.orEmpty()
             val albumLower = song.album?.name?.lowercase().orEmpty()
 
-            // Numerical year extraction from song.year or title
             val rawYear = song.year.toString()
             val yearMatch = "\\b(20[1-2][0-9])\\b".toRegex().find(rawYear)?.value
                 ?: "\\b(20[1-2][0-9])\\b".toRegex().find(titleLower)?.value
@@ -387,18 +379,15 @@ internal class SearchRepositoryImpl(
 
             var score = 0
 
-            // Exact Query Match
             if (titleLower == cleanQuery) score += 100
             if (artistsLower.contains(cleanQuery)) score += 120
 
-            // Relevance Token Matches
             for (token in effectiveTokens) {
                 if (titleLower.contains(token)) score += 40
                 if (artistsLower.contains(token)) score += 40
                 if (albumLower.contains(token)) score += 15
             }
 
-            // Official Music / Topic verification bonus
             val isOfficialChannel = song.artists?.any {
                 it.name.contains("Topic", ignoreCase = true) ||
                     it.name.contains("T-Series", ignoreCase = true) ||
@@ -410,14 +399,13 @@ internal class SearchRepositoryImpl(
 
             if (isOfficialChannel) score += 35
 
-            // Freshness Intent Ranking
             if (isFreshnessIntent) {
                 when {
-                    parsedYear >= 2026 -> score += 300 // Maximum priority for latest release
+                    parsedYear >= 2026 -> score += 300
                     parsedYear == 2025 -> score += 200
                     parsedYear == 2024 -> score += 100
                     parsedYear in 2020..2023 -> score += 20
-                    parsedYear in 1900..2019 -> score -= 150 // Demote older tracks for 'new/latest' queries
+                    parsedYear in 1900..2019 -> score -= 150
                 }
 
                 if (titleLower.contains("2026") || titleLower.contains("latest")) {

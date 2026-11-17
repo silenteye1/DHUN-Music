@@ -16,6 +16,7 @@ import com.maxrave.domain.utils.Resource
 import com.maxrave.kotlinytmusicscraper.YouTube
 import com.maxrave.logger.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -37,7 +38,7 @@ internal class PodcastRepositoryImpl(
                                 ?.thumbnail
                                 ?.thumbnails
                                 ?.toListThumbnail()
-                        val title =
+                        val headerRenderer =
                             result.contents
                                 ?.twoColumnBrowseResultsRenderer
                                 ?.tabs
@@ -48,67 +49,39 @@ internal class PodcastRepositoryImpl(
                                 ?.contents
                                 ?.firstOrNull()
                                 ?.musicResponsiveHeaderRenderer
+                        val title =
+                            headerRenderer
                                 ?.title
                                 ?.runs
                                 ?.firstOrNull()
                                 ?.text
                         val author =
-                            result.contents
-                                ?.twoColumnBrowseResultsRenderer
-                                ?.tabs
-                                ?.firstOrNull()
-                                ?.tabRenderer
-                                ?.content
-                                ?.sectionListRenderer
-                                ?.contents
-                                ?.firstOrNull()
-                                ?.musicResponsiveHeaderRenderer
-                                ?.let {
-                                    Artist(
-                                        id =
-                                            it.straplineTextOne
-                                                ?.runs
-                                                ?.firstOrNull()
-                                                ?.navigationEndpoint
-                                                ?.browseEndpoint
-                                                ?.browseId,
-                                        name =
-                                            it.straplineTextOne
-                                                ?.runs
-                                                ?.firstOrNull()
-                                                ?.text ?: "",
-                                    )
-                                }
+                            headerRenderer?.let {
+                                Artist(
+                                    id =
+                                        it.straplineTextOne
+                                            ?.runs
+                                            ?.firstOrNull()
+                                            ?.navigationEndpoint
+                                            ?.browseEndpoint
+                                            ?.browseId,
+                                    name =
+                                        it.straplineTextOne
+                                            ?.runs
+                                            ?.firstOrNull()
+                                            ?.text ?: "",
+                                )
+                            }
                         val authorThumbnail =
-                            result.contents
-                                ?.twoColumnBrowseResultsRenderer
-                                ?.tabs
-                                ?.firstOrNull()
-                                ?.tabRenderer
-                                ?.content
-                                ?.sectionListRenderer
-                                ?.contents
-                                ?.firstOrNull()
-                                ?.musicResponsiveHeaderRenderer
-                                ?.let {
-                                    it.straplineThumbnail
-                                        ?.musicThumbnailRenderer
-                                        ?.thumbnail
-                                        ?.thumbnails
-                                        ?.lastOrNull()
-                                        ?.url
-                                }
+                            headerRenderer
+                                ?.straplineThumbnail
+                                ?.musicThumbnailRenderer
+                                ?.thumbnail
+                                ?.thumbnails
+                                ?.lastOrNull()
+                                ?.url
                         val description =
-                            result.contents
-                                ?.twoColumnBrowseResultsRenderer
-                                ?.tabs
-                                ?.firstOrNull()
-                                ?.tabRenderer
-                                ?.content
-                                ?.sectionListRenderer
-                                ?.contents
-                                ?.firstOrNull()
-                                ?.musicResponsiveHeaderRenderer
+                            headerRenderer
                                 ?.description
                                 ?.musicDescriptionShelfRenderer
                                 ?.description
@@ -116,7 +89,7 @@ internal class PodcastRepositoryImpl(
                                 ?.joinToString("") {
                                     it.text
                                 }
-                        val data =
+                        val shelfRenderer =
                             result.contents
                                 ?.twoColumnBrowseResultsRenderer
                                 ?.secondaryContents
@@ -124,57 +97,68 @@ internal class PodcastRepositoryImpl(
                                 ?.contents
                                 ?.firstOrNull()
                                 ?.musicShelfRenderer
-                                ?.contents
-                        parsePodcastData(data, author).let {
+                        parsePodcastData(shelfRenderer?.contents, author).let {
                             listEpisode.addAll(it)
                         }
-                        var continueParam =
-                            result.contents
-                                ?.twoColumnBrowseResultsRenderer
-                                ?.secondaryContents
-                                ?.sectionListRenderer
-                                ?.contents
-                                ?.firstOrNull()
-                                ?.musicShelfRenderer
-                                ?.continuations
-                                ?.firstOrNull()
-                                ?.nextContinuationData
-                                ?.continuation
-                        while (continueParam != null) {
-                            youTube
-                                .customQuery(continuation = continueParam, browseId = "")
-                                .onSuccess { continueData ->
-                                    parsePodcastContinueData(
-                                        continueData.continuationContents?.musicShelfContinuation?.contents,
-                                        author,
-                                    ).let {
-                                        listEpisode.addAll(it)
-                                    }
-                                    continueParam =
-                                        continueData.continuationContents
-                                            ?.musicShelfContinuation
-                                            ?.continuations
-                                            ?.firstOrNull()
-                                            ?.nextContinuationData
-                                            ?.continuation
-                                }.onFailure {
-                                    it.printStackTrace()
-                                    continueParam = null
-                                }
-                        }
+
                         if (author != null) {
+                            // Pehla batch aate hi turant screen open kar dein!
                             emit(
-                                Resource.Success<PodcastBrowse>(
+                                Resource.Success(
                                     PodcastBrowse(
                                         title = title ?: "",
                                         author = author,
                                         authorThumbnail = authorThumbnail,
                                         thumbnail = thumbnail ?: emptyList<Thumbnail>(),
                                         description = description,
-                                        listEpisode = listEpisode,
+                                        listEpisode = listEpisode.toList(),
                                     ),
                                 ),
                             )
+
+                            // Baaki episodes background mein load karke update karein
+                            var continueParam =
+                                shelfRenderer
+                                    ?.continuations
+                                    ?.firstOrNull()
+                                    ?.nextContinuationData
+                                    ?.continuation
+                            while (continueParam != null) {
+                                youTube
+                                    .customQuery(continuation = continueParam, browseId = "")
+                                    .onSuccess { continueData ->
+                                        val moreEpisodes =
+                                            parsePodcastContinueData(
+                                                continueData.continuationContents?.musicShelfContinuation?.contents,
+                                                author,
+                                            )
+                                        if (moreEpisodes.isNotEmpty()) {
+                                            listEpisode.addAll(moreEpisodes)
+                                            emit(
+                                                Resource.Success(
+                                                    PodcastBrowse(
+                                                        title = title ?: "",
+                                                        author = author,
+                                                        authorThumbnail = authorThumbnail,
+                                                        thumbnail = thumbnail ?: emptyList<Thumbnail>(),
+                                                        description = description,
+                                                        listEpisode = listEpisode.toList(),
+                                                    ),
+                                                ),
+                                            )
+                                        }
+                                        continueParam =
+                                            continueData.continuationContents
+                                                ?.musicShelfContinuation
+                                                ?.continuations
+                                                ?.firstOrNull()
+                                                ?.nextContinuationData
+                                                ?.continuation
+                                    }.onFailure {
+                                        it.printStackTrace()
+                                        continueParam = null
+                                    }
+                            }
                         } else {
                             emit(Resource.Error<PodcastBrowse>("Error"))
                         }
@@ -183,7 +167,7 @@ internal class PodcastRepositoryImpl(
                         emit(Resource.Error<PodcastBrowse>(error.message.toString()))
                     }
             }
-        }
+        }.flowOn(Dispatchers.IO)
 
     override fun insertPodcast(podcastsEntity: PodcastsEntity) =
         flow {

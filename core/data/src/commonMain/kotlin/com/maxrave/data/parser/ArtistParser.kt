@@ -39,10 +39,8 @@ internal fun parseArtistData(data: ArtistPage): ArtistBrowse {
         }
     val videoSection =
         data.sections.find { it.items.firstOrNull() is VideoItem }
-    val featuredOnSection =
-        data.sections.find { it.items.firstOrNull() is PlaylistItem }
-    Logger.w("ArtistParser", "videoSection: ${videoSection?.items}")
-    Logger.w("ArtistParser", "featuredOnSection: ${featuredOnSection?.items}")
+    val playlistSections =
+        data.sections.filter { it.items.firstOrNull() is PlaylistItem }
     val relatedSection = data.sections.find { it.items.firstOrNull() is ArtistItem }
     val listSong: ArrayList<ResultSong> = arrayListOf()
     val listAlbum: ArrayList<ResultAlbum> = arrayListOf()
@@ -50,6 +48,8 @@ internal fun parseArtistData(data: ArtistPage): ArtistBrowse {
     val listRelated: ArrayList<ResultRelated> = arrayListOf()
     val listVideo: ArrayList<ResultVideo> = arrayListOf()
     val listFeaturedOn: ArrayList<ResultPlaylist> = arrayListOf()
+    val listPodcasts: ArrayList<ResultPlaylist> = arrayListOf()
+
     albumSection?.items?.forEach { album ->
         listAlbum.add(
             ResultAlbum(
@@ -95,16 +95,25 @@ internal fun parseArtistData(data: ArtistPage): ArtistBrowse {
             ),
         )
     }
-    featuredOnSection?.items?.forEach {
-        val playlist = it as PlaylistItem
-        listFeaturedOn.add(
-            ResultPlaylist(
-                id = playlist.id,
-                author = playlist.author?.name ?: "",
-                thumbnails = listOf(Thumbnail(544, playlist.thumbnail, 544)),
-                title = playlist.title,
-            ),
-        )
+    playlistSections.forEach { section ->
+        val isPodcastSection =
+            section.title.contains("Podcast", ignoreCase = true) ||
+                section.items.any { (it as? PlaylistItem)?.id?.startsWith("MPSP") == true }
+        section.items.forEach {
+            val playlist = it as PlaylistItem
+            val item =
+                ResultPlaylist(
+                    id = playlist.id,
+                    author = playlist.author?.name ?: "",
+                    thumbnails = listOf(Thumbnail(544, playlist.thumbnail, 544)),
+                    title = playlist.title,
+                )
+            if (isPodcastSection || playlist.id.startsWith("MPSP")) {
+                listPodcasts.add(item)
+            } else {
+                listFeaturedOn.add(item)
+            }
+        }
     }
     relatedSection?.items?.forEach {
         val artist = it as ArtistItem
@@ -144,7 +153,7 @@ internal fun parseArtistData(data: ArtistPage): ArtistBrowse {
     Logger.d("ArtistParser", "listSong: ${listSong.size}")
     Logger.d("ArtistParser", "listAlbum: ${listAlbum.size}")
     Logger.d("ArtistParser", "listSingle: ${listSingle.size}")
-    Logger.d("ArtistParser", "listRelated: ${listRelated.size}")
+    Logger.d("ArtistParser", "listPodcasts: ${listPodcasts.size}")
     return ArtistBrowse(
         albums = Albums(browseId = "", results = listAlbum, params = ""),
         channelId = data.artist.id,
@@ -162,5 +171,6 @@ internal fun parseArtistData(data: ArtistPage): ArtistBrowse {
         video = listVideo,
         videoList = videoSection?.moreEndpoint?.browseId,
         featuredOn = listFeaturedOn,
+        podcasts = listPodcasts,
     )
 }

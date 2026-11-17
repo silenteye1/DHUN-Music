@@ -92,7 +92,6 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.theme.LocalForceDarkText
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.HomeViewModel
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
@@ -202,6 +201,14 @@ fun HomeItem(
                                 navController.navigate(
                                     ArtistDestination(
                                         channelId = playlistId,
+                                    ),
+                                )
+                            }, data = temp)
+                        } else if (playlistId.startsWith("MPSP")) {
+                            HomeItemContentPlaylist(onClick = {
+                                navController.navigate(
+                                    PodcastDestination(
+                                        podcastId = playlistId,
                                     ),
                                 )
                             }, data = temp)
@@ -344,11 +351,6 @@ fun HomeItemContentPlaylist(
                     is ResultPlaylist -> data.thumbnails.lastOrNull()?.url
                     is PodcastsEntity -> data.thumbnail
                     is AlbumsResult -> data.thumbnails.lastOrNull()?.url
-                    // A recap owns no artwork; it borrows the month's own top song's, resolved
-                    // where the recap itself is (LibraryViewModel.getMonthlyRecaps).
-                    // Deliberately null: a recap has no artwork of its own, so it falls to
-                    // the title placeholder below — the same tile a local playlist without
-                    // a thumbnail gets. Same reason ChartItem above is null.
                     is MonthlyRecapItem -> null
                     else -> null
                 }
@@ -379,9 +381,6 @@ fun HomeItemContentPlaylist(
                             )
                         }
 
-                        // A month whose top song has no artwork still has a name, and the
-                        // deterministic title tile reads as a playlist where the grey holder
-                        // reads as a failed load.
                         is MonthlyRecapItem -> {
                             painterPlaylistThumbnail(
                                 data.title,
@@ -412,9 +411,6 @@ fun HomeItemContentPlaylist(
                             )
                         }
 
-                        // A month whose top song has no artwork still has a name, and the
-                        // deterministic title tile reads as a playlist where the grey holder
-                        // reads as a failed load.
                         is MonthlyRecapItem -> {
                             painterPlaylistThumbnail(
                                 data.title,
@@ -480,7 +476,7 @@ fun HomeItemContentPlaylist(
                                         } else {
                                             stringResource(Res.string.album)
                                         }
-                                    )
+                                        )
                                 } else {
                                     stringResource(Res.string.playlist)
                                 }
@@ -568,7 +564,6 @@ fun QuickPicksItem(
     widthDp: Dp,
     data: Content,
 ) {
-    val tag = "QuickPicksItem"
     Box(
         modifier =
             Modifier
@@ -614,9 +609,6 @@ fun QuickPicksItem(
                     ).align(Alignment.CenterVertically),
                 verticalArrangement = Arrangement.SpaceEvenly,
             ) {
-                // One line + marquee, NOT maxLines = 2: the parent LazyHorizontalGrid uses
-                // GridCells.Fixed(4) over a fixed 256.dp, so every cell is exactly 64.dp and a
-                // second title line pushes the artist row out of the cell, where the grid clips it.
                 Text(
                     text = data.title,
                     style = typo().titleSmall,
@@ -965,9 +957,6 @@ fun MoodMomentAndGenreHomeItem(
     ) {
         Row {
             Box(
-                // `solid.leftStripeColor` straight from the API (full ARGB). This used to be
-                // generateRandomColor(), which — being outside remember — rolled a new colour on
-                // every recomposition, so the stripes flickered while scrolling.
                 Modifier
                     .width(10.dp)
                     .height(64.dp)
@@ -1334,8 +1323,6 @@ fun MoodAndGenresContentItem(
                 }
             items(itemList) { item ->
                 HomeItemContentPlaylist(onClick = {
-                    // The "Songs" shelf mixes tracks into a list that is otherwise all playlists,
-                    // so route by videoId: a track starts its radio, everything else opens a page.
                     val moodSong = item as? com.maxrave.domain.data.model.mood.moodmoments.Content
                     val songVideoId = moodSong?.videoId
                     if (moodSong != null && songVideoId != null) {

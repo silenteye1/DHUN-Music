@@ -100,4 +100,5 @@ class NowPlayingContentActions(
     val onMoveQueueItem: (from: Int, to: Int) -> Unit,
     val onRemoveQueueItem: (index: Int) -> Unit,
     val onStartMusicFlow: () -> Unit = {},
+    val onToggleVideoMode: (Boolean) -> Unit = {},
 )

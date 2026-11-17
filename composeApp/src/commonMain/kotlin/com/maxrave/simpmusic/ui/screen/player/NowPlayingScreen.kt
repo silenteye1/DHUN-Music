@@ -604,6 +604,9 @@ fun NowPlayingScreenContent(
                     )
                 }
             },
+            onToggleVideoMode = { enableVideo ->
+                sharedViewModel.toggleVideoMode(enableVideo)
+            },
         )
 
     val ambientMotion = rememberInfiniteTransition(label = "ambientMotionTransition")

@@ -6,7 +6,6 @@ import com.maxrave.domain.data.model.browse.artist.ArtistBrowse
 import com.maxrave.domain.extension.now
 import com.maxrave.domain.utils.FilterState
 import com.maxrave.domain.utils.toTrack
-import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.viewModel.ArtistScreenData
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -97,7 +96,7 @@ fun formatDuration(duration: Long): String {
     val seconds: Long = (
         TimeUnit.SECONDS.convert(duration, TimeUnit.MILLISECONDS) -
             minutes * TimeUnit.SECONDS.convert(1, TimeUnit.MINUTES)
-    )
+        )
     return String.format(Locale.ENGLISH, "%02d:%02d", minutes, seconds)
 }
 
@@ -111,7 +110,6 @@ fun parseTimestampToMilliseconds(timestamp: String): Double {
                     val seconds = parts[1].toDouble()
                     (minutes * 60 + seconds)
                 } catch (e: NumberFormatException) {
-                    // Handle parsing error
                     e.printStackTrace()
                     return 0.0
                 }
@@ -124,14 +122,12 @@ fun parseTimestampToMilliseconds(timestamp: String): Double {
                     val seconds = parts[2].toDouble()
                     (hours * 3600 + minutes * 60 + seconds)
                 } catch (e: NumberFormatException) {
-                    // Handle parsing error
                     e.printStackTrace()
                     return 0.0
                 }
             }
 
             else -> {
-                // Handle incorrect format
                 return 0.0
             }
         }
@@ -181,13 +177,9 @@ fun ArtistBrowse.toArtistScreenData(): ArtistScreenData =
             },
         related = this.related,
         featuredOn = this.featuredOn ?: emptyList(),
+        podcasts = this.podcasts ?: emptyList(),
     )
 
-/**
- * Clamp a YouTube image URL's `w`/`h` size spec to the smaller dimension so it's square
- * (`...=w2880-h1200-...` -> `...=w1200-h1200-...`). Only the size spec after the last `=` is
- * touched. Returns the url unchanged when it has no `w`/`h` spec or is already square.
- */
 fun String.toSquareThumbnailUrl(): String {
     val eq = lastIndexOf('=')
     if (eq < 0 || eq == lastIndex) return this
@@ -202,19 +194,16 @@ fun String.toSquareThumbnailUrl(): String {
 }
 
 fun isValidProxyHost(host: String): Boolean {
-    // Regular expression to validate proxy host (without port)
     val proxyHostRegex =
         Regex(
             pattern = "^(?!-)[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*(?<!-)\$",
             options = setOf(RegexOption.IGNORE_CASE),
         )
 
-    // Return true if the host matches the regex or is an IP address
     return proxyHostRegex.matches(host) || isIPAddress(host)
 }
 
 private fun isIPAddress(host: String): Boolean {
-    // Check if the host is an IPv4 address
     val ipv4Regex =
         Regex(
             pattern = "^([0-9]{1,3}\\.){3}[0-9]{1,3}\$",
@@ -223,7 +212,6 @@ private fun isIPAddress(host: String): Boolean {
         return host.split('.').all { it.toInt() in 0..255 }
     }
 
-    // Check if the host is an IPv6 address
     val ipv6Regex =
         Regex(
             pattern = "^[0-9a-fA-F:]+$",

@@ -1,7 +1,6 @@
 package com.maxrave.simpmusic.di
 
 import com.maxrave.simpmusic.SpotifyPlaylistImporter
-import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.AlbumViewModel
 import com.maxrave.simpmusic.viewModel.AnalyticsViewModel
 import com.maxrave.simpmusic.viewModel.ArtistViewModel
@@ -105,6 +104,7 @@ val viewModelModule =
         }
         viewModel {
             HomeViewModel(
+                get(),
                 get(),
                 get(),
             )

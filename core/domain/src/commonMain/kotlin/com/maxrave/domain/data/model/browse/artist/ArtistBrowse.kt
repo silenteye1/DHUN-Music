@@ -16,6 +16,7 @@ data class ArtistBrowse(
     val songs: Songs?,
     val video: List<ResultVideo>?,
     val featuredOn: List<ResultPlaylist>?,
+    val podcasts: List<ResultPlaylist>? = emptyList(),
     val videoList: String?,
     val subscribed: Boolean?,
     val subscribers: String?,

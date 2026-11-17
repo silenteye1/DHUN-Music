@@ -287,6 +287,27 @@ fun NowPlayingContentSpotify(
 
     val isDesktop = getPlatform() == Platform.Desktop
 
+    val currentTrack = state.artworkQueue.getOrNull(state.currentOrderIndex)
+    val isPodcastTrack =
+        remember(
+            state.screenData.isVideo,
+            state.screenData.playlistName,
+            state.screenData.nowPlayingTitle,
+            currentTrack?.videoType,
+        ) {
+            state.screenData.isVideo ||
+                currentTrack?.videoType?.contains("PODCAST", ignoreCase = true) == true ||
+                state.screenData.playlistName.contains("podcast", ignoreCase = true) ||
+                state.screenData.nowPlayingTitle.contains("podcast", ignoreCase = true)
+        }
+
+    // Normal song chalne par video mode ko auto-reset karein
+    LaunchedEffect(isPodcastTrack, state.shouldShowVideo) {
+        if (!isPodcastTrack && state.shouldShowVideo) {
+            actions.onToggleVideoMode(false)
+        }
+    }
+
     LaunchedEffect(
         topAppBarHeightDp,
         screenInfo,
@@ -370,7 +391,25 @@ fun NowPlayingContentSpotify(
                 },
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (isPodcastTrack) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SongVideoSwitchPill(
+                        isVideoSelected = state.shouldShowVideo,
+                        backdrop = playerBackdrop,
+                        hazeState = hazeState,
+                        isLiquidGlassEnabled = isLiquidGlassEnabled,
+                        onSelectMode = { actions.onToggleVideoMode(it) },
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             Row(
                 modifier = Modifier
@@ -903,7 +942,7 @@ fun NowPlayingContentSpotify(
                 ) { page ->
                     val pageTrack = state.artworkQueue.getOrNull(page)
                     val isCurrentArtworkPage = page == state.currentOrderIndex
-                    val pageHasCanvas = isCurrentArtworkPage && state.screenData.canvasData != null
+                    val pageHasCanvas = isCurrentArtworkPage && state.screenData.canvasData != null && !state.shouldShowVideo
 
                     val pagePaletteState = rememberPaletteState()
                     val pageStartColor =
@@ -1269,6 +1308,7 @@ fun NowPlayingContentSpotify(
 
                                     androidx.compose.animation.AnimatedVisibility(
                                         visible = state.screenData.isVideo && state.shouldShowVideo,
+                                        modifier = Modifier.align(Alignment.Center),
                                     ) {
                                         var internalShowSubtitle by rememberSaveable {
                                             mutableStateOf(true)
@@ -1544,13 +1584,24 @@ fun NowPlayingContentSpotify(
                     Spacer(modifier = Modifier.height(topAppBarHeightDp.dp))
                     Box {
                         Column(Modifier.fillMaxWidth()) {
-                            Spacer(
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier =
                                     Modifier
                                         .animateContentSize()
                                         .height(middleLayoutPaddingDp.dp)
                                         .fillMaxWidth(),
-                            )
+                            ) {
+                                if (isPodcastTrack) {
+                                    SongVideoSwitchPill(
+                                        isVideoSelected = state.shouldShowVideo,
+                                        backdrop = playerBackdrop,
+                                        hazeState = hazeState,
+                                        isLiquidGlassEnabled = isLiquidGlassEnabled,
+                                        onSelectMode = { actions.onToggleVideoMode(it) },
+                                    )
+                                }
+                            }
 
                             Spacer(
                                 modifier =
@@ -2489,6 +2540,60 @@ fun NowPlayingContentSpotify(
                 initialLineIndex = state.currentLyricLineIndex,
                 onDismiss = { showShareLyricsSheet = false },
             )
+        }
+    }
+}
+
+@Composable
+private fun SongVideoSwitchPill(
+    isVideoSelected: Boolean,
+    backdrop: PlatformBackdrop?,
+    hazeState: HazeState?,
+    isLiquidGlassEnabled: Boolean,
+    onSelectMode: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pillShape = RoundedCornerShape(50)
+    Row(
+        modifier =
+            modifier
+                .playerLiquidGlass(
+                    backdrop = backdrop,
+                    shape = pillShape,
+                    hazeState = hazeState,
+                    isLiquidGlassEnabled = isLiquidGlassEnabled,
+                )
+                .padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val modes = listOf("Song" to false, "Video" to true)
+        modes.forEach { (label, isVideoMode) ->
+            val selected = isVideoSelected == isVideoMode
+            Box(
+                modifier =
+                    Modifier
+                        .clip(pillShape)
+                        .background(
+                            if (selected) Color.White else Color.Transparent,
+                        )
+                        .clickable {
+                            if (!selected) {
+                                onSelectMode(isVideoMode)
+                            }
+                        }
+                        .padding(horizontal = 18.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    style =
+                        typo().labelSmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        ),
+                    color = if (selected) Color.Black else Color.White.copy(alpha = 0.85f),
+                )
+            }
         }
     }
 }

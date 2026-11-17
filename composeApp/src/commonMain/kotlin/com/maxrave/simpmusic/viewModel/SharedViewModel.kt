@@ -73,6 +73,7 @@ import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -94,6 +95,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.getString
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -195,6 +197,10 @@ class SharedViewModel(
     private val _getVideo: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val getVideo: StateFlow<Boolean> = _getVideo
 
+    // Lock UI timeline at this timestamp during Song <-> Video switch so 0:00 never flashes
+    @Volatile
+    private var pendingResumePositionMs: Long? = null
+
     private var _timeline =
         MutableStateFlow<TimeLine>(
             TimeLine(
@@ -220,6 +226,108 @@ class SharedViewModel(
 
     fun setLastPlayerViewTab(tabName: String) {
         _lastPlayerViewTab.value = tabName
+    }
+
+    fun toggleVideoMode(enableVideo: Boolean) {
+        viewModelScope.launch {
+            val currentWatchVideo = dataStoreManager.watchVideoInsteadOfPlayingAudio.first() == TRUE
+            if (currentWatchVideo == enableVideo && _getVideo.value == enableVideo) {
+                return@launch
+            }
+
+            // 1. Capture current playback timestamp BEFORE any change
+            val savedPositionMs = maxOf(
+                mediaPlayerHandler.getProgress(),
+                _timeline.value.current,
+            ).coerceAtLeast(0L)
+            val savedTotalMs = _timeline.value.total
+            val wasPlaying = _controllerState.value.isPlaying
+
+            // Write preference first & give MediaPlayerHandler collector time to receive TRUE
+            dataStoreManager.setWatchVideoInsteadOfPlayingAudio(enableVideo)
+            _getVideo.value = enableVideo
+            delay(120)
+
+            // Case 1: Switching FROM Video TO Song while video stream is already loaded
+            // Audio is already playing inside the video stream -> just hide video view, ZERO reload!
+            if (!enableVideo && _nowPlayingScreenData.value.isVideo) {
+                return@launch
+            }
+
+            // Case 2: Switching TO Video -> lock timeline at savedPositionMs & reload current track
+            if (savedPositionMs > 1000L) {
+                pendingResumePositionMs = savedPositionMs
+                _timeline.update {
+                    it.copy(
+                        current = savedPositionMs,
+                        loading = true,
+                    )
+                }
+            }
+
+            val currentTrack = _nowPlayingState.value?.track
+                ?: _nowPlayingState.value?.songEntity?.toTrack()
+                ?: run {
+                    pendingResumePositionMs = null
+                    return@launch
+                }
+
+            val currentIndex = mediaPlayerHandler.currentOrderIndex()
+            withContext(Dispatchers.Main) {
+                if (currentIndex >= 0) {
+                    mediaPlayerHandler.playMediaItemInMediaSource(currentIndex)
+                } else {
+                    mediaPlayerHandler.clearMediaItems()
+                    mediaPlayerHandler.addMediaItem(
+                        currentTrack.toGenericMediaItem(),
+                        playWhenReady = wasPlaying,
+                    )
+                }
+            }
+
+            _nowPlayingScreenData.update {
+                it.copy(isVideo = enableVideo)
+            }
+
+            if (savedPositionMs > 1000L) {
+                // Wait for the new video stream to finish resolving & become Ready/Playing
+                withTimeoutOrNull(10000L) {
+                    mediaPlayerHandler.simpleMediaState.first { state ->
+                        state is SimpleMediaState.Ready || state is SimpleMediaState.Progress
+                    }
+                }
+
+                // Retry seek up to 8 times until ExoPlayer actually moves to savedPositionMs
+                var attempts = 0
+                while (attempts < 8) {
+                    val activeTotalMs = mediaPlayerHandler.getPlayerDuration().takeIf { it > 0L }
+                        ?: savedTotalMs.takeIf { it > 0L }
+                        ?: ((currentTrack.durationSeconds ?: 0) * 1000L)
+
+                    if (activeTotalMs > 0L) {
+                        val percent = ((savedPositionMs.toFloat() / activeTotalMs.toFloat()) * 100f).coerceIn(0f, 99.5f)
+                        withContext(Dispatchers.Main) {
+                            mediaPlayerHandler.onPlayerEvent(PlayerEvent.UpdateProgress(percent))
+                        }
+                    }
+
+                    delay(350)
+                    val currentPlayerPos = mediaPlayerHandler.getProgress()
+                    if (currentPlayerPos >= (savedPositionMs - 3000L).coerceAtLeast(0L)) {
+                        break
+                    }
+                    attempts++
+                }
+            }
+
+            pendingResumePositionMs = null
+            _timeline.update {
+                it.copy(
+                    current = mediaPlayerHandler.getProgress().takeIf { p -> p > 0L } ?: savedPositionMs,
+                    loading = false,
+                )
+            }
+        }
     }
 
     val openAppTime: StateFlow<Int> = dataStoreManager.openAppTime.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), 0)
@@ -354,30 +462,47 @@ class SharedViewModel(
             val job1 =
                 launch {
                     mediaPlayerHandler.simpleMediaState.collect { mediaState ->
+                        val lockedPos = pendingResumePositionMs
                         when (mediaState) {
                             is SimpleMediaState.Buffering -> {
                                 _timeline.update {
                                     it.copy(
+                                        current = lockedPos ?: it.current,
                                         loading = true,
                                     )
                                 }
                             }
 
                             SimpleMediaState.Initial -> {
-                                _timeline.update { it.copy(loading = true) }
-                            }
-
-                            SimpleMediaState.Ended -> {
                                 _timeline.update {
                                     it.copy(
-                                        current = it.total.coerceAtLeast(0L),
-                                        bufferedPercent = 0,
-                                        loading = false,
+                                        current = lockedPos ?: it.current,
+                                        loading = true,
                                     )
                                 }
                             }
 
+                            SimpleMediaState.Ended -> {
+                                if (lockedPos == null) {
+                                    _timeline.update {
+                                        it.copy(
+                                            current = it.total.coerceAtLeast(0L),
+                                            bufferedPercent = 0,
+                                            loading = false,
+                                        )
+                                    }
+                                }
+                            }
+
                             is SimpleMediaState.Progress -> {
+                                if (lockedPos != null) {
+                                    // Unlock automatically once ExoPlayer seeks near lockedPos
+                                    if (mediaState.progress >= (lockedPos - 2500L).coerceAtLeast(0L)) {
+                                        pendingResumePositionMs = null
+                                    } else {
+                                        return@collect
+                                    }
+                                }
                                 if (mediaState.progress >= 0L && mediaState.progress != _timeline.value.current) {
                                     if (_timeline.value.total > 0L) {
                                         _timeline.update {
@@ -402,6 +527,7 @@ class SharedViewModel(
                             is SimpleMediaState.Loading -> {
                                 _timeline.update {
                                     it.copy(
+                                        current = lockedPos ?: it.current,
                                         bufferedPercent = mediaState.bufferedPercentage,
                                         total = mediaState.duration,
                                         loading = true,
@@ -412,8 +538,8 @@ class SharedViewModel(
                             is SimpleMediaState.Ready -> {
                                 _timeline.update {
                                     it.copy(
-                                        current = mediaPlayerHandler.getProgress(),
-                                        loading = false,
+                                        current = lockedPos ?: mediaPlayerHandler.getProgress(),
+                                        loading = lockedPos != null,
                                         total = mediaState.duration.takeIf { d -> d > 0L } ?: it.total,
                                     )
                                 }

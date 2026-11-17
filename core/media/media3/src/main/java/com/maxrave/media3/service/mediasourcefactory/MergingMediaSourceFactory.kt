@@ -22,7 +22,6 @@ internal class MergingMediaSourceFactory(
     private val dataStoreManager: DataStoreManager,
 ) : MediaSource.Factory {
 
-    // Device storage ke gaano ke liye plain Android media source factory
     private val standardMediaSourceFactory by lazy {
         val context: Context = getKoin().get()
         DefaultMediaSourceFactory(context)
@@ -45,7 +44,6 @@ internal class MergingMediaSourceFactory(
             ?: mediaItem.localConfiguration?.uri?.toString()
             ?: mediaItem.mediaId
 
-        // Agar gaana device storage ka hai, toh direct play karein (online resolver bypass)
         if (uriString.startsWith("content://") || uriString.startsWith("file://")) {
             Logger.d("Merging Media Source", "Playing local audio directly: $uriString")
             return standardMediaSourceFactory.createMediaSource(mediaItem)

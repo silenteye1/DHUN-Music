@@ -13,6 +13,7 @@ import com.maxrave.kotlinytmusicscraper.models.PlaylistItem
 import com.maxrave.kotlinytmusicscraper.models.SectionListRenderer
 import com.maxrave.kotlinytmusicscraper.models.SongItem
 import com.maxrave.kotlinytmusicscraper.models.VideoItem
+import com.maxrave.kotlinytmusicscraper.models.WatchEndpoint
 import com.maxrave.kotlinytmusicscraper.models.YTItem
 import com.maxrave.kotlinytmusicscraper.models.oddElements
 import com.maxrave.kotlinytmusicscraper.models.splitBySeparator
@@ -102,8 +103,6 @@ data class ArtistPage(
                             ?.musicResponsiveListItemFlexColumnRenderer
                             ?.text
                             ?.runs
-                            // The column reads "Artist • Album • 13M plays"; only the first group
-                            // is artists, so everything after the first " • " is dropped.
                             ?.splitBySeparator()
                             ?.firstOrNull()
                             ?.oddElements()
@@ -123,7 +122,7 @@ data class ArtistPage(
                             ?.let {
                                 Album(
                                     name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId ?: "",
                                 )
                             },
                     duration = null,
@@ -141,9 +140,11 @@ data class ArtistPage(
         }
 
         fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer): YTItem? {
+            val browseId = renderer.navigationEndpoint.browseEndpoint?.browseId
+            val isPodcastShow = browseId?.startsWith("MPSP") == true
+
             return when {
                 renderer.isSong -> {
-                    print("isSong")
                     SongItem(
                         id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
                         title =
@@ -173,12 +174,9 @@ data class ArtistPage(
                     )
                 }
 
-                renderer.isAlbum -> {
-                    print("isAlbum")
+                renderer.isAlbum && !isPodcastShow -> {
                     AlbumItem(
-                        browseId =
-                            renderer.navigationEndpoint.browseEndpoint?.browseId
-                                ?: return null,
+                        browseId = browseId ?: return null,
                         playlistId =
                             renderer.thumbnailOverlay
                                 ?.musicItemThumbnailOverlayRenderer
@@ -187,8 +185,7 @@ data class ArtistPage(
                                 ?.playNavigationEndpoint
                                 ?.watchPlaylistEndpoint
                                 ?.playlistId
-                                ?: renderer.navigationEndpoint.browseEndpoint.browseId
-                                    .removePrefix("VL"),
+                                ?: browseId.removePrefix("VL"),
                         title =
                             renderer.title.runs
                                 ?.firstOrNull()
@@ -211,15 +208,11 @@ data class ArtistPage(
                     )
                 }
 
-                renderer.isPlaylist -> {
-                    print("isPlaylist")
-                    // Playlist from YouTube Music
+                renderer.isPlaylist || isPodcastShow -> {
+                    val cleanId = browseId?.removePrefix("VL") ?: return null
+                    val defaultEndpoint = WatchEndpoint(playlistId = cleanId)
                     PlaylistItem(
-                        id =
-                            renderer.navigationEndpoint.browseEndpoint
-                                ?.browseId
-                                ?.removePrefix("VL")
-                                ?: return null,
+                        id = cleanId,
                         title =
                             renderer.title.runs
                                 ?.firstOrNull()
@@ -230,7 +223,7 @@ data class ArtistPage(
                                     renderer.subtitle
                                         ?.runs
                                         ?.lastOrNull()
-                                        ?.text ?: return null,
+                                        ?.text ?: "",
                                 id = null,
                             ),
                         songCountText = null,
@@ -243,7 +236,8 @@ data class ArtistPage(
                                 ?.content
                                 ?.musicPlayButtonRenderer
                                 ?.playNavigationEndpoint
-                                ?.watchPlaylistEndpoint ?: return null,
+                                ?.watchPlaylistEndpoint
+                                ?: defaultEndpoint,
                         shuffleEndpoint =
                             renderer.menu
                                 ?.menuRenderer
@@ -253,22 +247,23 @@ data class ArtistPage(
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint
-                                ?: return null,
+                                ?: defaultEndpoint,
                         radioEndpoint =
-                            renderer.menu.menuRenderer.items
-                                .find {
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find {
                                     it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
                                 }?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint
-                                ?: return null,
+                                ?: defaultEndpoint,
                     )
                 }
 
                 renderer.isArtist -> {
-                    print("isArtist")
                     ArtistItem(
-                        id = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null,
+                        id = browseId ?: return null,
                         title =
                             renderer.title.runs
                                 ?.lastOrNull()
@@ -303,7 +298,6 @@ data class ArtistPage(
                 }
 
                 renderer.isVideo -> {
-                    print("isVideo")
                     VideoItem(
                         id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
                         title =

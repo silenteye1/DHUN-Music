@@ -96,7 +96,6 @@ import com.maxrave.simpmusic.extension.toSquareThumbnailUrl
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
-import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.component.DescriptionView
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.HomeItemArtist
@@ -105,6 +104,7 @@ import com.maxrave.simpmusic.ui.component.HomeItemVideo
 import com.maxrave.simpmusic.ui.component.LiquidGlassIconButton
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.SongFullWidthItems
+import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionState
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
@@ -119,6 +119,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.MoreAlbumsDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.ArtistScreenState
 import com.maxrave.simpmusic.viewModel.ArtistViewModel
@@ -142,6 +143,7 @@ import simpmusic.composeapp.generated.resources.error
 import simpmusic.composeapp.generated.resources.featured_inArtist
 import simpmusic.composeapp.generated.resources.more
 import simpmusic.composeapp.generated.resources.no_description
+import simpmusic.composeapp.generated.resources.podcasts
 import simpmusic.composeapp.generated.resources.popular
 import simpmusic.composeapp.generated.resources.related_artists
 import simpmusic.composeapp.generated.resources.singles
@@ -165,7 +167,6 @@ fun ArtistScreen(
         sharedViewModel.nowPlayingState.map { it?.track?.videoId }
     }.collectAsState(null)
 
-    // Choosing song to show Bottom sheet
     var choosingTrack by remember {
         mutableStateOf<Track?>(null)
     }
@@ -184,13 +185,9 @@ fun ArtistScreen(
         }
     }
 
-    // Apple Music-inspired immersive treatment. The header adapts to the window's aspect ratio
-    // alone, not to the platform: a portrait window keeps the square artwork frame, a landscape
-    // one (including every desktop window) uses a half-viewport-tall frame instead.
     val screenInfo = getScreenSizeInfo()
     val isPortrait = screenInfo.wDP < screenInfo.hDP
 
-    // Palette extraction from the artist artwork (portrait Apple-style only).
     val paletteState = com.kmpalette.rememberPaletteState()
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var paletteGeneratedFor by remember { mutableStateOf<String?>(null) }
@@ -204,13 +201,8 @@ fun ArtistScreen(
         }
     }
 
-    // Apple Music-style page background from the artwork's dominant tone (see UIExt.toImmersiveBackground).
     val mutedPaletteBg = paletteState.palette.toImmersiveBackground()
-    // Tint for the description card, matching the non-portrait CollapsingToolbar color.
     val sectionTint = paletteState.palette.getColorFromPalette()
-
-    // Accent color for the action buttons, sourced from the artist name-logo image's dominant
-    // color (hidden catalog). Falls back to white until the logo loads (or if none exists).
     val artistAccent = artistLogo?.bgColorHex?.hexToColorOrNull() ?: Color.White
 
     val hazeState = rememberHazeState(blurEnabled = true)
@@ -235,7 +227,6 @@ fun ArtistScreen(
             }
 
             is ArtistScreenState.Success -> {
-                // ---- Apple Music style (mobile portrait only) ----
                 Box(Modifier.fillMaxSize()) {
                     LazyColumn(
                         modifier =
@@ -247,21 +238,10 @@ fun ArtistScreen(
                     ) {
                         item(contentType = "header") {
                             Column(
-                                // Negative spacing pulls the action row up into the header AND
-                                // shrinks the layout, so there's no leftover gap before "Popular"
-                                // (unlike Modifier.offset, which only moves pixels, not layout).
                                 verticalArrangement = Arrangement.spacedBy((-36).dp),
                             ) {
-                                // Edge-to-edge artwork (canvas plays on top of it when available).
-                                // Glass back button MUST be a sibling of the backdrop source
-                                // (not a child) to avoid render feedback loop / RuntimeShader crash.
                                 val artworkBackdrop = rememberBackdrop(Color.Black)
-                                // Haze state for the bottom progressive-blur fade (source = media layer).
                                 val headerHaze = rememberHazeState(blurEnabled = true)
-                                // Portrait fills a SQUARE frame, so the URL is clamped to a square
-                                // size there (logic from commit 5e596c5b). Landscape keeps YouTube's
-                                // own wide banner (e.g. w2880-h1200) instead: squaring the source
-                                // first would make the Crop below throw away most of its height.
                                 val headerImageUrl =
                                     state.data.imageUrl?.let {
                                         if (isPortrait) it.toSquareThumbnailUrl() else it
@@ -274,18 +254,11 @@ fun ArtistScreen(
                                                 if (isPortrait) {
                                                     Modifier.aspectRatio(1f)
                                                 } else {
-                                                    // Half the viewport, matching Album/Playlist/LocalPlaylist.
-                                                    // A square frame only works while the frame is roughly as
-                                                    // wide as a phone; on a landscape window aspectRatio(1f)
-                                                    // makes this as tall as the window is wide and the artwork
-                                                    // (or a playing canvas) swallows the entire page.
                                                     Modifier.height((screenInfo.hDP / 2).dp)
                                                 },
                                             ),
                                 ) {
-                                    // Inner Box — backdrop SOURCE (artwork + canvas + overlays, NO glass)
                                     Box(modifier = Modifier.fillMaxSize().clipToBounds().layerBackdrop(artworkBackdrop)) {
-                                        // Media layer (artwork + canvas) — Haze SOURCE for the bottom blur.
                                         Box(modifier = Modifier.fillMaxSize().hazeSource(headerHaze)) {
                                             AsyncImage(
                                                 model =
@@ -301,49 +274,24 @@ fun ArtistScreen(
                                                 placeholder = rememberHolderPainter(),
                                                 error = rememberHolderPainter(),
                                                 contentDescription = null,
-                                                // FillWidth fits the square source into the square portrait
-                                                // frame. Landscape covers with Crop, and it only trims a
-                                                // little because the source there is YouTube's own wide
-                                                // banner (~2.4:1) against a ~3.3:1 frame — a squared source
-                                                // would have lost far more of its height to the same crop.
                                                 contentScale =
                                                     if (isPortrait) ContentScale.FillWidth else ContentScale.Crop,
-                                                // Always decoded so the page background color can be extracted
-                                                // from the artwork palette, even when a canvas is playing.
                                                 onSuccess = {
                                                     bitmap = it.result.image.toImageBitmap()
                                                 },
-                                                // Hidden (but still decoded above) while a canvas is present —
-                                                // the canvas is shown instead. No canvas -> artwork is shown.
                                                 modifier =
                                                     Modifier
                                                         .fillMaxSize()
                                                         .alpha(if (canvasUrl != null) 0f else 1f),
                                             )
-                                            // Canvas (Spotify) plays AS the background when present;
-                                            // otherwise the static artwork above is the fallback.
                                             canvasUrl?.let { canvas ->
-                                                // Canvas is a tall/portrait video. cropToBounds center
-                                                // scale-to-covers it into the header frame (ContentScale.Crop):
-                                                // true video aspect ratio, no stretch, overflow clipped.
                                                 MediaPlayerView(
                                                     url = canvas.first,
                                                     modifier = Modifier.fillMaxSize(),
                                                     cropToBounds = true,
                                                 )
                                             }
-                                        } // end media layer (Haze source)
-                                        // Bottom fade — progressive blur (Haze) over the media layer, so the
-                                        // canvas/artwork edge melts into the page bg.
-                                        // ANDROID ONLY. On skiko this kills the process: haze 1.7.2's
-                                        // progressive path calls ShaderBrush.createShader(Size), whose
-                                        // mangled signature does not match the Compose this build pins
-                                        // (material3-multiplatform 1.12.0-alpha01 / skiko 0.148.1), so it
-                                        // throws NoSuchMethodError from inside the draw pass —
-                                        // RenderEffect.skiko.kt:234. Only the progressive path is affected;
-                                        // plain hazeEffect is used on Desktop elsewhere and is fine.
-                                        // Dropping it costs Desktop only the blur: the colour scrim below
-                                        // is a separate box and still fades the artwork edge.
+                                        }
                                         if (getPlatform() == Platform.Android) {
                                             Box(
                                                 modifier =
@@ -361,14 +309,6 @@ fun ArtistScreen(
                                                         },
                                             )
                                         }
-                                        // Color scrim is a SEPARATE, taller box: the blur stays at 200dp so
-                                        // its cost doesn't grow, while the color gets 70% of the artwork
-                                        // to ramp over. A short ramp means a steep alpha, and a steep
-                                        // alpha is what reads as a visible edge. Both figures are 70% of
-                                        // the frame's own height: the portrait frame is square so that is
-                                        // 70% of the width, the landscape one is hDP/2 so it is 35% of hDP.
-                                        // Measuring off the width in landscape would make the scrim taller
-                                        // than the artwork itself.
                                         Box(
                                             modifier =
                                                 Modifier
@@ -383,12 +323,10 @@ fun ArtistScreen(
                                                     .align(Alignment.BottomCenter)
                                                     .background(artworkScrimBrush(mutedPaletteBg)),
                                         )
-                                        // Artist name (TEXT for now — logo image is roadmap) + subscriber · view
                                         Column(
                                             modifier =
                                                 Modifier
                                                     .align(Alignment.BottomCenter)
-                                                    // Lift the name + subtitle together with the action row.
                                                     .offset(y = (-36).dp)
                                                     .fillMaxWidth()
                                                     .padding(horizontal = 20.dp)
@@ -397,8 +335,6 @@ fun ArtistScreen(
                                         ) {
                                             val logo = artistLogo
                                             if (logo != null) {
-                                                // Artist name rendered as a logo image (hidden catalog),
-                                                // in place of the plain-text title.
                                                 AsyncImage(
                                                     model = logo.logoUrl,
                                                     contentDescription = state.data.title,
@@ -433,13 +369,10 @@ fun ArtistScreen(
                                             }
                                         }
                                     }
-                                    // Back button — liquid glass, sibling of the backdrop source.
                                     LiquidGlassIconButton(
                                         backdrop = artworkBackdrop,
                                         imageVector = SimpIcons.ArrowBackIosNew,
                                         shape = RoundedCornerShape(24.dp),
-                                        // Matching the other three headers: the pill-style directional rim, thickened
-                                        // from the 0.5.dp default so it stays visible around a 48dp circle.
                                         highlight = Highlight(width = 1.dp),
                                         modifier =
                                             Modifier
@@ -452,8 +385,7 @@ fun ArtistScreen(
                                     }
                                 }
 
-                                // Apple Music-style action row: [Radio][Shuffle pill][Follow] centered.
-                                // In SimpMusic "play" an artist == shuffle, so the big middle button is Shuffle.
+                                // Action Row: [Radio (if available)] [Shuffle (if available)] [Subscribe pill]
                                 Row(
                                     modifier =
                                         Modifier
@@ -463,80 +395,80 @@ fun ArtistScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    // Radio — side button: outlined accent (yellow) circle with an
-                                    // accent-tinted icon over a transparent fill, matching the reference.
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .size(48.dp)
-                                                .clip(CircleShape)
-                                                .border(1.5.dp, artistAccent, CircleShape)
-                                                .clickable {
-                                                    val param = state.data.radioParam
-                                                    if (param != null) {
-                                                        viewModel.onRadioClick(param)
-                                                    } else {
-                                                        viewModel.makeToast(runBlocking { getString(Res.string.error) })
-                                                    }
-                                                },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            imageVector = SimpIcons.Sensors,
-                                            contentDescription = "Radio",
-                                            tint = artistAccent,
-                                            modifier = Modifier.size(22.dp),
-                                        )
+                                    val radioParam = state.data.radioParam
+                                    if (radioParam != null) {
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .border(1.5.dp, artistAccent, CircleShape)
+                                                    .clickable {
+                                                        viewModel.onRadioClick(radioParam)
+                                                    },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = SimpIcons.Sensors,
+                                                contentDescription = "Radio",
+                                                tint = artistAccent,
+                                                modifier = Modifier.size(22.dp),
+                                            )
+                                        }
                                     }
-                                    // Shuffle — primary "play" for an artist. Circular icon button filled
-                                    // with the artist accent (white fallback); icon uses the dark page
-                                    // background color so it stays legible on a bright accent.
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .size(64.dp)
-                                                .clip(CircleShape)
-                                                .background(artistAccent)
-                                                .clickable {
-                                                    val param = state.data.shuffleParam
-                                                    if (param != null) {
-                                                        viewModel.onShuffleClick(param)
-                                                    } else {
-                                                        viewModel.makeToast(runBlocking { getString(Res.string.error) })
-                                                    }
-                                                },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            imageVector = SimpIcons.Shuffle,
-                                            contentDescription = "Shuffle",
-                                            tint = mutedPaletteBg,
-                                            modifier = Modifier.size(28.dp),
-                                        )
+                                    val shuffleParam = state.data.shuffleParam
+                                    if (shuffleParam != null) {
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .size(64.dp)
+                                                    .clip(CircleShape)
+                                                    .background(artistAccent)
+                                                    .clickable {
+                                                        viewModel.onShuffleClick(shuffleParam)
+                                                    },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = SimpIcons.Shuffle,
+                                                contentDescription = "Shuffle",
+                                                tint = mutedPaletteBg,
+                                                modifier = Modifier.size(28.dp),
+                                            )
+                                        }
                                     }
-                                    // Follow — side button matching Radio: outlined accent (yellow)
-                                    // circle when not following; fills with the accent (icon flips to
-                                    // the dark page bg) once followed, so the state reads at a glance.
-                                    Box(
+                                    // YouTube-style Subscribe / Subscribed Pill Button
+                                    Row(
                                         modifier =
                                             Modifier
-                                                .size(48.dp)
+                                                .height(48.dp)
                                                 .clip(CircleShape)
-                                                .background(if (isFollowed) artistAccent else Color.Transparent)
-                                                .border(1.5.dp, artistAccent, CircleShape)
+                                                .background(if (isFollowed) Color.White.copy(alpha = 0.16f) else artistAccent)
+                                                .border(
+                                                    width = 1.5.dp,
+                                                    color = if (isFollowed) Color.White.copy(alpha = 0.35f) else artistAccent,
+                                                    shape = CircleShape,
+                                                )
                                                 .clickable {
                                                     viewModel.updateFollowed(
                                                         if (isFollowed) 0 else 1,
                                                         state.data.channelId ?: return@clickable,
                                                     )
-                                                },
-                                        contentAlignment = Alignment.Center,
+                                                }
+                                                .padding(horizontal = 20.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Icon(
                                             imageVector = if (isFollowed) SimpIcons.Check else SimpIcons.PersonAdd,
-                                            contentDescription = if (isFollowed) "Followed" else "Follow",
-                                            tint = if (isFollowed) mutedPaletteBg else artistAccent,
-                                            modifier = Modifier.size(22.dp),
+                                            contentDescription = if (isFollowed) "Subscribed" else "Subscribe",
+                                            tint = if (isFollowed) Color.White else mutedPaletteBg,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Text(
+                                            text = if (isFollowed) "Subscribed" else "Subscribe",
+                                            style = typo().labelMedium,
+                                            color = if (isFollowed) Color.White else mutedPaletteBg,
                                         )
                                     }
                                 }
@@ -559,7 +491,6 @@ fun ArtistScreen(
                         }
                     }
 
-                    // Haze top bar appears once the header scrolls away.
                     AnimatedVisibility(
                         visible = shouldHideTopBar && !selectionState.isActive,
                         enter = fadeIn() + slideInVertically(),
@@ -687,10 +618,6 @@ fun ArtistScreen(
     }
 }
 
-/**
- * Shared artist body (Popular → Description). Used by both the portrait Apple-Music layout
- * and the existing CollapsingToolbar layout, so the sections themselves stay untouched.
- */
 @Composable
 private fun ArtistSections(
     state: ArtistScreenState.Success,
@@ -703,6 +630,58 @@ private fun ArtistSections(
     onTrackMore: (Track) -> Unit,
 ) {
     Column {
+        // Podcasts (for Podcast Channels)
+        AnimatedVisibility(state.data.podcasts.isNotEmpty()) {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.podcasts),
+                        style = typo().labelMedium,
+                        color = Color.White,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .padding(vertical = 10.dp),
+                    )
+                }
+                LazyRow(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    item {
+                        Spacer(Modifier.size(10.dp))
+                    }
+                    items(state.data.podcasts) { podcast ->
+                        HomeItemContentPlaylist(
+                            forceDark = true,
+                            onClick = {
+                                if (podcast.id.startsWith("MPSP")) {
+                                    navController.navigate(
+                                        PodcastDestination(
+                                            podcastId = podcast.id,
+                                        ),
+                                    )
+                                } else {
+                                    navController.navigate(
+                                        PlaylistDestination(
+                                            playlistId = podcast.id,
+                                        ),
+                                    )
+                                }
+                            },
+                            data = podcast,
+                            thumbSize = 180.dp,
+                        )
+                    }
+                    item {
+                        Spacer(Modifier.size(10.dp))
+                    }
+                }
+            }
+        }
+
         // Popular Songs
         AnimatedVisibility(state.data.popularSongs.isNotEmpty()) {
             Column {
@@ -737,7 +716,8 @@ private fun ArtistSections(
                 }
                 state.data.popularSongs.forEach { song ->
                     SongFullWidthItems(
-                        forceDark = true,                        track = song,
+                        forceDark = true,
+                        track = song,
                         isPlaying = song.videoId == playingTrack,
                         modifier = Modifier.fillMaxWidth(),
                         onMoreClickListener = {
@@ -824,7 +804,8 @@ private fun ArtistSections(
                     }
                     items(state.data.singles?.results ?: emptyList()) { single ->
                         HomeItemContentPlaylist(
-                            forceDark = true,                            onClick = {
+                            forceDark = true,
+                            onClick = {
                                 navController.navigate(
                                     AlbumDestination(
                                         single.browseId,
@@ -892,7 +873,8 @@ private fun ArtistSections(
                     }
                     items(state.data.albums?.results ?: emptyList()) { album ->
                         HomeItemContentPlaylist(
-                            forceDark = true,                            onClick = {
+                            forceDark = true,
+                            onClick = {
                                 navController.navigate(
                                     AlbumDestination(
                                         browseId = album.browseId,
@@ -959,7 +941,8 @@ private fun ArtistSections(
                     }
                     items(state.data.video?.video ?: emptyList()) { video ->
                         HomeItemVideo(
-                            forceDark = true,                            onClick = {
+                            forceDark = true,
+                            onClick = {
                                 val firstQueue: Track = video
                                 viewModel.setQueueData(
                                     QueueData.Data(
@@ -1026,12 +1009,21 @@ private fun ArtistSections(
                     }
                     items(state.data.featuredOn) { feature ->
                         HomeItemContentPlaylist(
-                            forceDark = true,                            onClick = {
-                                navController.navigate(
-                                    PlaylistDestination(
-                                        feature.id,
-                                    ),
-                                )
+                            forceDark = true,
+                            onClick = {
+                                if (feature.id.startsWith("MPSP")) {
+                                    navController.navigate(
+                                        PodcastDestination(
+                                            podcastId = feature.id,
+                                        ),
+                                    )
+                                } else {
+                                    navController.navigate(
+                                        PlaylistDestination(
+                                            feature.id,
+                                        ),
+                                    )
+                                }
                             },
                             data = feature,
                             thumbSize = 180.dp,
@@ -1074,7 +1066,8 @@ private fun ArtistSections(
                     }
                     items(state.data.related?.results ?: emptyList()) { related ->
                         HomeItemArtist(
-                            forceDark = true,                            onClick = {
+                            forceDark = true,
+                            onClick = {
                                 navController.navigate(
                                     ArtistDestination(
                                         channelId = related.browseId,

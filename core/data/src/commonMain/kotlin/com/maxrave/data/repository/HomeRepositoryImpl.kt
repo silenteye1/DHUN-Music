@@ -21,19 +21,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 
-/**
- * One resolved category cover plus when it was fetched.
- *
- * Kept with a timestamp because the cover is whatever playlist YouTube happened to rank first in
- * that category — it drifts, so a cached copy should expire rather than stick forever.
- */
 @Serializable
 private data class MoodArtwork(
     val url: String,
@@ -50,10 +46,6 @@ internal class HomeRepositoryImpl(
     private val dataStoreManager: DataStoreManager,
     private val youTube: YouTube,
 ) : HomeRepository {
-    /**
-     * Same posture as the Room converters: a cache written by an older build must not crash the
-     * app after the model gains a field, so unknown keys are dropped rather than rejected.
-     */
     private val moodJson =
         Json {
             ignoreUnknownKeys = true
@@ -67,8 +59,12 @@ internal class HomeRepositoryImpl(
         flow {
             runCatching {
                 val limit = dataStoreManager.homeLimit.first()
+                val isPodcasts = params == "FEmusic_podcasts"
                 youTube
-                    .customQuery(browseId = "FEmusic_home", params = params)
+                    .customQuery(
+                        browseId = if (isPodcasts) "FEmusic_podcasts" else "FEmusic_home",
+                        params = if (isPodcasts) null else params,
+                    )
                     .onSuccess { result ->
                         val list: ArrayList<HomeItem> = arrayListOf()
                         if (result.contents
@@ -170,36 +166,6 @@ internal class HomeRepositoryImpl(
                                 songString,
                             ),
                         )
-//                        var count = 0
-//                        while (count < limit && continueParam != null) {
-//                            youTube
-//                                .customQuery(browseId = "", continuation = continueParam)
-//                                .onSuccess { response ->
-//                                    continueParam =
-//                                        response.continuationContents
-//                                            ?.sectionListContinuation
-//                                            ?.continuations
-//                                            ?.get(
-//                                                0,
-//                                            )?.nextContinuationData
-//                                            ?.continuation
-//                                    Logger.d("Repository", "continueParam: $continueParam")
-//                                    val dataContinue =
-//                                        response.continuationContents?.sectionListContinuation?.contents
-//                                    list.addAll(
-//                                        parseMixedContent(
-//                                            dataContinue,
-//                                            viewString,
-//                                            songString,
-//                                        ),
-//                                    )
-//                                    count++
-//                                    Logger.d("Repository", "count: $count")
-//                                }.onFailure {
-//                                    Logger.e("Repository", "Error: ${it.message}")
-//                                    count++
-//                                }
-//                        }
                         Logger.d("Repository", "List size: ${list.size}")
                         emit(Resource.Success(continueParam to list.toList()))
                     }.onFailure { error ->
@@ -211,33 +177,34 @@ internal class HomeRepositoryImpl(
     override fun getHomeDataContinue(
         continueParam: String,
         viewString: String,
-        songString: String
-    ): Flow<Resource<Pair<String?, List<HomeItem>>>> = flow {
-        youTube
-            .customQuery(browseId = "", continuation = continueParam)
-            .onSuccess { response ->
-                val newContinueParam =
-                    response.continuationContents
-                        ?.sectionListContinuation
-                        ?.continuations
-                        ?.get(
-                            0,
-                        )?.nextContinuationData
-                        ?.continuation
-                Logger.d("Repository", "continueParam: $continueParam")
-                val dataContinue =
-                    response.continuationContents?.sectionListContinuation?.contents
-                val list =
-                    parseMixedContent(
-                        dataContinue,
-                        viewString,
-                        songString,
-                    )
-                emit(Resource.Success(newContinueParam to list))
-            }.onFailure {
-                emit(Resource.Error<Pair<String?, List<HomeItem>>>(it.message.toString()))
-            }
-    }.flowOn(Dispatchers.IO)
+        songString: String,
+    ): Flow<Resource<Pair<String?, List<HomeItem>>>> =
+        flow {
+            youTube
+                .customQuery(browseId = "", continuation = continueParam)
+                .onSuccess { response ->
+                    val newContinueParam =
+                        response.continuationContents
+                            ?.sectionListContinuation
+                            ?.continuations
+                            ?.get(
+                                0,
+                            )?.nextContinuationData
+                            ?.continuation
+                    Logger.d("Repository", "continueParam: $continueParam")
+                    val dataContinue =
+                        response.continuationContents?.sectionListContinuation?.contents
+                    val list =
+                        parseMixedContent(
+                            dataContinue,
+                            viewString,
+                            songString,
+                        )
+                    emit(Resource.Success(newContinueParam to list))
+                }.onFailure {
+                    emit(Resource.Error<Pair<String?, List<HomeItem>>>(it.message.toString()))
+                }
+        }.flowOn(Dispatchers.IO)
 
     override fun getNewRelease(
         newReleaseString: String,
@@ -282,13 +249,14 @@ internal class HomeRepositoryImpl(
 
     override fun getMoodAndMomentsData(): Flow<Resource<Mood>> =
         flow {
-            // Serve the cached copy first so the grid paints instantly; the network result is
-            // emitted right after and overwrites it. The category list changes about as often as
-            // YouTube ships a new mood, so a stale frame costs nothing while a spinner does.
             val cached =
                 dataStoreManager.moodAndGenresCache
                     .first()
-                    ?.let { runCatching { moodJson.decodeFromString<Mood>(it) }.getOrNull() }
+                    ?.let {
+                        runCatching {
+                            moodJson.decodeFromString(Mood.serializer(), it)
+                        }.getOrNull()
+                    }
             if (cached != null) {
                 emit(Resource.Success<Mood>(cached))
             }
@@ -296,9 +264,6 @@ internal class HomeRepositoryImpl(
                 youTube
                     .moodAndGenres()
                     .onSuccess { result ->
-                        // Every section is kept, in the order YouTube sent it, under its own
-                        // title. Indexing result[0]/result[1] used to break the moment a
-                        // signed-in account got an extra "For you" section in front.
                         val sections =
                             result.map { section ->
                                 MoodSection(
@@ -315,10 +280,10 @@ internal class HomeRepositoryImpl(
                             }
                         val mood = Mood(sections)
                         emit(Resource.Success<Mood>(mood))
-                        dataStoreManager.setMoodAndGenresCache(moodJson.encodeToString(mood))
+                        dataStoreManager.setMoodAndGenresCache(
+                            moodJson.encodeToString(Mood.serializer(), mood),
+                        )
                     }.onFailure { e ->
-                        // Already showing the cached copy — surfacing an error over it would
-                        // replace working content with an error state.
                         if (cached == null) {
                             emit(Resource.Error<Mood>(e.message.toString()))
                         }
@@ -348,9 +313,14 @@ internal class HomeRepositoryImpl(
                     }
             emit(resolved)
             if (resolved != null) {
+                val updatedMap = cache + (params to MoodArtwork(resolved, Clock.System.now().toEpochMilliseconds()))
                 dataStoreManager.setMoodArtworkCache(
                     moodJson.encodeToString(
-                        cache + (params to MoodArtwork(resolved, Clock.System.now().toEpochMilliseconds())),
+                        MapSerializer(
+                            String.serializer(),
+                            MoodArtwork.serializer(),
+                        ),
+                        updatedMap,
                     ),
                 )
             }
@@ -359,8 +329,17 @@ internal class HomeRepositoryImpl(
     private suspend fun readMoodArtworkCache(): Map<String, MoodArtwork> =
         dataStoreManager.moodArtworkCache
             .first()
-            ?.let { runCatching { moodJson.decodeFromString<Map<String, MoodArtwork>>(it) }.getOrNull() }
-            .orEmpty()
+            ?.let {
+                runCatching {
+                    moodJson.decodeFromString(
+                        MapSerializer(
+                            String.serializer(),
+                            MoodArtwork.serializer(),
+                        ),
+                        it,
+                    )
+                }.getOrNull()
+            }.orEmpty()
 
     override fun getMoodData(params: String): Flow<Resource<MoodsMomentObject>> =
         flow {

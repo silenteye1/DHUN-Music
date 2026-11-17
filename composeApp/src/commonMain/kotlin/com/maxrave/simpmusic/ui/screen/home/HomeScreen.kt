@@ -5,13 +5,13 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +44,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -75,6 +77,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -99,6 +103,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.common.Config
 import com.maxrave.domain.data.model.browse.album.Track
+import com.maxrave.domain.data.model.home.Content
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
 import com.maxrave.domain.data.model.mood.Mood
@@ -115,6 +120,7 @@ import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.HomeItem
+import com.maxrave.simpmusic.ui.component.HomeItemArtist
 import com.maxrave.simpmusic.ui.component.HomeItemContentPlaylist
 import com.maxrave.simpmusic.ui.component.HomeShimmer
 import com.maxrave.simpmusic.ui.component.ItemArtistChart
@@ -125,9 +131,11 @@ import com.maxrave.simpmusic.ui.component.OfflineErrorState
 import com.maxrave.simpmusic.ui.component.QuickPicksItem
 import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
+import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Notifications
 import com.maxrave.simpmusic.ui.icon.PlayArrow
+import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Settings
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.HomeDestination
@@ -140,6 +148,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.home.WrappedDestination
 import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
@@ -151,6 +160,7 @@ import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_ENERG
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_FEEL_GOOD
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_FOCUS
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_PARTY
+import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_PODCASTS
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_RELAX
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_ROMANCE
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_SAD
@@ -158,7 +168,7 @@ import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_SLEEP
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_WORKOUT
 import com.maxrave.simpmusic.viewModel.ListState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
-import java.io.File
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -182,6 +192,7 @@ import simpmusic.composeapp.generated.resources.let_s_pick_a_playlist_for_you
 import simpmusic.composeapp.generated.resources.let_s_start_with_a_radio
 import simpmusic.composeapp.generated.resources.log_in_warning
 import simpmusic.composeapp.generated.resources.party
+import simpmusic.composeapp.generated.resources.podcasts
 import simpmusic.composeapp.generated.resources.quick_picks
 import simpmusic.composeapp.generated.resources.relax
 import simpmusic.composeapp.generated.resources.romance
@@ -192,10 +203,12 @@ import simpmusic.composeapp.generated.resources.warning
 import simpmusic.composeapp.generated.resources.welcome_back
 import simpmusic.composeapp.generated.resources.what_is_best_choice_today
 import simpmusic.composeapp.generated.resources.workout
+import java.io.File
 
 private val listOfHomeChip =
     listOf(
         Res.string.all,
+        Res.string.podcasts,
         Res.string.relax,
         Res.string.sleep,
         Res.string.energize,
@@ -208,11 +221,6 @@ private val listOfHomeChip =
         Res.string.focus,
     )
 
-/**
- * Checks whether the monthly Dhun Wrapped popup should be shown:
- * - Only between the 1st and 7th day of the month (dayOfMonth in 1..7)
- * - Only if not yet seen/dismissed for the current YYYY-MM
- */
 private fun shouldShowMonthlyWrappedPopup(): Boolean {
     val today = now().date
     if (today.dayOfMonth !in 1..7) return false
@@ -342,13 +350,19 @@ fun HomeScreen(
     val homeListState by viewModel.homeListState.collectAsStateWithLifecycle()
     val continuation by viewModel.continuation.collectAsStateWithLifecycle()
 
+    // Podcast Channels state
+    val podcastChannels by viewModel.podcastChannels.collectAsStateWithLifecycle()
+    val podcastChannelsLoading by viewModel.podcastChannelsLoading.collectAsStateWithLifecycle()
+    val podcastChannelQuery by viewModel.podcastChannelQuery.collectAsStateWithLifecycle()
+    val allPodcastChannels by viewModel.allPodcastChannels.collectAsStateWithLifecycle()
+    val allPodcastChannelsLoading by viewModel.allPodcastChannelsLoading.collectAsStateWithLifecycle()
+
     val shouldShowLogInAlert by viewModel.showLogInAlert.collectAsStateWithLifecycle()
     var topAppBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
     val localDensity = LocalDensity.current
 
     val backdrop = rememberBackdrop(Color.Transparent)
 
-    // Monthly Dhun Wrapped Auto-Popup state (active 1st - 7th of each month)
     var showMonthlyWrappedPopup by rememberSaveable {
         mutableStateOf(shouldShowMonthlyWrappedPopup())
     }
@@ -367,6 +381,9 @@ fun HomeScreen(
     val onRefresh: () -> Unit = {
         isRefreshing = true
         viewModel.getHomeItemList(params)
+        if (params == HOME_PARAMS_PODCASTS) {
+            viewModel.searchPodcastChannels(podcastChannelQuery)
+        }
     }
     LaunchedEffect(key1 = reloadDestination) {
         if (reloadDestination == HomeDestination::class) {
@@ -409,7 +426,6 @@ fun HomeScreen(
         }
     }
 
-    // Monthly Dhun Wrapped Auto-Popup Dialog (1st to 7th of every month)
     if (showMonthlyWrappedPopup) {
         val currentDate = remember { now().date }
         val monthName = remember(currentDate) {
@@ -701,6 +717,33 @@ fun HomeScreen(
                                         )
                                     }
                                 }
+
+                                // Popular shows ke turant neeche Podcast Channels + Search + All A-Z section
+                                if (params == HOME_PARAMS_PODCASTS && index == 0) {
+                                    Spacer(Modifier.height(16.dp))
+                                    PodcastChannelsSection(
+                                        backdrop = backdrop,
+                                        channels = podcastChannels,
+                                        isLoading = podcastChannelsLoading,
+                                        query = podcastChannelQuery,
+                                        onQueryChange = { viewModel.searchPodcastChannels(it) },
+                                        allChannels = allPodcastChannels,
+                                        isAllLoading = allPodcastChannelsLoading,
+                                        onOpenAll = { viewModel.loadAllPodcastChannels() },
+                                        onSearchInsideAll = { viewModel.searchInsideAllChannels(it) },
+                                        onChannelClick = { channelId ->
+                                            if (channelId.startsWith("MPSP")) {
+                                                navController.navigate(
+                                                    PodcastDestination(podcastId = channelId),
+                                                )
+                                            } else {
+                                                navController.navigate(
+                                                    ArtistDestination(channelId = channelId),
+                                                )
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                         item {
@@ -793,6 +836,7 @@ fun HomeScreen(
                 ) {
                     listOfHomeChip.forEach { id ->
                         val isSelected = when (params) {
+                            HOME_PARAMS_PODCASTS -> id == Res.string.podcasts
                             HOME_PARAMS_RELAX -> id == Res.string.relax
                             HOME_PARAMS_SLEEP -> id == Res.string.sleep
                             HOME_PARAMS_ENERGIZE -> id == Res.string.energize
@@ -811,6 +855,7 @@ fun HomeScreen(
                         ) {
                             when (id) {
                                 Res.string.all -> viewModel.setParams(null)
+                                Res.string.podcasts -> viewModel.setParams(HOME_PARAMS_PODCASTS)
                                 Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
                                 Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
                                 Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
@@ -844,6 +889,528 @@ fun HomeScreen(
                     strokeWidth = 2.5.dp,
                     color = Color.White,
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PodcastChannelsSection(
+    backdrop: PlatformBackdrop,
+    channels: List<Content>,
+    isLoading: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    allChannels: List<Content>,
+    isAllLoading: Boolean,
+    onOpenAll: () -> Unit,
+    onSearchInsideAll: (String) -> Unit,
+    onChannelClick: (String) -> Unit,
+) {
+    var showAllChannelsDialog by rememberSaveable { mutableStateOf(false) }
+    var allFilterQuery by rememberSaveable { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Trigger live fetch if user types inside the All dialog
+    LaunchedEffect(allFilterQuery, showAllChannelsDialog) {
+        if (showAllChannelsDialog && allFilterQuery.trim().length >= 2) {
+            delay(350)
+            onSearchInsideAll(allFilterQuery)
+        }
+    }
+
+    val sourceForAll = remember(allChannels, channels, allFilterQuery) {
+        val base = allChannels.ifEmpty { channels }
+        val filtered =
+            if (allFilterQuery.isBlank()) {
+                base
+            } else {
+                base.filter { it.title.contains(allFilterQuery.trim(), ignoreCase = true) }
+            }
+        filtered.sortedBy { it.title.trim().lowercase() }
+    }
+
+    // Group channels by starting letter A-Z or #
+    val groupedByLetter = remember(sourceForAll) {
+        sourceForAll.groupBy { item ->
+            val firstChar = item.title.trim().firstOrNull()?.uppercaseChar()
+            if (firstChar != null && firstChar in 'A'..'Z') firstChar.toString() else "#"
+        }
+    }
+
+    val alphabetLetters = remember {
+        (('A'..'Z').map { it.toString() }) + "#"
+    }
+
+    val letterToIndexMap = remember(groupedByLetter) {
+        val map = mutableMapOf<String, Int>()
+        var currentIndex = 0
+        groupedByLetter.forEach { (letter, list) ->
+            map[letter] = currentIndex
+            currentIndex += 1 + list.size
+        }
+        map
+    }
+
+    if (showAllChannelsDialog) {
+        val allListState = rememberLazyListState()
+        var activeLetter by remember { mutableStateOf<String?>(null) }
+
+        Dialog(onDismissRequest = { showAllChannelsDialog = false }) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(580.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors =
+                                    listOf(
+                                        Color(0xFF1A2234).copy(alpha = 0.98f),
+                                        Color(0xFF0B0F19).copy(alpha = 0.99f),
+                                    ),
+                            ),
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(24.dp),
+                        )
+                        .padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 16.dp),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(
+                                text = "All Podcast Channels",
+                                style = typo().titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "${sourceForAll.size} channels (A–Z)",
+                                    style = typo().labelSmall,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                )
+                                if (isAllLoading) {
+                                    CircularProgressIndicator(
+                                        strokeWidth = 1.5.dp,
+                                        color = Color.White,
+                                        modifier = Modifier.size(12.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .clickable { showAllChannelsDialog = false },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = SimpIcons.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Filter / Search bar inside All Channels Dialog
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(end = 8.dp)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color.White.copy(alpha = 0.10f))
+                                .border(
+                                    width = 1.dp,
+                                    color = Color.White.copy(alpha = 0.20f),
+                                    shape = RoundedCornerShape(50),
+                                )
+                                .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = SimpIcons.Search,
+                            contentDescription = "Filter channels",
+                            tint = Color.White.copy(alpha = 0.65f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (allFilterQuery.isEmpty()) {
+                                Text(
+                                    text = "Filter or find any channel...",
+                                    style = typo().bodySmall,
+                                    color = Color.White.copy(alpha = 0.50f),
+                                    maxLines = 1,
+                                )
+                            }
+                            BasicTextField(
+                                value = allFilterQuery,
+                                onValueChange = { allFilterQuery = it },
+                                singleLine = true,
+                                textStyle = typo().bodySmall.copy(color = Color.White),
+                                cursorBrush = SolidColor(Color.White),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        if (allFilterQuery.isNotEmpty()) {
+                            Icon(
+                                imageVector = SimpIcons.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White.copy(alpha = 0.75f),
+                                modifier =
+                                    Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .clickable { allFilterQuery = "" },
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (sourceForAll.isEmpty() && isAllLoading) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                color = Color.White,
+                                modifier = Modifier.size(30.dp),
+                            )
+                        }
+                    } else if (sourceForAll.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No podcast channels found",
+                                style = typo().bodySmall,
+                                color = Color.White.copy(alpha = 0.65f),
+                            )
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                state = allListState,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(bottom = 12.dp),
+                            ) {
+                                groupedByLetter.forEach { (letter, groupChannels) ->
+                                    stickyHeader(key = "header_$letter") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color(0xFF141B2B).copy(alpha = 0.96f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        ) {
+                                            Text(
+                                                text = letter,
+                                                style = typo().labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+
+                                    items(
+                                        items = groupChannels,
+                                        key = { (it.browseId ?: "") + it.title },
+                                    ) { channel ->
+                                        val thumbUrl = channel.thumbnails.lastOrNull()?.url
+                                        Row(
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .background(Color.White.copy(alpha = 0.08f))
+                                                    .clickable {
+                                                        val channelId = channel.browseId
+                                                        if (!channelId.isNullOrBlank()) {
+                                                            showAllChannelsDialog = false
+                                                            onChannelClick(channelId)
+                                                        }
+                                                    }
+                                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            AsyncImage(
+                                                model =
+                                                    ImageRequest.Builder(LocalPlatformContext.current)
+                                                        .data(thumbUrl)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                placeholder = rememberHolderPainter(),
+                                                error = rememberHolderPainter(),
+                                                contentDescription = channel.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier =
+                                                    Modifier
+                                                        .size(40.dp)
+                                                        .clip(CircleShape),
+                                            )
+                                            Text(
+                                                text = channel.title,
+                                                style = typo().bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                                color = Color.White,
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Right-side A-Z Alphabet Fast Scroller Bar
+                            var barHeightPx by remember { mutableIntStateOf(0) }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(22.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.White.copy(alpha = 0.08f))
+                                    .padding(vertical = 4.dp)
+                                    .onGloballyPositioned { barHeightPx = it.size.height }
+                                    .pointerInput(alphabetLetters, letterToIndexMap) {
+                                        detectVerticalDragGestures(
+                                            onDragEnd = { activeLetter = null },
+                                            onDragCancel = { activeLetter = null },
+                                        ) { change, _ ->
+                                            if (barHeightPx > 0) {
+                                                val fraction = (change.position.y / barHeightPx).coerceIn(0f, 0.999f)
+                                                val idx = (fraction * alphabetLetters.size).toInt()
+                                                val chosen = alphabetLetters[idx]
+                                                activeLetter = chosen
+                                                val targetIdx = letterToIndexMap[chosen]
+                                                if (targetIdx != null) {
+                                                    coroutineScope.launch {
+                                                        allListState.scrollToItem(targetIdx)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceEvenly,
+                            ) {
+                                alphabetLetters.forEach { letter ->
+                                    val hasItems = letterToIndexMap.containsKey(letter)
+                                    val isCurrent = activeLetter == letter
+                                    Text(
+                                        text = letter,
+                                        style = typo().labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = if (isCurrent || hasItems) FontWeight.Bold else FontWeight.Normal,
+                                        ),
+                                        color = when {
+                                            isCurrent -> MaterialTheme.colorScheme.primary
+                                            hasItems -> Color.White
+                                            else -> Color.White.copy(alpha = 0.30f)
+                                        },
+                                        modifier = Modifier.clickable(enabled = hasItems) {
+                                            val targetIdx = letterToIndexMap[letter]
+                                            if (targetIdx != null) {
+                                                coroutineScope.launch {
+                                                    allListState.animateScrollToItem(targetIdx)
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    HomeSectionCard(backdrop = backdrop) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .padding(bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Podcast Channels",
+                    style = typo().headlineMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+
+                Box(
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.30f),
+                                shape = RoundedCornerShape(50),
+                            )
+                            .clickable {
+                                allFilterQuery = ""
+                                onOpenAll()
+                                showAllChannelsDialog = true
+                            }
+                            .padding(horizontal = 14.dp, vertical = 5.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "All",
+                        style = typo().labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White,
+                    )
+                }
+            }
+
+            // Search Bar for YouTube Podcast Channels
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.22f),
+                            shape = RoundedCornerShape(50),
+                        )
+                        .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = SimpIcons.Search,
+                    contentDescription = "Search channels",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp),
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = "Search podcast channels on YouTube...",
+                            style = typo().bodySmall,
+                            color = Color.White.copy(alpha = 0.55f),
+                            maxLines = 1,
+                        )
+                    }
+                    BasicTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        singleLine = true,
+                        textStyle = typo().bodySmall.copy(color = Color.White),
+                        cursorBrush = SolidColor(Color.White),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (query.isNotEmpty()) {
+                    Icon(
+                        imageVector = SimpIcons.Close,
+                        contentDescription = "Clear",
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier =
+                            Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { onQueryChange("") },
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            when {
+                isLoading -> {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(140.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            color = Color.White,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+
+                channels.isEmpty() -> {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 20.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "No podcast channels found",
+                            style = typo().bodySmall,
+                            color = Color.White.copy(alpha = 0.65f),
+                        )
+                    }
+                }
+
+                else -> {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        items(
+                            items = channels,
+                            key = { (it.browseId ?: "") + it.title },
+                        ) { channel ->
+                            HomeItemArtist(
+                                forceDark = true,
+                                data = channel,
+                                onClick = {
+                                    val channelId = channel.browseId
+                                    if (!channelId.isNullOrBlank()) {
+                                        onChannelClick(channelId)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
             }
         }
     }
