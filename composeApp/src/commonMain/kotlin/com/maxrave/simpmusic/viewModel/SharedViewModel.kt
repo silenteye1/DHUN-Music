@@ -238,13 +238,12 @@ class SharedViewModel(
         val durationSec = track.durationSeconds ?: 0
         return track.videoType?.contains("PODCAST", ignoreCase = true) == true ||
             track.videoType?.contains("EPISODE", ignoreCase = true) == true ||
-            track.videoType?.contains("VIDEO", ignoreCase = true) == true ||
             playlistName.contains("podcast", ignoreCase = true) ||
             playlistName.contains("episode", ignoreCase = true) ||
             track.title.contains("podcast", ignoreCase = true) ||
             track.title.contains("episode", ignoreCase = true) ||
             track.title.contains("ep.", ignoreCase = true) ||
-            durationSec >= 900
+            durationSec >= 1800
     }
 
     private fun isPodcastTrack(state: NowPlayingTrackState): Boolean {
@@ -252,15 +251,14 @@ class SharedViewModel(
         val track = state.track
         val playlistName = mediaPlayerHandler.queueData.value?.data?.playlistName.orEmpty()
         val durationSec = song?.durationSeconds ?: track?.durationSeconds ?: 0
-        return state.mediaItem.isVideo() ||
-            track?.videoType?.contains("PODCAST", ignoreCase = true) == true ||
+        return track?.videoType?.contains("PODCAST", ignoreCase = true) == true ||
             track?.videoType?.contains("EPISODE", ignoreCase = true) == true ||
             playlistName.contains("podcast", ignoreCase = true) ||
             playlistName.contains("episode", ignoreCase = true) ||
             song?.title?.contains("podcast", ignoreCase = true) == true ||
             song?.title?.contains("episode", ignoreCase = true) == true ||
             song?.title?.contains("ep.", ignoreCase = true) == true ||
-            durationSec >= 900
+            durationSec >= 1800
     }
 
     private fun persistPodcastProgress(videoId: String, positionMs: Long, totalMs: Long) {
@@ -1468,6 +1466,31 @@ class SharedViewModel(
         }
     }
 
+    private fun String.cleanSongTitleForLyrics(): String {
+        return this
+            .substringBefore("|")
+            .replace(Regex("\\([^)]*\\)"), "")
+            .replace(Regex("\\[[^]]*]"), "")
+            .replace(
+                Regex(
+                    "(?i)\\b(official\\s*(music\\s*)?video|lyric(al)?\\s*video|full\\s*video|audio|hd|4k|8k|mv|remastered|visualizer)\\b",
+                ),
+                "",
+            )
+            .replace(Regex("\\s{2,}"), " ")
+            .trim(' ', '-', '–', '—')
+    }
+
+    private fun String.cleanArtistForLyrics(): String {
+        return this
+            .replace(Regex("(?i)\\s*-\\s*Topic$"), "")
+            .substringBefore(",")
+            .substringBefore("&")
+            .substringBefore("feat.")
+            .substringBefore("ft.")
+            .trim()
+    }
+
     private fun getLyricsFromFormat(
         isVideo: Boolean,
         song: SongEntity,
@@ -1475,7 +1498,7 @@ class SharedViewModel(
     ) {
         viewModelScope.launch {
             val artistName = song.artistName
-            val artist =
+            val rawArtist =
                 if (artistName?.firstOrNull() != null &&
                     artistName
                         .firstOrNull()
@@ -1491,28 +1514,32 @@ class SharedViewModel(
                 }
             resetLyricsVoteState()
 
-            fetchCascadingLyrics(song, (artist ?: "").toString(), duration)
+            val cleanTitle = song.title.cleanSongTitleForLyrics().ifBlank { song.title }
+            val cleanArtist = (rawArtist ?: "").toString().cleanArtistForLyrics()
+
+            fetchCascadingLyrics(song, cleanTitle, cleanArtist, duration)
         }
     }
 
     private fun fetchCascadingLyrics(
         song: SongEntity,
-        artist: String,
+        cleanTitle: String,
+        cleanArtist: String,
         duration: Int,
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
             val localLyrics = lyricsCanvasRepository.getSavedLyrics(videoId).firstOrNull()
 
-            lyricsCanvasRepository.getBetterLyrics(artist, song.title, duration).collectLatest { res ->
+            lyricsCanvasRepository.getBetterLyrics(cleanArtist, cleanTitle, duration).collectLatest { res ->
                 val data = res.data
                 if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty() && data.syncType != "UNSYNCED") {
-                    Logger.d(tag, "Synced lyrics found via BetterLyrics for $videoId")
+                    Logger.d(tag, "Synced lyrics found via BetterLyrics for $videoId ($cleanTitle)")
                     updateLyrics(videoId, duration, data, false, LyricsProvider.BETTER_LYRICS)
                     insertLyrics(data.toLyricsEntity(videoId))
                     getAITranslationLyrics(videoId, data)
                 } else if (res is Resource.Error) {
-                    tryLrclibFallback(song, artist, duration, localLyrics)
+                    tryLrclibFallback(song, cleanTitle, cleanArtist, duration, localLyrics)
                 }
             }
         }
@@ -1520,21 +1547,22 @@ class SharedViewModel(
 
     private fun tryLrclibFallback(
         song: SongEntity,
-        artist: String,
+        cleanTitle: String,
+        cleanArtist: String,
         duration: Int,
         savedFallbackLyrics: LyricsEntity?,
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
-            lyricsCanvasRepository.getLrclibLyricsData(artist, song.title, duration).collectLatest { res ->
+            lyricsCanvasRepository.getLrclibLyricsData(cleanArtist, cleanTitle, duration).collectLatest { res ->
                 val data = res.data
                 if (res is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
-                    Logger.d(tag, "Lyrics found via LRCLIB for $videoId")
+                    Logger.d(tag, "Lyrics found via LRCLIB for $videoId ($cleanTitle)")
                     updateLyrics(videoId, duration, data, false, LyricsProvider.LRCLIB)
                     insertLyrics(data.toLyricsEntity(videoId))
                     getAITranslationLyrics(videoId, data)
                 } else if (res is Resource.Error) {
-                    trySimpMusicFallback(song, artist, duration, savedFallbackLyrics)
+                    trySimpMusicFallback(song, cleanTitle, cleanArtist, duration, savedFallbackLyrics)
                 }
             }
         }
@@ -1542,7 +1570,8 @@ class SharedViewModel(
 
     private fun trySimpMusicFallback(
         song: SongEntity,
-        artist: String,
+        cleanTitle: String,
+        cleanArtist: String,
         duration: Int,
         savedFallbackLyrics: LyricsEntity?,
     ) {
@@ -1557,7 +1586,7 @@ class SharedViewModel(
                     getSimpMusicTranslatedLyrics(videoId, data)
                 } else if (res is Resource.Error) {
                     if (dataStoreManager.spotifyLyrics.first() == TRUE) {
-                        trySpotifyFallback(song, artist, duration, savedFallbackLyrics)
+                        trySpotifyFallback(song, cleanTitle, cleanArtist, duration, savedFallbackLyrics)
                     } else {
                         tryLocalOfflineOnly(song, duration, savedFallbackLyrics)
                     }
@@ -1568,13 +1597,14 @@ class SharedViewModel(
 
     private fun trySpotifyFallback(
         song: SongEntity,
-        artist: String,
+        cleanTitle: String,
+        cleanArtist: String,
         duration: Int,
         savedFallbackLyrics: LyricsEntity?,
     ) {
         viewModelScope.launch {
             val videoId = song.videoId
-            lyricsCanvasRepository.getSpotifyLyrics(dataStoreManager, "${song.title} $artist", duration).cancellable().collect { response ->
+            lyricsCanvasRepository.getSpotifyLyrics(dataStoreManager, "$cleanTitle $cleanArtist", duration).cancellable().collect { response ->
                 val data = response.data
                 if (response is Resource.Success && data != null && !data.lines.isNullOrEmpty()) {
                     Logger.d(tag, "Lyrics found via Spotify for $videoId")
@@ -1602,7 +1632,7 @@ class SharedViewModel(
                 updateLyrics(videoId, duration, lyricsData, false, LyricsProvider.OFFLINE)
                 getAITranslationLyrics(videoId, lyricsData)
             } else {
-                Logger.w(tag, "No lyrics found online or in offline DB for $videoId. Skipping YouTube captions.")
+                Logger.w(tag, "No lyrics found online or in offline DB for $videoId.")
                 _nowPlayingScreenData.update {
                     it.copy(lyricsData = null)
                 }
